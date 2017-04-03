@@ -13,7 +13,7 @@ tbl_df(mor2)
 # ECOLOGICAL VARS for CORR MATRIX:
 #subset out the ecological vars of interest
 ecol<- mor2[,1515:1538]
-ecol <- select(ecol, -AcidDetergentFiber_percent_Mean500_1000)
+ecol <- select(ecol, -10)
 ecol <- select(ecol, -CrudeProtein_percent_Mean500_1000)
 #shorten the variable names
 names(ecol) = sub(pattern = "_Mean500_1000", replacement = "", x = names(ecol))
