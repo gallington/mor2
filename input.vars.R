@@ -1,3 +1,7 @@
+library(foreign)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
 # define / rename variables to simplify later:
 
 # this is the data on just the 130 HH That have paired ecological data,
@@ -13,7 +17,8 @@ tbl_df(mor2)
 # Ecological Zone #
 # [27] "EcologicalZone_4Name"       [28] "EcologicalZone_4Code"
 # [1339] "Ecologicalzone_4Code100"
-ez <- mor2[, 1339]    
+ez <- mor2[, c(6:8,1339)] # this pulls the Ecol Zone and the Survey Ref nos.
+names(ez[,3:4])<- c("RefNum", "ez")
 ez.codes<- c(1:4)
 zone.names<- c("DS", # desert steppe
                "ST", # steppe
@@ -84,11 +89,11 @@ rpe <- cbind(ez, rules, prac.ecol)
 #rpe <- rpe %>% select(-p1)  
 # pl or p1
 
-rpe$r1<- ordered(rpe$r1, levels = c(0, 1, 2))
-rpe$r2<- ordered(rpe$r2, levels = c(0, 1, 2))
+#rpe$r1<- ordered(rpe$r1, levels = c(0, 1, 2))
+#rpe$r2<- ordered(rpe$r2, levels = c(0, 1, 2))
 
-rpe$r1<- as.factor(rpe$r1)
-rpe$r2<- as.factor(rpe$r2)
+rpe$r1<- factor(rpe$r1)
+rpe$r2<- factor(rpe$r2)
 
 #####################
 ##   NORMALIZE    ###
@@ -103,12 +108,19 @@ rpe$e2s <- sqrt(rpe$e2)
 # and e4 is also a hot mess...
 
 # prob should reorder the vars in rpe eventually too.
-rpe$ez <- as.factor(rpe$ez)
+rpe$ez <- factor(rpe$ez)
+rpe <- rename(rpe, RefNum = SocialSurveyReferenceNumber)
+rpe <-rename(rpe, ez = Ecologicalzone_4Code100)
 
+# see standardizing.R for normalizing standardized vars
+
+
+
+# if needed : 
 ##############################
 ##   SUBSET BY ECOLOG ZONE  ##
-#
-DS <- slice(rpe, 89: 121) # desert steppe
-ST <- slice(rpe, 1:39) # typical steppe
-ES <- slice(rpe, 122:130) # eastern steppe   -- n = 9
-FMS <- slice(rpe, 40:88) # forest/mtn steppe
+# !!!!!!!!!!! these might be out of date.......!!!!!!!!!!!!
+# DS <- slice(rpe, 89: 121) # desert steppe
+# ST <- slice(rpe, 1:39) # typical steppe
+# ES <- slice(rpe, 122:130) # eastern steppe   -- n = 9
+# FMS <- slice(rpe, 40:88) # forest/mtn steppe
