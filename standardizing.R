@@ -49,7 +49,7 @@ tbl_df(forb)
 # call the function to standardize the mean val by ecol zone:
 f1<- stndx(forb, fmean, 1)
 f2<- stndx(forb, fmean, 2)
-f3<- stndx(forb, bmean, 3)
+f3<- stndx(forb, fmean, 3)
 f4<- stndx(forb, fmean, 4)
 # overwrite the forbdf above w this new one or just add the new column?
 fstan<- bind_rows(f1,f2,f3,f4) %>%
