@@ -1,0 +1,97 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(foreign)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+mor2.hhs<- read.spss("./data/Org_HHS_May2016_5_28_16.sav",
+                     to.data.frame = TRUE,
+                     use.value.labels = FALSE)
+tbl_df(mor2.hhs)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+**ORGANIZATION VARS:**
+```{r}
+cb<- c(2, 8:10) # to pull survey ref no., cbrm status and ecol zone
+cbrm.ez<- mor2.hhs[,cb] # these are from hhs data not org interview....
+# add survey ref number too?
+joinrules<- mor2.hhs %>% 
+    select(contains("q07_GroupJoin")) %>%
+    rename(GroupJoinyn = q07_GroupJoinRules, 
+           GroupJoinifY = q07_GroupJoinRules_ifyes)
+
+territory <- mor2.hhs %>%
+    select(contains("q01_GrazeTerr")) %>%
+    rename(GrazeTerr = q01_GrazeTerriSize, 
+           Terrpercap = q01_GrazeTerriSize_percap, 
+           Terrperhh =  q01_GrazeTerriSize_perhh)
+# tenure:
+rights <- mor2.hhs %>%
+    select(contains("q02a_Right")) %>%
+    rename(WintPast = q02a_RightNatWintPast,
+           SpringPast = q02a_RightNatSpringPast,
+           DzudPast = q02a_RightNatDzudPast,
+           FallPast = q02a_RightNatFallPast,
+           CutHay = q02a_RightNatHayCut,
+           HandWell = q02a_RightNatHandWell,
+           MechWell = q02a_RightNatMechWell,
+           Springs = q02a_RightNatSprings)
+
+```
+**ORG LEVEL RULES VARS:**
+```{r}
+timing <- mor2.hhs %>%
+    select(contains("q03_Timing")) %>%
+    rename(TimingRules = q03_TimingRules3.3)
+
+compliance <- mor2.hhs %>%
+    select(contains("q04_Timing")) %>%
+    rename(TimingRules = q04_TimingCompli3.4)
+
+# see vars re: lsk number compliance ... 
+
+aware <- bind_cols(
+  (mor2.hhs %>%
+    select(contains("q15_RuleAwareness")) %>%
+    rename(TimingRules = q15_RuleAwareness)),
+  (mor2.hhs %>%
+     select(contains("q16_RuleComplexity")) %>%
+     rename(RuleComplex = q16_RuleComplexity))
+  )
+
+monitoring <- mor2.hhs %>%
+    select(contains("q21_o")) %>%
+    select(contains ("Monitor")) %>%
+    rename(Informal = q21_o1_MonitorInformal , 
+           FormalUsers = q21_o2_MonitorFormal, 
+           FormalNonUsers = q21_o3_MonitorFormalNonUsers ) %>%
+    select(Informal : FormalNonUsers)  
+    
+consequence <- mor2.hhs %>%
+  select(contains("q22_o")) %>%
+    select(contains ("Cons")) %>%
+    rename(Herders = q22_o1_ConsHerdersScold , 
+           Leaders = q22_o2_ConsLeadersScold, 
+           Govt = q22_o3_ConsGovtScold,
+           Gossip = q22_o4_ConsGossip,
+           Fine = q22_o5_ConsFine,
+           LoseRight = q22_o6_ConsLoseRight) %>%
+    select(Herders : LoseRight)  
+```
+**HOUSEHOLD LEVEL INFO**
+```{r}
+
+```
+

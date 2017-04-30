@@ -319,6 +319,14 @@ semPaths(fit.rpe2,"std",
 
 modificationindices(fit.rpe, sort. = TRUE)
 
+rpe.ez<- filter(rpe.st, ez != 3)
+
+# # # # # # #  tried to group by ecol zone but :
+fit.rpe.ez <- sem(rpe.mod2, data= rpe.ez,
+                std.lv = TRUE,
+                ordered = ord,
+                group= "ez")       # not working bc ez1 doesn't have any formal rules for r2
+
 # comparing different model specifications:
 # 
 #
