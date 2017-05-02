@@ -110,146 +110,31 @@ rpe.st$gs <- sqrt(rpe.st$g.stand)    # new version of e1s
 rpe.st$fs <- sqrt(rpe.st$f.stand+1)  # new version of e2s
 rpe.st$ls <- sqrt(rpe.st$l.stand)    # new version of e4
 
+# 
+# need to create dummy vars for rules:
+rpe.sub<- select(rpe.st, one_of(c("r1", "r2", "pl", "p2s", "p3s", "p4","p5", "p6", "p7", "p10", "gs", "b.stand", "ls")))
 
-# the old way, without the function:
-# Now don't have to do these steps: 
-# the subset by ecol zone: DS, FMS, ST, ES
+# Rules regarding the timing of grazing (r1)
+# timing.NO # leave this one out as what we're then testing against.
+rpe.new <-  rpe.sub %>% 
+  mutate(timing.inf = ifelse(r1 == 1, 1, 0)) %>%            # new var informal rules re: timing of grazing y/n
+  mutate(timing.form = ifelse(r1 == 2, 1, 0)) %>%           # new var formal rules re: timing of grazing y/n
+  # Rules regarding number of livestock (r2)
+  mutate( lsk.num.inf = ifelse(r2 == 1, 1, 0)) %>%  # new var informal rules re: size of herd y/n
+  mutate(lsk.num.form = ifelse(r2 == 2, 1, 0)) %>%     # new var formal rules re: size of herd y/n
+  # Remove the original rules vars now
+  select(-r1) %>%
+  select(-r2)
 
-# 1a: Desert Steppe
-# DSx<- grass %>% 
-#   filter(ec.zn == 1) 
-# Dstnd <- (DSx$gmean-min(sub.df[,2:3]))/(max(sub.df[,2:3])-min(sub.df[,2:3]))
-# ddfg<- as.data.frame(cbind(sub.df, Dstnd))
-# ddfg <- rename(ddfg, gstand= Dstnd)
-# 
-# # 1b:Typical Steppe:
-# STx<- grass %>% 
-#   filter(ec.zn == 2) 
-# Sstnd <- (STx$gmean-min(STx[,2:3]))/(max(STx[,2:3])-min(STx[,2:3]))
-# sdfg<- as.data.frame(cbind(STx, Sstnd))
-# sdfg<- rename(sdfg, gstand = Sstnd)
-# 
-# # 1c: Forest/Mountain Steppe
-# FSx<- grass %>% 
-#   filter(ec.zn == 4) 
-# Fstnd <- (FSx$gmean-min(FSx[,2:3]))/(max(FSx[,2:3])-min(FSx[,2:3]))
-# fdfg<- as.data.frame(cbind(FSx, Fstnd))
-# fdfg<- rename(fdfg, gstand=Fstnd)
-# 
-# # 1d: Eastern Steppe
-# ESx<- grass %>% 
-#   filter(ec.zn == 3) 
-# Estnd <- (ESx$gmean-min(ESx[,2:3]))/(max(ESx[,2:3])-min(ESx[,2:3]))
-# edfg<- as.data.frame(cbind(ESx, Estnd))
-# edfg <- rename(edfg, gstand = Estnd)
-# 
-# #COMBINE
-# # these are added in order of ecol zone code: 1/2/3/4
-# # later, have to arrange rpe in order by ez to match.
-# grass.stand <- bind_rows(ddfg, sdfg, edfg, fdfg)
-
-
-
-
-# 
-# # 2a: Desert Steppe
-# DSf<- forb %>% 
-#   filter(ec.zn == 1) 
-# Dstndf <- (DSf$fmean-min(DSf[,2:3]))/(max(DSf[,2:3])-min(DSf[,2:3]))
-# ddff<- as.data.frame(cbind(DSf, Dstndf))
-# ddff<- rename(ddff, fstand = Dstndf)
-# 
-# # 2b:Typical Steppe:
-# STf<- forb %>% 
-#   filter(ec.zn == 2) 
-# Sstndf <- (STf$fmean-min(STf[,2:3]))/(max(STf[,2:3])-min(STf[,2:3]))
-# sdff<- as.data.frame(cbind(STf, Sstndf))
-# sdff <- rename(sdff, fstand =Sstndf)
-# 
-# 
-# # 2c: Forest/Mountain Steppe
-# FSf<- forb %>% 
-#   filter(ec.zn == 4) 
-# Fstndf <- (FSf$fmean-min(FSf[,2:3]))/(max(FSf[,2:3])-min(FSf[,2:3]))
-# fdff<- as.data.frame(cbind(FSf, Fstndf))
-# fdff <- rename( fdff, fstand = Fstndf)
-# 
-# # 2d: Eastern Steppe
-# ESf<- forb %>% 
-#   filter(ec.zn == 3) 
-# Estndf <- (ESf$fmean-min(ESf[,2:3]))/(max(ESf[,2:3])-min(ESf[,2:3]))
-# edff<- as.data.frame(cbind(ESf, Estndf))
-# edff <- rename( edff, fstand = Estndf)
-# 
-# #COMBINE
-# forb.stand <- bind_rows(ddff, sdff, edff, fdff)
-
-
-
-
-# # 3a: Desert Steppe -bare:
-# DSb<- bare %>% 
-#   filter(ec.zn == 1) 
-# Dstndb <- (DSb$bmean-min(DSb[,2:4]))/(max(DSb[,2:4])-min(DSb[,2:4]))
-# ddfb<- as.data.frame(cbind(DSb, Dstndb))
-# ddfb <- rename(ddfb, bstand = Dstndb)
-# 
-# # 3b:Typical Steppe -Bare:
-# STb<- bare %>% 
-#   filter(ec.zn == 2) 
-# Sstndb <- (STb$bmean-min(STb[,2:4]))/(max(STb[,2:4])-min(STb[,2:4]))
-# sdfb<- as.data.frame(cbind(STb, Sstndb))
-# sdfb<- rename(sdfb, bstand = Sstndb)
-# 
-# # 3c: Forest/Mountain Steppe
-# FSb<- bare %>% 
-#   filter(ec.zn == 4) 
-# Fstndb <- (FSb$bmean-min(FSb[,2:4]))/(max(FSb[,2:4])-min(FSb[,2:4]))
-# fdfb<- as.data.frame(cbind(FSb, Fstndb))
-# fdfb<- rename(fdfb, bstand = Fstndb)
-# 
-# # 3d: Eastern Steppe
-# ESb<- bare %>% 
-#   filter(ec.zn == 3) 
-# Estndb <- (ESb$bmean-min(ESb[,2:4]))/(max(ESb[,2:4])-min(ESb[,2:4]))
-# edfb<- as.data.frame(cbind(ESb, Estndb))
-# edfb<- rename(edfb, bstand = Estndb)
-# 
-# #COMBINE
-# bare.stand <- bind_rows(ddfb, sdfb, edfb, fdfb)
-
-
-# # 4a: Desert Steppe -litter:
-# DSl<- litter %>% 
-#   filter(ec.zn == 1) 
-# Dstndl <- (DSl$lmean-min(DSl[,2:4]))/(max(DSl[,2:4])-min(DSl[,2:4]))
-# ddfl<- as.data.frame(cbind(DSl, Dstndl))
-# ddfl <- rename(ddfl, lstand = Dstndl)
-# 
-# # 4b:Typical Steppe -Bare:
-# STl<- litter %>% 
-#   filter(ec.zn == 2) 
-# Sstndl <- (STl$lmean-min(STl[,2:4]))/(max(STl[,2:4])-min(STl[,2:4]))
-# sdfl<- as.data.frame(cbind(STl, Sstndl))
-# sdfl<- rename(sdfl, lstand = Sstndl)
-# 
-# # 4c: Forest/Mountain Steppe
-# FSl<- litter %>% 
-#   filter(ec.zn == 4) 
-# Fstndl <- (FSl$lmean-min(FSl[,2:4]))/(max(FSl[,2:4])-min(FSl[,2:4]))
-# fdfl<- as.data.frame(cbind(FSl, Fstndl))
-# fdfl<- rename(fdfl, lstand = Fstndl)
-# 
-# # 4d: Eastern Steppe
-# ESl<- litter %>% 
-#   filter(ec.zn == 3) 
-# Estndl <- (ESl$lmean-min(ESl[,2:4]))/(max(ESl[,2:4])-min(ESl[,2:4]))
-# edfl<- as.data.frame(cbind(ESl, Estndl))
-# edfl<- rename(edfl, lstand = Estndl)
-# 
-# #COMBINE
-# litter.stand <- bind_rows(ddfl, sdfl, edfl, fdfl)
-
-
+# asign as factors
+rpe.new$lsk.num.inf<- factor(rpe.new$lsk.num.inf)
+rpe.new$lsk.num.form<- factor(rpe.new$lsk.num.form)
+rpe.new$timing.form<- factor(rpe.new$timing.form)
+rpe.new$timing.inf<- factor(rpe.new$timing.inf)
+# ordered too, or not? 
+rpe.new$lsk.num.inf<- ordered(rpe.new$lsk.num.inf)
+rpe.new$lsk.num.form<- ordered(rpe.new$lsk.num.form)
+rpe.new$timing.form<- ordered(rpe.new$timing.form)
+rpe.new$timing.inf<- ordered(rpe.new$timing.inf)
 
 

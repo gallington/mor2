@@ -94,4 +94,17 @@ consequence <- mor2.hhs %>%
 ```{r}
 
 ```
+**COMPILE TO ONE DF**
+```{r}
+orr <- data.frame(cbrm.ez, joinrules, territory, rights, timing, compliance, aware, monitoring, consequence)
+# how to asign NAs?
 
+# set as factors:
+cols <- c("CBRM_Y_N", "CBRM_type", "Ecologicalzone_4", "GroupJoinyn", "WintPast", "SpringPast" , "DzudPast" , "FallPast" ,"CutHay","HandWell", "MechWell", "Springs","TimingRules", "TimingRules.1", "TimingRules.2" ,   "RuleComplex" ,"Informal", "FormalUsers", "FormalNonUsers", "Herders" , "Leaders", "Govt" , "Gossip",  "Fine", "LoseRight")
+
+orr %<>% mutate_at(cols, funs(factor(.)))
+varTable()
+orr %<>% mutate(GroupJoinifY =  "is.na<-"(GroupJoinifY, GroupJoinifY == -99))
+```
+Something isn't quite right with this dataframe....
+explore this some more tomorrow.

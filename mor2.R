@@ -9,12 +9,18 @@ mor2<- read.spss("./data/ALL_EcolHHOrgMerged_byUvuljaa_03_15_17_Simplified.sav" 
                   # 
 # tidy format
 tbl_df(mor2)
+
+# tip!  use grep() to query index info based on column name:
+grep("B", colnames(df))
+
+
 #
 # ECOLOGICAL VARS for CORR MATRIX:
 #subset out the ecological vars of interest
 ecol<- mor2[,1515:1538]
 ecol <- select(ecol, -10)
-ecol <- select(ecol, -CrudeProtein_percent_Mean500_1000)
+ecol <- select(ecol, -9)
+#ecol <- select(ecol, -CrudeProtein_percent_Mean500_1000)
 #shorten the variable names
 names(ecol) = sub(pattern = "_Mean500_1000", replacement = "", x = names(ecol))
 # create cor matrix
