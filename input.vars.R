@@ -63,14 +63,14 @@ names(prac.ecol) <- c("p1","p2","p3", "p4", "p5","p6", "p7", "p8", "p9", "p10", 
 prac.ecol$p8[prac.ecol$p8<0]=NA   # change -99 to NA
 prac.ecol$p5[prac.ecol$p5<0]=NA
 # 1. specify factors
-# 2. switch levels direction:
-prac.ecol$p4<- as.factor(prac.ecol$p4, levels = c(1,0))  
-prac.ecol$p5<- as.factor(prac.ecol$p5, levels = c(1,0))
-prac.ecol$p6<- as.factor(prac.ecol$p6, levels = c(1,0))
-prac.ecol$p7<- as.factor(prac.ecol$p7, levels = c(1,0))
-prac.ecol$p8<- as.factor(prac.ecol$p8, levels = c(1,0))
-prac.ecol$p9<- as.factor(prac.ecol$p9, levels = c(1,0))
-prac.ecol$p10<- as.factor(prac.ecol$p10, levels = c(1,0))
+# 2. switch levels direction:  <<<NO! DON'T DO THIS!>>>
+# prac.ecol$p4<- as.factor(prac.ecol$p4, levels = c(1,0))  
+# prac.ecol$p5<- as.factor(prac.ecol$p5, levels = c(1,0))
+# prac.ecol$p6<- as.factor(prac.ecol$p6, levels = c(1,0))
+# prac.ecol$p7<- as.factor(prac.ecol$p7, levels = c(1,0))
+# prac.ecol$p8<- as.factor(prac.ecol$p8, levels = c(1,0))
+# prac.ecol$p9<- as.factor(prac.ecol$p9, levels = c(1,0))
+# prac.ecol$p10<- as.factor(prac.ecol$p10, levels = c(1,0))
 # SCALE THE DATA for p1:p3??  # see note below on cfa 3 re: log of p1 (sfu)
 
 ##############
@@ -110,10 +110,10 @@ rpe$e2s <- sqrt(rpe$e2)
 # and e4 is also a hot mess...
 
 # prob should reorder the vars in rpe eventually too.
-rpe$ez <- factor(rpe$ez)
+
 rpe <- rename(rpe, RefNum = SocialSurveyReferenceNumber)
 rpe <-rename(rpe, ez = Ecologicalzone_4Code100)
-
+rpe$ez <- factor(rpe$ez)
 # see standardizing.R for normalizing standardized vars
 
 

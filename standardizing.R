@@ -24,7 +24,8 @@ grass100<- mor2$PerGrassCover100
 grass1k<- mor2$PerGrassCover1000
 gmean <- mor2$PerGrassCover_percent_Mean500_1000
 ec.zn<- mor2$Ecologicalzone_4Code100
-grass<- as.data.frame(cbind(ec.zn, grass100, grass1k, gmean))
+refnum<- mor2$SocialSurveyReferenceNumber
+grass<- as.data.frame(cbind(ec.zn, grass100, grass1k, gmean, refnum))
 tbl_df(grass)
 
 # still need to change the name of the column ...
@@ -43,7 +44,8 @@ forb100<- mor2$PerForbCover100
 forb1k<- mor2$PerForbCover1000
 fmean <- mor2$PerForbCover_percent_Mean500_1000
 ec.zn<- mor2$Ecologicalzone_4Code100
-forb<- as.data.frame(cbind(ec.zn, forb100, forb1k, fmean))
+refnum<- mor2$SocialSurveyReferenceNumber
+forb<- as.data.frame(cbind(ec.zn, forb100, forb1k, fmean, refnum))
 tbl_df(forb)
 
 # call the function to standardize the mean val by ecol zone:
@@ -53,8 +55,9 @@ f3<- stndx(forb, fmean, 3)
 f4<- stndx(forb, fmean, 4)
 # overwrite the forbdf above w this new one or just add the new column?
 fstan<- bind_rows(f1,f2,f3,f4) %>%
-  rename(f.stand = mean.var.sd) %>%
-  select(-ec.zn)   # remove ecol zone so don't end up with duplicates when combine
+  rename(f.stand = mean.var.sd) 
+#%>%
+ # select(-ec.zn)   # remove ecol zone so don't end up with duplicates when combine
 
 
 ###################################
@@ -64,8 +67,11 @@ bare500<- mor2$BareSoilCover500 #included 500 here bc there were lower vals at 5
 bare1k<- mor2$BareSoilCover1000
 bmean <- mor2$BareSoil_percent_Mean500_1000
 ec.zn<- mor2$Ecologicalzone_4Code100
-bare<- as.data.frame(cbind(ec.zn, bare100, bare500, bare1k, bmean))
+refnum<- mor2$SocialSurveyReferenceNumber
+bare<- as.data.frame(cbind(ec.zn, bare100, bare500, bare1k, bmean, refnum))
 tbl_df(bare)
+
+
 
 # call the function to standardize the mean val by ecol zone:
 b1<- stndx(bare, bmean, 1)
@@ -74,8 +80,9 @@ b3<- stndx(bare, bmean, 3)
 b4<- stndx(bare, bmean, 4)
 # overwrite the bare df above w this new one or just add the new column?
 bstan<- bind_rows(b1,b2,b3,b4) %>%
-  rename(b.stand = mean.var.sd) %>%
-  select(-ec.zn) #remove ecol zone so don't end up with duplicates when combine
+  rename(b.stand = mean.var.sd)
+#%>%
+ # select(-ec.zn) #remove ecol zone so don't end up with duplicates when combine
 
 #################################
 # 4. Litter
@@ -84,7 +91,8 @@ litter500<- mor2$LitterCover500 #same here as with bare, had to include 500 msrm
 litter1k<- mor2$LitterCover1000
 lmean <- mor2$LitterCover_percent_Mean500_1000
 ec.zn<- mor2$Ecologicalzone_4Code100
-litter<- as.data.frame(cbind(ec.zn, litter100, litter500, litter1k, lmean))
+refnum<- mor2$SocialSurveyReferenceNumber
+litter<- as.data.frame(cbind(ec.zn, litter100, litter500, litter1k, lmean, refnum))
 tbl_df(litter)
 
 # call the function to standardize the mean val by ecol zone:
@@ -94,25 +102,36 @@ l3<- stndx(litter, lmean, 3)
 l4<- stndx(litter, lmean, 4)
 # overwrite the litter df above w this new one or just add the new column?
 lstan<- bind_rows(l1,l2,l3,l4) %>%
-  rename(l.stand = mean.var.sd) %>%
-  select(-ec.zn) #remove ecol zone so don't end up with duplicates when combine
+  rename(l.stand = mean.var.sd) 
+#%>%
+ # select(-ec.zn) #remove ecol zone so don't end up with duplicates when combine
 #################################
 #  5.  add these back to rpe 
 ######  .
-rpe<- arrange(rpe, ez) # to get it in the same order as the others
-rpe.st <- cbind(rpe, gstan, fstan, bstan, lstan)
+# deprecated
+# rpe<- arrange(rpe, ez) # to get it in the same order as the others
+# rpe.st <- cbind(rpe, gstan, fstan, bstan, lstan)
+
+#join back to rpe#
+
+rpejoin <- left_join(rpe, fstan[,5:6], by=c("RefNum" = "refnum")) %>% 
+  left_join(gstan[,5:6], by=c("RefNum" = "refnum")) %>%
+  left_join(bstan[,6:7], by=c("RefNum" = "refnum")) %>%
+  left_join(lstan[,6:7], by=c("RefNum" = "refnum"))
 
 
 # BUT WAIT! THESE AREN'T NORMALIZED!!!!
 
 # normalizing....
-rpe.st$gs <- sqrt(rpe.st$g.stand)    # new version of e1s
-rpe.st$fs <- sqrt(rpe.st$f.stand+1)  # new version of e2s
-rpe.st$ls <- sqrt(rpe.st$l.stand)    # new version of e4
+rpejoin$gs <- sqrt(rpe.st$g.stand)    # new version of e1s
+rpejoin$fs <- sqrt(rpe.st$f.stand+1)  # new version of e2s
+rpejoin$ls <- sqrt(rpe.st$l.stand)    # new version of e4
+rpejoin %<>% mutate(bare.inv = (1 - b.stand))
 
 # 
 # need to create dummy vars for rules:
-rpe.sub<- select(rpe.st, one_of(c("r1", "r2", "pl", "p2s", "p3s", "p4","p5", "p6", "p7", "p10", "gs", "b.stand", "ls")))
+rpe.sub<- select(rpejoin, one_of(c("r1", "r2", "ez", "pl", "p2s", "p3s", "p4","p5", "p6", "p7", "p8", "p9", "p10", "gs","fs", "b.stand","bare.inv", "ls")))
+rpe.new<- select(rpejoin, one_of(c("r1", "r2", "ez", "pl", "p2s", "p3s", "p4","p5", "p6", "p7", "p10", "gs","fs", "b.stand", "ls")))
 
 # Rules regarding the timing of grazing (r1)
 # timing.NO # leave this one out as what we're then testing against.
@@ -122,7 +141,8 @@ rpe.new <-  rpe.sub %>%
   # Rules regarding number of livestock (r2)
   mutate( lsk.num.inf = ifelse(r2 == 1, 1, 0)) %>%  # new var informal rules re: size of herd y/n
   mutate(lsk.num.form = ifelse(r2 == 2, 1, 0)) %>%     # new var formal rules re: size of herd y/n
-  # Remove the original rules vars now
+#  mutate(lsk.num = ifelse(r2 == 0, 0, 1)) %>%          # put informal and formal rules together in one
+    # Remove the original rules vars now 
   select(-r1) %>%
   select(-r2)
 
@@ -131,10 +151,24 @@ rpe.new$lsk.num.inf<- factor(rpe.new$lsk.num.inf)
 rpe.new$lsk.num.form<- factor(rpe.new$lsk.num.form)
 rpe.new$timing.form<- factor(rpe.new$timing.form)
 rpe.new$timing.inf<- factor(rpe.new$timing.inf)
+# rpe.new$lsk.num<- factor(rpe.new$lsk.num)
+
 # ordered too, or not? 
-rpe.new$lsk.num.inf<- ordered(rpe.new$lsk.num.inf)
-rpe.new$lsk.num.form<- ordered(rpe.new$lsk.num.form)
-rpe.new$timing.form<- ordered(rpe.new$timing.form)
-rpe.new$timing.inf<- ordered(rpe.new$timing.inf)
+ # rpe.new$lsk.num.inf<- ordered(rpe.new$lsk.num.inf)
+ # rpe.new$lsk.num.form<- ordered(rpe.new$lsk.num.form)
+ # rpe.new$timing.form<- ordered(rpe.new$timing.form)
+ # rpe.new$timing.inf<- ordered(rpe.new$timing.inf)
+ # 
+
+
+
+
+# 
+# df<-as.data.frame(lapply(c("p4","p5", "p6", "p7","p8", "p9", "p10"), function(x) factor(rpe.new[[x]])))
+# names(df)<- c("p4","p5", "p6", "p7","p8", "p9", "p10")
+# 
+# for (i in 1:length(names(df))) {
+#   rpe.new[[names(df)[i]]] <- df[[i]]
+# }
 
 

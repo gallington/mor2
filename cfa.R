@@ -44,7 +44,7 @@ fitmsrs <- c("cfi", "rmsea", "rmsea.pvalue", "srmr")
 # Practices:  trying diff cmbinations, and checking model fit
 prac.mod.orig<- 'practice =~ pl + p2s + p3s + p4 + p5 + p6 +p7 +p8 +p9 + p10'  # v poor. nope
 # better? :
-prac.mod<- 'practice =~ pl + p3s + p4 + p5 + p6 +p7 +p8 +p9 + p10'   # nope
+prac.mod.0<- 'practice =~ pl + p3s + p4 + p5 + p6 +p7 +p8 +p9 + p10'   # nope
 prac.mod<- 'practice =~ pl + p2s + p4 + p5 + p6 +p7 +p8 +p9 + p10'   # nope
 prac.mod<- 'practice =~ p2s + p4 + p5 + p6 +p7 +p8 +p9 + p10'   # v bad
 prac.mod<- 'practice =~ pl + p2s + p3s + p4 + p5 + p6 +p7 + p10'  # nope
@@ -53,14 +53,14 @@ prac.mod<- 'practice =~  p4 + p5 + p6 +p7 + p10'  # NOW we're getting somewhere.
 prac.mod2<- 'practice =~ p4 + p5 + p6 +p7 +p8 + p10'  # not as good if add back in p8
 prac.mod3<- 'practice =~ p4 + p5 + p6 +p7 +p9 + p10'  # also not as good.
 
-fit.prac.orig<- cfa(prac.mod.orig, data = rpe.st, std.all = TRUE, ordered = c("p4", "p5", "p6","p7","p8","p9","p10"))
-fit.prac<- cfa(prac.mod, data = rpe.st, std.all = TRUE, ordered = c("p4", "p5", "p6","p7","p8","p9","p10"))
+fit.prac.orig<- cfa(prac.mod.0, data = rpe.st, std.all = TRUE, ordered = c("p4", "p5", "p6","p7","p8","p9","p10"))
+fit.prac<- cfa(prac.mod, data = rpe.new, std.all = TRUE , ordered = c("p4", "p5", "p6","p7","p8","p9","p10"))
 fit.prac2<- cfa(prac.mod2, data = rpe.st, std.all = TRUE, ordered = c("p4", "p5", "p6","p7","p8","p9","p10"))
 fit.prac3<- cfa(prac.mod3, data = rpe.st, std.all = TRUE, ordered = c("p4", "p5", "p6","p7","p8","p9","p10"))
 
 summary(fit.prac, 
         rsquare = T, 
-        #standardized = T, 
+        standardized = T, 
         fit.measures=T)
 
 summary(fit.prac3, 
@@ -72,7 +72,7 @@ semPaths(fit.prac2, "std", edge.label.cex = 0.75, layout = "tree")
 
 fitmeasures(fit.prac, fit.measures = fitmsrs)
 
-modificationindices(fit.prac.orig, sort. = TRUE)
+modificationindices(fit.prac, sort. = TRUE)
 # trying to specify error covariances instead of removing some indicators. 
 prac.orig.mod<- ' # latent definition
                   practice =~ pl + p2s + p3s + p4 + p5 + p6 +p7 +p8 +p9 + p10  
@@ -105,19 +105,20 @@ fitmeasures(fit.prac, fit.measures = fitmsrs)
 
 # ecological indicator mesurement model:
 ecol.mod <- 'eco =~ g.stand + f.stand + b.stand + l.stand'   #nope
-ecol.mod <- 'eco =~ gs + fs + b.stand + ls'    # not good
+ecol.modf <- 'eco =~ gs + fs + b.stand + ls'    # not good
 ecol.mod <- 'eco =~ gs +  b.stand + ls'    # GREAT, maybe too good???
+ecol.mod.b <- 'eco =~ gs +  fs+ bare.inv + ls'    # w new bare var     fs+
 
-fit.eco <- cfa(ecol.mod, data= rpe.st, std.lv = TRUE)
-summary(fit.eco, 
+fit.ecofb <- cfa(ecol.mod.b, data= rpe.new, std.lv = TRUE)
+summary(fit.ecofb, 
         rsquare = T, 
         standardized = T, 
         fit.measures=T)
 
 fitmeasures(fit.eco, fit.measures = fitmsrs)
-modificationindices(fit.eco, sort. = TRUE)
+modificationindices(fit.ecofb, sort. = TRUE)
 
-semPaths(fit.eco, "std", edge.label.cex = 0.75, layout = "tree")
+semPaths(fit.ecofb, "std", edge.label.cex = 0.75, layout = "tree")
 
 ecol.mod2 <- 'eco =~ gs + fs + b.stand + ls
             # error 
@@ -139,11 +140,12 @@ semPaths(fit.eco, "std")
 # Note: calling normalized vars:
 cfa.model2 <- ' # measurement model
                 practice =~ p4 + p5 + p6 +p7 + p10
-                ecol.ind =~ gs + b.stand + ls
+                #ecol.ind =~ gs + b.stand + ls
+                ecol.ind =~ gs + bare.inv + ls
               '
 # need to specify correlated errors here? Or only in sem? 
 # fit the model 2
-fit.cfa2 <- cfa(cfa.model2, data= rpe.st, std.lv = TRUE)
+fit.cfa2 <- cfa(cfa.model2, data= rpe.new, std.lv = TRUE)
 semPaths(fit.cfa2, "std", edge.label.cex = 0.5, curvePivot = TRUE, layout = "tree")
 parameterEstimates(fit.cfa2)
 summary(fit.cfa2, 
@@ -156,43 +158,43 @@ summary(fit.cfa2,
 # first structural model:
 pe.mod<- '
           practice =~ p4 + p5 + p6 +p7 + p10
-          #ecol.ind =~ g.stand + f.stand + b.stand + l.stand
-          ecol.ind =~ gs +  b.stand + ls
+          ecol.ind =~ gs +  bare.inv + ls
           #p2s ~~ p3s
-          p4 ~~ p5   # got this from modificationindices() FIt improved w it.
+          #p4 ~~ p5   # got this from modificationindices() FIt improved w it.
           ecol.ind ~ practice  
           '
-pe.fit<- sem(pe.mod, data = rpe.st, std.lv= TRUE)
+pe.fit<- sem(pe.mod, data = rpe.new, std.lv= TRUE)
 
 summary(pe.fit,
         rsquare = TRUE,
         standardized = TRUE,
         fit.measures = TRUE)  
 
-modificationindices(pe.fit) # did this first w/o p4 ~~ p5
+modificationindices(pe.fit, sort. = TRUE) # did this first w/o p4 ~~ p5
 # now it suggests p4 ~~ p6 errors corr'd
 pe.mod3<- '
           practice =~ p4 + p5 + p6 +p7 + p10
           #ecol.ind =~ g.stand + f.stand + b.stand + l.stand
-          ecol.ind =~ gs +  b.stand + ls
+          ecol.ind =~ gs +  bare.inv + ls
           p4 ~~ p5   # added in last step first ver didnt have FIt improved w it
-          p4 ~~ p6   # improved fit again maybe by too much?  
           ecol.ind ~ practice  
           '
-pe.fit3<- sem(pe.mod3, data = rpe.st, std.lv= TRUE)
+pe.fit3<- sem(pe.mod3, data = rpe.new, std.lv= TRUE)
 
 # possibly over-fit?
 summary(pe.fit3,
         rsquare = TRUE,
         standardized = TRUE,
         fit.measures = TRUE) 
-semPaths(pe.fit)
-semPaths(pe.fit3, 
-         whatLabels = "std", 
-         layout = "circle")
+semPaths(pe.fit, "std", layout= "circle")
+semPaths(pe.fit3, "std", layout= "circle") 
+         # whatLabels = "std", 
+         # layout = "circle")
 semPaths(pe.fit3, 
          whatLabels = "std", 
          layout = "tree")
+
+fitmeasures(pe.fit, fit.measures = fitmsrs)
 
 # As of 4/27/17, haven't updated this BY ECOL ZONE section yet w new model formations
 # BY ECOLOGICAL ZONE:
@@ -202,17 +204,17 @@ semPaths(pe.fit3,
 FMS <- filter(rpe.st, ez == 4)
 pe.fit.FMS <- sem(pe.mod, data = FMS,      
               std.lv = TRUE, 
-              ordered = c("p4", "p5", "p6","p7","p8","p9","p10"))
+              ordered = c("r1","p4", "p5", "p6","p7","p8","p9","p10"))
 semPaths(pe.fit.FMS, "std", residuals = FALSE)
 title("FMS", line=1)
 
 # GET ERROR HERE:
 # check that the gs var isn't wonky. 
 # error might be bc of issues w gs
-DS <- filter(rpe.st, ez == 1)
+DS <- filter(rpe.new, ez == 1)
 pe.fit.DS <- sem(pe.mod, data = DS,     
                   std.lv = TRUE, 
-                  ordered = c("p4", "p5", "p6","p7","p8","p9","p10"))
+                  ordered = c("r1","p4", "p5", "p6","p7","p8","p9","p10"))
 # exploring a bit....
 rpe.st %>% group_by(ez) %>% summarise(min = min(gs))
 
@@ -282,7 +284,7 @@ fit.rule.comp <- sem(rule.mod, data = rpe.new)
 cfa.model3 <- ' # measurement model
                 rules =~ r1 + r2
                 practice =~ p4 + p5 + p6 +p7 + p10
-                ecol.ind =~ gs + b.stand + ls'
+                ecol.ind =~ gs + bare.inv + ls'
 
 # don't do this step if using dummy vars....
 # Note: have to specify which vars are ordered      # Is this what messed it up before? Thinks it's linear?
@@ -291,7 +293,7 @@ rpe$r1<- ordered(rpe$r1, levels= c(0,1,2))
 rpe$r2<- ordered(rpe$r2, levels= c(0,1,2))
 
 #fit.cfa3 <- cfa(cfa.model3, data = rpe.st, std.lv = TRUE, ordered = ord, group = "ez") # this is grouped
-fit.cfa3 <- cfa(cfa.model3, data = rpe.st, std.lv = TRUE, ordered = ord)
+fit.cfa3 <- cfa(cfa.model3, data = rpe.new, std.lv = TRUE, ordered = ord)
 summary(fit.cfa3,
         rsquare = TRUE,
         standardized = TRUE,
@@ -300,10 +302,14 @@ summary(fit.cfa3,
 semPaths(fit.cfa3,"std", 
                   edge.label.cex = 0.75,
                   curvePivot = TRUE,
-                  layout = "tree")
-                  # residuals = FALSE
+                  #layout = "circle",
+                  layout = "tree",
+                  residuals = FALSE)
+
+
 # parameterEstimates(fit.cfa3)
-modificationindices(fit.cfa3)
+modificationindices(fit.cfa3, sort. = TRUE)
+fitmeasures(fit.cfa3, fit.measures = fitmsrs)
 # indicates that there are correlated errors between a lot of params, but biggest are:
 # ecol.ind to 97 and rules to p6, which can't connect? right?
 # also: p4-p5 
@@ -311,18 +317,17 @@ modificationindices(fit.cfa3)
 
 # trying w dummy vars instead
 cfa.model4 <- ' # measurement model
-                 rules =~ timing.inf +  timing.form + lsk.num.inf + lsk.num.form
-#                 practice =~ pl + p2s + p3s + p4 + p5 + p6 +p7 +p8 +p9 + p10
-                 practice =~  p4 + p5 + p6 +p7 + p10
-                 ecol.ind =~ gs + b.stand + ls'
+                  rules =~ timing.inf +  timing.form + lsk.num.inf + lsk.num.form
+                  practice =~  p4 + p5 + p6 +p7 + p10     #  practice =~ pl + p2s + p3s + p4 + p5 + p6 +p7 +p8 +p9 + p10
+                  ecol.ind =~ gs + bare.inv + ls'
 ord2<- c("timing.inf", "timing.form", "lsk.num.inf", "lsk.num.form", "p4", "p5", "p6", "p7", "p8", "p9", "p10")
 
-fit.cfa4 <- cfa(cfa.model4, data = rpe.new, std.lv = TRUE, ordered = ord)
+fit.cfa4 <- cfa(cfa.model4, data = rpe.new, std.lv = TRUE, ordered = ord2)
 summary(fit.cfa4,
         rsquare = TRUE,
         standardized = TRUE,
         fit.measures = TRUE)
-semPaths(fit.cfa4, "std", residuals = FALSE)
+semPaths(fit.cfa4, "std", layout = "circle", residuals = FALSE)
 
 
 # move on to:
@@ -349,6 +354,8 @@ summary(fit.rpe,
         fit.measures = TRUE)
 
 modificationindices(fit.rpe, sort. = TRUE)
+semPaths(fit.rpe, "std", layout = "circle", residuals = FALSE)
+
 # based on this output, a few suggested changed that migth make theoretical sense:
 rpe.mod2 <- '   
               rules =~ r1 + r2
@@ -378,44 +385,54 @@ semPaths(fit.rpe2,"std",
         edge.label.cex = 0.75,
         curvePivot = TRUE,
         layout = "tree",
-        residuals = FALSE)
+        residuals = T)
 
-modificationindices(fit.rpe, sort. = TRUE)
-# fit.rpe2 looks great, but rules params are not great.
+modificationindices(fit.rpe, sort. = TRUE) # fit.rpe2 looks great, but rules params are not great.
 # so, let's check it out with the dummy vars.... 
+ord2<- c("timing.inf", "timing.form", "lsk.num", "ez", "p4", "p5", "p6", "p7", "p8", "p9", "p10")
 
 rpe.mod <- '  # latent definitions: 
                 rules =~ timing.inf +  timing.form + lsk.num.inf + lsk.num.form
-                practice =~ pl + p2s + p3s+ p4 + p5 + p6 + p7 + p10  # start w all practices again
-                ecol.ind =~ gs  + b.stand + ls   #add fs?
+                practice =~  p4 + p5 + p6 + p7 + p10  # start w all practices again? pl + p2s + p3s+
+                ecol.ind =~ gs  + bare.inv + ls   #add fs?
               # regressions:
                 practice ~ rules
                 ecol.ind ~ practice'
 
 fit.rpe <- sem(rpe.mod, data= rpe.new,
-               #std.lv = TRUE,
-               ordered = ord)
+               std.lv = TRUE,
+               ordered = ord2)
 
 summary(fit.rpe,
         rsquare = TRUE,
         standardized = TRUE,
         fit.measures = TRUE)
 
+semPaths(fit.rpe, "std", residuals = FALSE)
+
 modificationindices(fit.rpe, sort. = TRUE)
+#  cfi rmsea  srmr 
+# 0.684 0.142 0.196 
+
+
+
 # based on results from that make the following changes:
 rpe.mod2 <- '  # latent definitions: 
-                rules =~ timing.inf +  timing.form + lsk.num.inf + lsk.num.form
-                practice =~ p4 + p5 + p6 + p7 + p10  
+                rules =~ timing.inf +  timing.form + lsk.num
+                practice =~ pl + p2s + p3s + p4 + p5 + p6 + p7 + p10  
                 ecol.ind =~ gs  + b.stand + ls   #add fs?
               # regressions:
+              #  rules ~ timing.inf + timing.form
                 practice ~ rules
                 ecol.ind ~ practice
               # error covs
+                p2s ~~ p3s
                 p4 ~~ p5
+                timing.inf ~~ timing.form
           '
 fit.rpe2.2 <- sem(rpe.mod2, data= rpe.new,
-               std.lv = TRUE,
-               ordered = ord)
+               #std.lv = TRUE,
+               ordered = ord2)
 
 summary(fit.rpe2.2,
         rsquare = TRUE,
@@ -423,7 +440,7 @@ summary(fit.rpe2.2,
         fit.measures = TRUE)
 
 semPaths(fit.rpe2.2, "std", residuals = FALSE)
-# no rel btwn rules and practices now when took out p1-p3...... 
+# no rel btwn rules and practices now ...... 
 
 rpe.mod3 <- '  # latent definitions: 
                 rules =~ timing.inf +  timing.form + lsk.num.inf + lsk.num.form
