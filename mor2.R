@@ -131,3 +131,5 @@ y<- ggplot(x, aes(x=SpeciesRichnessMean500_1000,
   geom_point(aes(color=as.factor(q04_CBRM_Y_N)))
 
 boxplot(SpeciesRichnessMean500_1000 ~ q04_CBRM_Y_N, data= x)
+
+# bare X 

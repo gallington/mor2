@@ -1,3 +1,6 @@
+#
+# STEP 1: subsetting the mor2 data:
+#
 library(foreign)
 library(dplyr)
 library(tidyr)
@@ -15,16 +18,12 @@ tbl_df(mor2)
 
 ###################
 # Ecological Zone #
-# [27] "EcologicalZone_4Name"       [28] "EcologicalZone_4Code"
-# [1339] "Ecologicalzone_4Code100"
-ez <- mor2[, c(6:8,1339)] # this pulls the Ecol Zone and the Survey Ref nos.
-names(ez[,3:4])<- c("RefNum", "ez")
-ez.codes<- c(1:4)
-zone.names<- c("DS", # desert steppe
-               "ST", # steppe
-               "ES", # eastern steppe
-               "FMS") # forest/mtn steppe
-ezones<- cbind(ez.codes, zone.names)  # for future reference
+# 1 = "DS", # desert steppeRef nos.
+ez <- select(mor2, ez = EcologicalZone_4Code, RefNum = SocialSurveyReferenceNumber) 
+ 
+ez$ez <- ordered(ez$ez)
+
+
 
 #################
 ##  PRACTICES : #
@@ -45,7 +44,18 @@ ezones<- cbind(ez.codes, zone.names)  # for future reference
 # p10 <- "h_GrzDzud_NonEmrg" # [138]
 p.cols <- c(605, 125,126,129:132, 134, 136, 138)
 practices<- mor2[,p.cols]
+names(practices)<- c("p1","p2","p3", "p4", "p5","p6", "p7", "p8", "p9", "p10")
+# 
+practices$p8[practices$p8<0]=NA   # change -99 to NA
+practices$p5[practices$p5<0]=NA
 
+as.factor(practices$p4)
+as.factor(practices$p5)
+as.factor(practices$p6)
+as.factor(practices$p7)
+as.factor(practices$p8)
+as.factor(practices$p9)
+as.factor(practices$p10)
 #############################
 ##  ECOLOGICAL INDICATORS:  #
 # rename columns to 
@@ -56,22 +66,11 @@ practices<- mor2[,p.cols]
 
 e.cols <- c(1528, 1529, 1536, 1538)
 ecol.ind<- mor2[, e.cols]
-prac.ecol<- cbind(practices, ecol.ind)
+
 # rename columns
-names(prac.ecol) <- c("p1","p2","p3", "p4", "p5","p6", "p7", "p8", "p9", "p10", "e1","e2", "e3", "e4")
-# 
-prac.ecol$p8[prac.ecol$p8<0]=NA   # change -99 to NA
-prac.ecol$p5[prac.ecol$p5<0]=NA
-# 1. specify factors
-# 2. switch levels direction:  <<<NO! DON'T DO THIS!>>>
-# prac.ecol$p4<- as.factor(prac.ecol$p4, levels = c(1,0))  
-# prac.ecol$p5<- as.factor(prac.ecol$p5, levels = c(1,0))
-# prac.ecol$p6<- as.factor(prac.ecol$p6, levels = c(1,0))
-# prac.ecol$p7<- as.factor(prac.ecol$p7, levels = c(1,0))
-# prac.ecol$p8<- as.factor(prac.ecol$p8, levels = c(1,0))
-# prac.ecol$p9<- as.factor(prac.ecol$p9, levels = c(1,0))
-# prac.ecol$p10<- as.factor(prac.ecol$p10, levels = c(1,0))
-# SCALE THE DATA for p1:p3??  # see note below on cfa 3 re: log of p1 (sfu)
+names(ecol.ind) <- c("e1","e2", "e3", "e4")
+
+
 
 ##############
 ##  RULES  ###
@@ -82,20 +81,14 @@ prac.ecol$p5[prac.ecol$p5<0]=NA
 r.cols <- c(826, 828)   # specifying the columns in the mor2 df
 rules<- mor2[, r.cols]
 names(rules) <- c("r1", "r2")  # timing, sfu
-
+factor(rules$r1)
+factor(rules$r2)
 #####################
 #  final dataframe  #
 #
-rpe <- cbind(ez, rules, prac.ecol)
+rpe <- cbind(ez, rules, practices,  ecol.ind)
 #
-#rpe <- rpe %>% select(-p1)  
-# pl or p1
 
-#rpe$r1<- ordered(rpe$r1, levels = c(0, 1, 2))
-#rpe$r2<- ordered(rpe$r2, levels = c(0, 1, 2))
-
-rpe$r1<- factor(rpe$r1)
-rpe$r2<- factor(rpe$r2)
 
 #####################
 ##   NORMALIZE    ###
@@ -103,31 +96,8 @@ rpe$r2<- factor(rpe$r2)
 rpe$pl <- as.numeric(log(rpe$p1+1))
 rpe$p3s<- as.numeric(log(rpe$p3+1))
 rpe$p2s <- as.numeric(log(rpe$p2+1))
-# ecol indicators
-rpe$e1s <- sqrt(rpe$e1)
-rpe$e2s <- sqrt(rpe$e2)
-# don't know what to do w e3 bc it's kind of bimodal
-# and e4 is also a hot mess...
 
-# prob should reorder the vars in rpe eventually too.
 
-rpe <- rename(rpe, RefNum = SocialSurveyReferenceNumber)
-rpe <-rename(rpe, ez = Ecologicalzone_4Code100)
-rpe$ez <- factor(rpe$ez)
 # see standardizing.R for normalizing standardized vars
 
 
-
-# if needed : 
-##############################
-##   SUBSET BY ECOLOG ZONE  ##
-# !!!!!!!!!!! these might be out of date.......!!!!!!!!!!!!
-# DS <- slice(rpe, 89: 121) # desert steppe
-# ST <- slice(rpe, 1:39) # typical steppe
-# ES <- slice(rpe, 122:130) # eastern steppe   -- n = 9
-# FMS <- slice(rpe, 40:88) # forest/mtn steppe
-
-
-#####################
-#
-# REORDERING THE R2 and Practices Vars...

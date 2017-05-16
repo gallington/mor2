@@ -10,8 +10,237 @@ library(semPlot)
 # INCORP 
 
 # USE THIS BELOW FOR QUICKLY COMPARING FIT MEASURES BTWN RUNS
-fitmsrs <- c("cfi", "rmsea", "rmsea.pvalue", "srmr")
+fitmsrs <- c("df","chisq", "cfi", "rmsea", "rmsea.pvalue", "srmr")
 
+
+# indiv measurement models starting at smaller scale:
+# migration: (mobility??)
+mig.mod <- 'migration =~ p2s + p3s + p4 +p5
+              p2s ~~ p3s
+              p4 ~~  p5'
+fit.mig <- cfa(mig.mod,
+               data = rpe.new, 
+               std.all = TRUE, 
+               ordered = c("p4", "p5")) 
+
+mig.mod <- 'migration =~ p4 +p5
+            '
+prac.mod.0<- 'practice =~ pl + p2s + p4 + p5 + p6 +p7 +p8 +p9 + p10'   # nope
+fit.prac0<- cfa(prac.mod.0, data = rpe.new, std.all = TRUE , 
+               meanstructure = TRUE)
+summary(fit.prac0, 
+        rsquare = T, 
+        standardized = T, 
+        fit.measures=T)
+
+prac.mod<- 'practice =~   p5 + p4 +p6 +p7 + p10'  
+fit.prac<- cfa(prac.mod, data = rpe.new, std.all = TRUE , 
+               meanstructure = TRUE)
+summary(fit.prac, 
+        rsquare = T, 
+        standardized = T, 
+        fit.measures=T)
+
+semPaths(fit.prac, whatLabels = "std", layout= "tree")
+
+#separate group models
+rpe.None <- subset(rpe.new, r1 == "None")
+rpe.Inf <- subset(rpe.new, r1 == "Informal")
+rpe.Form <- subset(rpe.new, r1 == "Formal")
+
+
+fit.prac.NoRule<- cfa(prac.mod, data = rpe.None, std.all = TRUE,  meanstructure = TRUE )
+fit.prac.Inf<- cfa(prac.mod, data = rpe.Inf, std.all = TRUE,  meanstructure = TRUE )
+fit.prac.Form<- cfa(prac.mod, data = rpe.Form, std.all = TRUE,  meanstructure = TRUE )
+
+summary(fit.prac.NoRule,
+        rsquare = T, 
+        standardized = T)
+fitmeasures(fit.prac.NoRule, fit.measures = fitmsrs)
+summary(fit.prac.Inf,
+        rsquare = T, 
+        standardized = T)
+fitmeasures(fit.prac.Inf, fit.measures = fitmsrs)
+summary(fit.prac.Form,
+        rsquare = T, 
+        standardized = T)
+fitmeasures(fit.prac.Form, fit.measures = fitmsrs)
+
+
+semPaths(fit.prac.r0, "std", residuals =FALSE, title = TRUE)
+title(main= "fit.prac.r0", add=TRUE)
+semPaths(fit.prac.r1, "std", residuals =FALSE, title = TRUE)
+title(main= "fit.prac.r1", add=TRUE)
+semPaths(fit.prac.r2, "std", residuals =FALSE, title = TRUE)
+title(main= "fit.prac.r2", add=TRUE)
+
+# now calc 
+# config invar -- nested model
+# can tell you if groups have the same structure
+config.prac.fit<- cfa(prac.mod, data = rpe.new, 
+                      #std.all = TRUE, 
+                      group = "r1",
+                      meanstructure = TRUE)
+summary(config.prac.fit, rsquare = T,standardized = T)
+fitmeasures(config.prac.fit, fit.measures = fitmsrs)
+
+semPaths(config.prac.fit, whatLabels = "std", layout= "tree")
+
+title(main= "Config Inv Test", add=TRUE, line = -3)
+
+# Metric Invariance test: 
+# let's u look at the loadings
+# constrains all the loadings/weights from manifest to latent are the same across groups, ask if data fit that model
+# OURS WILL SAY NO!!
+metric.prac.fit<- cfa(prac.mod, data = rpe.new, 
+                      #std.all = TRUE, 
+                      group = "r1",
+                      meanstructure = TRUE,
+                      group.equal = c("loadings"))
+summary(metric.prac.fit, rsquare = T,standardized = T)
+fitmeasures(metric.prac.fit, fit.measures = fitmsrs)
+semPaths(metric.prac.fit, whatLabels = "std", layout= "tree")
+title("Metric Inv fit", line = -3)
+# the (.p2.) etc. indicate how the vars were matched across the groups and all shoudl 
+# have same val for loading on the latent
+
+# scalar inv: 
+# this forces intercepts to be equal across groups
+# intercepts are basically the mean score/answer/value for each question
+scalar.prac.fit<- cfa(prac.mod, data = rpe.new, 
+                      #std.all = TRUE, 
+                      group = "r1",
+                      meanstructure = TRUE,
+                      group.equal = c("loadings", "intercepts"))
+summary(scalar.prac.fit, rsquare = T,standardized = T)
+fitmeasures(scalar.prac.fit, fit.measures = fitmsrs)
+# if take weights from metric inv (if models fits well) then multiply those weights 
+# by the answer to each Q, then you can calculate the latent mean
+# see other notes offline....
+
+# next step is parital inv (well, here it prob isn't bc it broke at metric, but just for an example
+#i'm going to keep going)
+
+# but first need to figure out where it broke down / what's the issue
+partialmod <- modindices(scalar.prac.fit)  # this saves as a list
+# so you can subset out diff things:
+#ls(partialmod)
+partialmod$op # this is the type of operation going on
+## RULES:
+# metric =~ loadings   <- use these to subset based on at which stage your model broke down
+# scalar ~1 intercepts
+# strict ~~ variances
+
+intercepts <- partialmod[partialmod$op == "~1",] # there aren't any!!
+# try to look at mis in general
+partialmod[order(partialmod$mi, decreasing = TRUE),]
+
+
+# partial invariance   ####### can't do this here bc there aren't any intercepts in the mod indices to change
+partscalar.prac.fit<- cfa(prac.mod, data = rpe.new, 
+                      #std.all = TRUE, 
+                      group = "r1",
+                      meanstructure = TRUE,
+                      group.equal = c("loadings", "intercepts"))
+summary(partscalar.prac.fit, rsquare = T,standardized = T)
+fitmeasures(partscalar.prac.fit, fit.measures = fitmsrs) 
+
+# specifying loadings in partial inv for metric doesn't change any of the fits..
+
+
+
+##################
+###  TO DO: #####
+# all of the above but with the ecol.ind latent....
+
+
+
+# grassland quality
+# w/ fs
+e.mod <- 'eco =~ gs +  fs+ bare.inv + ls
+          fs ~~ bare.inv'
+fit.eco <- cfa(e.mod, data=rpe.new, std.all = TRUE, meanstructure = TRUE)
+summary(fit.eco, rsquare = T, standardized = T, fit.measures=T)
+#fit.eco.grp <- cfa(e.mod, data=rpe.new, std.all = TRUE, group = "r1")
+#summary(fit.eco.grp, rsquare = T, standardized = T)
+fitmeasures(fit.eco, fit.measures = fitmsrs)
+# w/o fs :  SATURATED. NO DF REMAIN, CFA 1:
+# e.mod <- 'eco =~ gs +  bare.inv + ls'
+# fit.eco <- cfa(e.mod, data=rpe.new, std.all = TRUE)
+# summary(fit.eco, rsquare = T, standardized = T, fit.measures=T)
+# fit.eco.grp <- cfa(e.mod, data=rpe.new, std.all = TRUE, group = "r1")
+
+fit.eco.r0<- cfa(e.mod, data = rpe.r0, std.all = TRUE )
+fit.eco.r1<- cfa(e.mod, data = rpe.r1, std.all = TRUE )
+fit.eco.r2<- cfa(e.mod, data = rpe.r2, std.all = TRUE )
+
+summary(fit.eco.r0, rsquare = T,  standardized = T, fit.measures=T)
+summary(fit.eco.r1, rsquare = T, standardized = T,  fit.measures=T)
+summary(fit.eco.r2, rsquare = T,  standardized = T, fit.measures=T)
+
+semPaths(fit.eco.r0, "std", residuals =FALSE, title = TRUE)
+title("fit.eco.r0")
+semPaths(fit.eco.r1, "std", residuals =FALSE, title = TRUE)
+title(main= "fit.eco.r1")
+semPaths(fit.eco.r2, "std", residuals =FALSE, title = TRUE)
+title(main= "fit.eco.r2")
+
+# configural invariance:
+# can tell you if groups have the same structure
+config.eco.fit<- cfa(e.mod, data = rpe.new, 
+                      #std.all = TRUE, 
+                      group = "r1",
+                      meanstructure = TRUE)
+summary(config.eco.fit, rsquare = T,standardized = T)
+fitmeasures(config.eco.fit, fit.measures = fitmsrs)  # MODEL DOESN"T CONVERGE!!
+# sooooo def diff structure then??
+
+semPaths(config.eco.fit, whatLabels = "std", layout= "tree")
+title(main= "Config Inv Test", add=TRUE, line = -3)
+# *************************************************
+# why is the loading for bare in group 3 so HUGE??
+# *************************************************
+
+# can't calc modification indices bc didn't converge.....
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ord2 <- c("p4" , "p5", "p6" ,"p7" , "p10")
+mod  <- ' # measurement model
+              practice =~ p4 + p5 + p6 +p7 + p10
+              ecol.ind =~ gs + bare.inv + ls    # doesnt use fs
+          # regression
+              ecol.ind ~ practice
+              '
+# base two factor model: 
+fit.mod <- sem(mod,  data= rpe.new, std.lv = TRUE, ordered = ord2)
+summary(fit.mod, rsquare = T, standardized = T, fit.measures=T)
+semPaths(fit.mod, "std", layout= "circle", residuals = FALSE)
+
+
+fit.mod.grp <- sem(mod,  data= rpe.new, std.lv = TRUE, ordered = ord2, group = "r1")
+summary(fit.mod.grp, rsquare = T, standardized = T, fit.measures=T)
+semPaths(fit.mod.grp, "std", layout= "circle", residuals = FALSE)
+
+
+
+
+
+
+# DEPRECATED CODE AS OF: MAY 11 2017: keep for future reference
 # 4 Apr: created new rpe.st dataframe. editing below to use this.
 # info on new col names in rpe.st:
 #
@@ -53,7 +282,7 @@ prac.mod<- 'practice =~  p4 + p5 + p6 +p7 + p10'  # NOW we're getting somewhere.
 prac.mod2<- 'practice =~ p4 + p5 + p6 +p7 +p8 + p10'  # not as good if add back in p8
 prac.mod3<- 'practice =~ p4 + p5 + p6 +p7 +p9 + p10'  # also not as good.
 
-fit.prac.orig<- cfa(prac.mod.0, data = rpe.st, std.all = TRUE, ordered = c("p4", "p5", "p6","p7","p8","p9","p10"))
+fit.prac.orig<- cfa(prac.mod.orig, data = rpe.st, std.all = TRUE, ordered = c("p4", "p5", "p6","p7","p8","p9","p10"))
 fit.prac<- cfa(prac.mod, data = rpe.new, std.all = TRUE , ordered = c("p4", "p5", "p6","p7","p8","p9","p10"))
 fit.prac2<- cfa(prac.mod2, data = rpe.st, std.all = TRUE, ordered = c("p4", "p5", "p6","p7","p8","p9","p10"))
 fit.prac3<- cfa(prac.mod3, data = rpe.st, std.all = TRUE, ordered = c("p4", "p5", "p6","p7","p8","p9","p10"))
@@ -600,3 +829,27 @@ summary(fit.pe2,
         standardized = TRUE,
         fit.measures = TRUE)
 
+
+ord2 <- c("p4" , "p5", "p6" ,"p7" , "p10")
+mod  <- ' # measurement model
+              practice =~ p4 + p5 + p6 +p7 + p10
+              ecol.ind =~ gs + bare.inv + ls
+          # regressions
+              ecol.ind ~ practice
+              # ecol.ind ~ r1
+              # ecol.ind ~ ez
+              # r1 ~ ez
+              # practice ~ ez
+              '
+# base two factor model: 
+fit.mod <- sem(mod, 
+               data= rpe.new, 
+               std.lv = TRUE, 
+               ordered = ord2)
+
+summary(fit.mod, 
+        rsquare = T, 
+        standardized = T, 
+        fit.measures=T)
+
+semPaths(fit.mod, "std", layout= "circle", residuals = FALSE)
