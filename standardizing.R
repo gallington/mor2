@@ -179,18 +179,20 @@ rpe.new<- select(rpejoin, one_of(c("r1", "r2", "ez", "pl", "p2s", "p3s", "p4","p
 
 
 # 
-df<-as.data.frame(lapply(c("p4","p5", "p6", "p7","p8", "p9", "p10"), function(x) factor(rpe.new[[x]])))
+df<-as.data.frame(lapply(c("p4","p5", "p6", "p7","p8", "p9", "p10"), function(x) factor(rpe[[x]])))
 names(df)<- c("p4","p5", "p6", "p7","p8", "p9", "p10")
 
 for (i in 1:length(names(df))) {
+  #rpe.new[[names(df)[i]]] <- df[[i]]
   rpe.new[[names(df)[i]]] <- df[[i]]
 }
 
 rpe.new$r1<- ordered(rpe.new$r1,  labels= c("None", "Informal", "Formal"))
 rpe.new$ez<- ordered(rpe.new$ez, labels = c("Desert Steppe", "Steppe","Eastern Steppe", "FstMtn Steppe"))
 
-
-
+corrplot(hetcor(rpe.new)$cor, 
+         method = "number", tl.cex = 0.75,
+         number.cex = 0.75, order="hclust", addrect=2)
 
 # go through them systematically..... to explore ... 
 

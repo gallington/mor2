@@ -62,15 +62,19 @@ as.factor(practices$p10)
 # e1 <-  "PerGrassCover_percent" # [1528]
 # e2 <-  "PerForbCover_percent"  # [1529]
 # e3 <-  "BareSoil_percent"      # [1536]
+# e3 <-  "BasalCover_500"      # [1444]
 # e4 <-  "LitterCover_percent"   # [1538]
 
-e.cols <- c(1528, 1529, 1536, 1538)
+e.cols <- c(1528, 1529, 1444, 1538)
 ecol.ind<- mor2[, e.cols]
 
 # rename columns
 names(ecol.ind) <- c("e1","e2", "e3", "e4")
-
-
+# create cor matrix
+cor.ecol.ind<- cor(ecol.ind)
+corrplot(cor.ecol.ind, 
+         method = "number", tl.cex = 1,
+        number.cex = 1) #, order="hclust", addrect=2)
 
 ##############
 ##  RULES  ###
@@ -83,6 +87,8 @@ rules<- mor2[, r.cols]
 names(rules) <- c("r1", "r2")  # timing, sfu
 factor(rules$r1)
 factor(rules$r2)
+
+
 #####################
 #  final dataframe  #
 #
@@ -96,8 +102,61 @@ rpe <- cbind(ez, rules, practices,  ecol.ind)
 rpe$pl <- as.numeric(log(rpe$p1+1))
 rpe$p3s<- as.numeric(log(rpe$p3+1))
 rpe$p2s <- as.numeric(log(rpe$p2+1))
+rpe$e1s <- (log(rpe$e1+1))
+rpe$e2s <- (log(rpe$e2+1))
+rpe$e3s <- (log(rpe$e3+1))
+rpe$e4s <- (log(rpe$e4+1))
+# see standardizing.R for standardized vars by ecol zone
 
 
-# see standardizing.R for normalizing standardized vars
+rpe$r1<- ordered(rpe$r1,  labels= c("None", "Informal", "Formal"))
+rpe$ez<- ordered(rpe$ez, labels = c("Desert Steppe", "Steppe","Eastern Steppe", "FstMtn Steppe"))
+
+
+rpe.new$r1<- ordered(rpe.new$r1,  labels= c("None", "Informal", "Formal"))
+rpe.new$ez<- ordered(rpe.new$ez, labels = c("Desert Steppe", "Steppe","Eastern Steppe", "FstMtn Steppe"))
+
+
+# exploring correlation of rules vars:
+# From Maria:
+# I think the rules responses themselves are the best indicator of rule formality. 
+# In order to justify using the one rule question on timing as the basis, we could 
+# also do some simple cross tabs to see if groups that have formal rules on timing 
+# are also more likely to have other formal rules. 
+
+# make df of more rules vars:
+fullrules<- mor2 %>% select(q03_TimingRules3.3, 
+                   q05_StockNumRules3.5,
+                   q07_StockTypeRules3.7, 
+                   q09_HayCutRules3.9, 
+                   q11_WellUseRules3.11) %>%
+            rename(timing = q03_TimingRules3.3, 
+                   stocknum = q05_StockNumRules3.5,
+                   stocktype = q07_StockTypeRules3.7, 
+                   hay = q09_HayCutRules3.9, 
+                   wells = q11_WellUseRules3.11)
+
+# cross tabs of rules stuff:
+# contingency tables
+tsn<- table(fullrules$timing, fullrules$stocknum)
+tst<- table(fullrules$timing, fullrules$stocktype)
+th<- table(fullrules$timing, fullrules$hay)
+tw<- table(fullrules$timing, fullrules$wells)
+# all together flat matrix:
+fm<- ftable(fullrules)
+
+
+round(prop.table(tsn, 1),2)
+round(prop.table(tsn, 2),2)
+
+
+chisq.test(tsn)
+chisq.test(tst)
+chisq.test(th)
+chisq.test(tw)
+
+corrplot(hetcor(fullrules)$cor, 
+         type = "lower", method = "circle", order = "hclust", 
+         number.cex = 0.7, diag = FALSE)
 
 

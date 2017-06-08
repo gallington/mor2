@@ -2,17 +2,13 @@ library(lavaan)
 library(semPlot)
 # See input.vars.R script first to format and tidy the data: 
 # See standardizing.R script for code to standardize ecological variables
-# df w standardized vars is rpe.st
+# df w standardized vars is rpe.new
 
-# GROUPING"
-# ORDER EXOG?
-# need a third indicator for rules?
-# INCORP 
 
 # USE THIS BELOW FOR QUICKLY COMPARING FIT MEASURES BTWN RUNS
 fitmsrs <- c("df","chisq", "cfi", "rmsea", "rmsea.pvalue", "srmr")
 
-
+# NOT USING THIS RIGHT NOW SKIP DOWN
 # indiv measurement models starting at smaller scale:
 # migration: (mobility??)
 mig.mod <- 'migration =~ p2s + p3s + p4 +p5
@@ -20,11 +16,15 @@ mig.mod <- 'migration =~ p2s + p3s + p4 +p5
               p4 ~~  p5'
 fit.mig <- cfa(mig.mod,
                data = rpe.new, 
-               std.all = TRUE, 
-               ordered = c("p4", "p5")) 
+               std.all = TRUE,
+               meanstructure = TRUE) # woudl need to somehow standardize p2 and p3 first...
 
-mig.mod <- 'migration =~ p4 +p5
-            '
+mig.mod <- 'migration =~ p4 +p5'  # underspecified?
+
+
+# STARTS HERE NOW:
+
+# the model w all vars (doesn't work) dichotomous & continuous:            
 prac.mod.0<- 'practice =~ pl + p2s + p4 + p5 + p6 +p7 +p8 +p9 + p10'   # nope
 fit.prac0<- cfa(prac.mod.0, data = rpe.new, std.all = TRUE , 
                meanstructure = TRUE)
@@ -33,7 +33,8 @@ summary(fit.prac0,
         standardized = T, 
         fit.measures=T)
 
-prac.mod<- 'practice =~   p5 + p4 +p6 +p7 + p10'  
+# The model w just the dichotomous vars:
+prac.mod<- 'practice =~   p5 + p4 +p6 +p7 +p8 +p9+ p10'  
 fit.prac<- cfa(prac.mod, data = rpe.new, std.all = TRUE , 
                meanstructure = TRUE)
 summary(fit.prac, 
@@ -85,7 +86,7 @@ summary(config.prac.fit, rsquare = T,standardized = T)
 fitmeasures(config.prac.fit, fit.measures = fitmsrs)
 
 semPaths(config.prac.fit, whatLabels = "std", layout= "tree")
-
+semPaths(config.prac.fit, "std", layout= "tree", residuals = FALSE)
 title(main= "Config Inv Test", add=TRUE, line = -3)
 
 # Metric Invariance test: 
@@ -100,6 +101,7 @@ metric.prac.fit<- cfa(prac.mod, data = rpe.new,
 summary(metric.prac.fit, rsquare = T,standardized = T)
 fitmeasures(metric.prac.fit, fit.measures = fitmsrs)
 semPaths(metric.prac.fit, whatLabels = "std", layout= "tree")
+semPaths(metric.prac.fit, "std", layout= "tree")
 title("Metric Inv fit", line = -3)
 # the (.p2.) etc. indicate how the vars were matched across the groups and all shoudl 
 # have same val for loading on the latent
@@ -119,7 +121,7 @@ fitmeasures(scalar.prac.fit, fit.measures = fitmsrs)
 # see other notes offline....
 
 # next step is parital inv (well, here it prob isn't bc it broke at metric, but just for an example
-#i'm going to keep going)
+# i'm going to keep going)
 
 # but first need to figure out where it broke down / what's the issue
 partialmod <- modindices(scalar.prac.fit)  # this saves as a list
@@ -157,26 +159,43 @@ fitmeasures(partscalar.prac.fit, fit.measures = fitmsrs)
 
 # grassland quality
 # w/ fs
+# w non-standardized ecol data
+e.mod.orig <- 'eco =~ e1s +  e2s+ e3s + e4s'
+
+# w standardized ecol data 
 e.mod <- 'eco =~ gs +  fs+ bare.inv + ls
           fs ~~ bare.inv'
-fit.eco <- cfa(e.mod, data=rpe.new, std.all = TRUE, meanstructure = TRUE)
-summary(fit.eco, rsquare = T, standardized = T, fit.measures=T)
-#fit.eco.grp <- cfa(e.mod, data=rpe.new, std.all = TRUE, group = "r1")
-#summary(fit.eco.grp, rsquare = T, standardized = T)
+
+# w non-standardized ecol data:
+fit.eco.ns <- cfa(e.mod.orig, data=rpe, std.all = TRUE)     # not yet?, meanstructure = TRUE)
+summary(fit.eco.ns, rsquare = T, standardized = T)
+fitmeasures(fit.eco.ns, fit.measures = fitmsrs)
+# w standardized ecol data
+fit.eco <- cfa(e.mod, data=rpe.new, std.all = TRUE)     # not yet?, meanstructure = TRUE)
+summary(fit.eco, rsquare = T, standardized = T)
 fitmeasures(fit.eco, fit.measures = fitmsrs)
+
+fit.eco.grp <- cfa(e.mod, data=rpe.new, std.all = TRUE, group = "r1")  
+summary(fit.eco.grp, rsquare = T, standardized = T)
+fitmeasures(fit.eco.grp, fit.measures = fitmsrs)
 # w/o fs :  SATURATED. NO DF REMAIN, CFA 1:
 # e.mod <- 'eco =~ gs +  bare.inv + ls'
 # fit.eco <- cfa(e.mod, data=rpe.new, std.all = TRUE)
 # summary(fit.eco, rsquare = T, standardized = T, fit.measures=T)
 # fit.eco.grp <- cfa(e.mod, data=rpe.new, std.all = TRUE, group = "r1")
 
-fit.eco.r0<- cfa(e.mod, data = rpe.r0, std.all = TRUE )
-fit.eco.r1<- cfa(e.mod, data = rpe.r1, std.all = TRUE )
-fit.eco.r2<- cfa(e.mod, data = rpe.r2, std.all = TRUE )
+fit.eco.no<- cfa(e.mod, data = rpe.None, std.all = TRUE)
+fit.eco.inf<- cfa(e.mod, data = rpe.Inf, std.all = TRUE)
+fit.eco.form<- cfa(e.mod, data = rpe.Form, std.all = TRUE )
 
-summary(fit.eco.r0, rsquare = T,  standardized = T, fit.measures=T)
-summary(fit.eco.r1, rsquare = T, standardized = T,  fit.measures=T)
-summary(fit.eco.r2, rsquare = T,  standardized = T, fit.measures=T)
+summary(fit.eco.no, rsquare = T,  standardized = T)
+summary(fit.eco.inf, rsquare = T, standardized = T)
+summary(fit.eco.form, rsquare = T,  standardized = T)
+
+fitmeasures(fit.eco.no, fit.measures = fitmsrs) 
+fitmeasures(fit.eco.inf, fit.measures = fitmsrs) 
+fitmeasures(fit.eco.form, fit.measures = fitmsrs) 
+
 
 semPaths(fit.eco.r0, "std", residuals =FALSE, title = TRUE)
 title("fit.eco.r0")
@@ -192,21 +211,40 @@ config.eco.fit<- cfa(e.mod, data = rpe.new,
                       group = "r1",
                       meanstructure = TRUE)
 summary(config.eco.fit, rsquare = T,standardized = T)
-fitmeasures(config.eco.fit, fit.measures = fitmsrs)  # MODEL DOESN"T CONVERGE!!
-# sooooo def diff structure then??
+fitmeasures(config.eco.fit, fit.measures = fitmsrs)  # good cfi and srmr but poor rmsea
+# sooo what does this tell us about structure across groups?
 
 semPaths(config.eco.fit, whatLabels = "std", layout= "tree")
 title(main= "Config Inv Test", add=TRUE, line = -3)
-# *************************************************
-# why is the loading for bare in group 3 so HUGE??
-# *************************************************
+# 
 
-# can't calc modification indices bc didn't converge.....
+# Metric Invariance:
+metric.eco.fit<- cfa(e.mod, data = rpe.new, 
+                      #std.all = TRUE, 
+                      group = "r1",
+                      meanstructure = TRUE,
+                      group.equal = c("loadings"))
+summary(metric.eco.fit, rsquare = T,standardized = T)
+fitmeasures(metric.eco.fit, fit.measures = fitmsrs)
+semPaths(metric.eco.fit, whatLabels = "std", layout= "tree")
+title("Metric Inv fit", line = -3)
 
+partial.eco.mod <- modindices(metric.eco.fit) 
+# 
+# 
 
+#fs ~~       ls
 
+# these just give you chi-sq test results to see if diff, so really
+# is better to do all the above steps, OR the next step.
+lav.test<- lavTestLRT(config.prac.fit, metric.prac.fit)
+lav.test.eco<- lavTestLRT(config.eco.fit, metric.eco.fit)
 
-
+# ********************************************************************#
+# MSRMT INVAR -----
+# just cut to the chase:
+prac.mi.e<- measurementInvariance(e.mod, data= rpe.new, group= "r1")
+prac.mi.p<- measurementInvariance(prac.mod, data=rpe.new, group="r1")
 
 
 
