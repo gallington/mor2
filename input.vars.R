@@ -19,9 +19,9 @@ tbl_df(mor2)
 ###################
 # Ecological Zone #
 # 1 = "DS", # desert steppeRef nos.
-ez <- select(mor2, ez = EcologicalZone_4Code, RefNum = SocialSurveyReferenceNumber) 
- 
-ez$ez <- ordered(ez$ez)
+ez <- select(mor2, ez = EcologicalZone_4Code, RefNum = SocialSurveyReferenceNumber, CBRM= CBRM, CBRM_type = CBRM_type) 
+#rpe%<>%mutate_at(4:6, funs(ordered(.))) 
+#ez$ez <- ordered(ez$ez, ez$CBRM_type)
 
 
 
@@ -49,32 +49,22 @@ names(practices)<- c("p1","p2","p3", "p4", "p5","p6", "p7", "p8", "p9", "p10")
 practices$p8[practices$p8<0]=NA   # change -99 to NA
 practices$p5[practices$p5<0]=NA
 
-as.factor(practices$p4)
-as.factor(practices$p5)
-as.factor(practices$p6)
-as.factor(practices$p7)
-as.factor(practices$p8)
-as.factor(practices$p9)
-as.factor(practices$p10)
+
 #############################
 ##  ECOLOGICAL INDICATORS:  #
 # rename columns to 
 # e1 <-  "PerGrassCover_percent" # [1528]
 # e2 <-  "PerForbCover_percent"  # [1529]
 # e3 <-  "BareSoil_percent"      # [1536]
-# e3 <-  "BasalCover_500"      # [1444]
 # e4 <-  "LitterCover_percent"   # [1538]
 
-e.cols <- c(1528, 1529, 1444, 1538)
+e.cols <- c(1528, 1529, 1536, 1538)
 ecol.ind<- mor2[, e.cols]
 
 # rename columns
 names(ecol.ind) <- c("e1","e2", "e3", "e4")
-# create cor matrix
-cor.ecol.ind<- cor(ecol.ind)
-corrplot(cor.ecol.ind, 
-         method = "number", tl.cex = 1,
-        number.cex = 1) #, order="hclust", addrect=2)
+
+
 
 ##############
 ##  RULES  ###
@@ -88,12 +78,21 @@ names(rules) <- c("r1", "r2")  # timing, sfu
 factor(rules$r1)
 factor(rules$r2)
 
+################################
+# all cols pulled together
+r.cols <- c(826, 828)
+p.cols <- c(605, 125,126,129:132, 134, 136, 138)
+e.cols <- c(1528, 1529, 1536, 1538)
 
 #####################
 #  final dataframe  #
 #
 rpe <- cbind(ez, rules, practices,  ecol.ind)
+rpe%<>%mutate_at(c(3,10:16), funs(factor(.)))
+rpe%<>%mutate_at(4:6, funs(ordered(.)))
 #
+
+
 
 
 #####################
@@ -102,61 +101,59 @@ rpe <- cbind(ez, rules, practices,  ecol.ind)
 rpe$pl <- as.numeric(log(rpe$p1+1))
 rpe$p3s<- as.numeric(log(rpe$p3+1))
 rpe$p2s <- as.numeric(log(rpe$p2+1))
-rpe$e1s <- (log(rpe$e1+1))
-rpe$e2s <- (log(rpe$e2+1))
-rpe$e3s <- (log(rpe$e3+1))
-rpe$e4s <- (log(rpe$e4+1))
-# see standardizing.R for standardized vars by ecol zone
+#transformed but not standardized to ecol.zone
+rpe$grass<- as.numeric(log(rpe$e1+1))
+rpe$forb<- as.numeric(log(rpe$e2+1))
+rpe$bare.inv<- as.numeric(sqrt(100-rpe$e3))
+rpe$litter<- as.numeric(log(rpe$e4+1))
+
+# see standardizing.R for normalizing standardized vars
+
+# tenure rights 
+hhrts <- mor2 %>%
+  select(A_UsWtrCamp,
+         A_UsWtrPast,
+         A_UsSepSprCS,
+         A_UsSepSprPas,
+         A_SepDzud,
+         A_HayCutFld)%>%
+  rename(Wcmp = A_UsWtrCamp,
+         Wpast = A_UsWtrPast,
+         Sprcmp = A_UsSepSprCS,
+         SprPast= A_UsSepSprPas,
+         DzPast= A_SepDzud,
+         HayFld = A_HayCutFld)
+hhrts%<>%mutate_at(1:6, funs(factor(.)))
+hhcont<- mor2 %>%
+  select(B_ContractWtrCamp,
+         B_ContractWtrPast,
+         B_ContractSprCamp,
+         B_ContractSprPast,
+         B_ContractDzud,
+         B_ContractHayCut)%>%
+  rename(ContractWtrCamp = B_ContractWtrCamp,
+         ContractWtrPast = B_ContractWtrPast,
+         ContractSprCamp = B_ContractSprCamp,
+         ContractSprPast = B_ContractSprPast,
+         ContractDzud = B_ContractDzud,
+         ContractHayCut = B_ContractHayCut)
+hhcont%<>%mutate_at(1:6, funs(ordered(.)))
+
+# trespassing 
+olu<- as.factor(mor2$q24_OtherLandUsers)   # from org level survey
+oail<- as.factor(mor2$AnotherAilLSOnPast)  # from HH survey
+rpetr<- cbind(rpe.new, olu, oail, hhcont)  # add to rpe.new
+
+# getting errors bc of "empty categories"
+contord<- c("ContractWtrCamp","ContractWtrPast","ContractSprCamp","ContractSprPast", "ContractDzud", "ContractHayCut")
+#tenure->pract
+tp.mod<- 'tenure=~ 1*ContractWtrCamp+ContractWtrPast+ContractSprCamp+ContractSprPast+ ContractDzud+ContractHayCut
+          practice =~ p4 + p5 + p6+ p7 + p9 + p10'
+
+tp.fit<- sem(tp.mod, data= rpetr, ordered = contord)
 
 
-rpe$r1<- ordered(rpe$r1,  labels= c("None", "Informal", "Formal"))
-rpe$ez<- ordered(rpe$ez, labels = c("Desert Steppe", "Steppe","Eastern Steppe", "FstMtn Steppe"))
 
 
-rpe.new$r1<- ordered(rpe.new$r1,  labels= c("None", "Informal", "Formal"))
-rpe.new$ez<- ordered(rpe.new$ez, labels = c("Desert Steppe", "Steppe","Eastern Steppe", "FstMtn Steppe"))
 
-
-# exploring correlation of rules vars:
-# From Maria:
-# I think the rules responses themselves are the best indicator of rule formality. 
-# In order to justify using the one rule question on timing as the basis, we could 
-# also do some simple cross tabs to see if groups that have formal rules on timing 
-# are also more likely to have other formal rules. 
-
-# make df of more rules vars:
-fullrules<- mor2 %>% select(q03_TimingRules3.3, 
-                   q05_StockNumRules3.5,
-                   q07_StockTypeRules3.7, 
-                   q09_HayCutRules3.9, 
-                   q11_WellUseRules3.11) %>%
-            rename(timing = q03_TimingRules3.3, 
-                   stocknum = q05_StockNumRules3.5,
-                   stocktype = q07_StockTypeRules3.7, 
-                   hay = q09_HayCutRules3.9, 
-                   wells = q11_WellUseRules3.11)
-
-# cross tabs of rules stuff:
-# contingency tables
-tsn<- table(fullrules$timing, fullrules$stocknum)
-tst<- table(fullrules$timing, fullrules$stocktype)
-th<- table(fullrules$timing, fullrules$hay)
-tw<- table(fullrules$timing, fullrules$wells)
-# all together flat matrix:
-fm<- ftable(fullrules)
-
-
-round(prop.table(tsn, 1),2)
-round(prop.table(tsn, 2),2)
-
-
-chisq.test(tsn)
-chisq.test(tst)
-chisq.test(th)
-chisq.test(tw)
-
-corrplot(hetcor(fullrules)$cor, 
-         type = "lower", method = "circle", order = "hclust", 
-         number.cex = 0.7, diag = FALSE)
-
-
+######

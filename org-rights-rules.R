@@ -32,9 +32,8 @@ territory <- mor2.hhs %>%
 
 # tenure vars  ---------------
 # pull these from HH level --> not ORG level. [maria says more reliable]
-# THESE ARE THE ORG LEVEL ANSWERS
-# And most(all?) do not have any for level 3
-rights <- mor2.hhs %>%
+# org level
+orgrights <- mor2.hhs %>%
   select(contains("q02a_Right")) %>%
   rename(WintPastRights = q02a_RightNatWintPast,
          SpringPastRights = q02a_RightNatSpringPast,
@@ -45,7 +44,43 @@ rights <- mor2.hhs %>%
          MechWellRights = q02a_RightNatMechWell,
          SpringsRights = q02a_RightNatSprings)
 
-## org level 
+## hh level
+tbl_df(mor2.hhs)
+hhrights <- mor2.hhs %>%
+    select(A_UsWtrCamp,
+           A_UsWtrPast,
+           A_UsSepSprCS,
+           A_UsSepSprPas,
+           A_SepDzud,
+           A_HayCutFld)%>%
+    rename(Wcmp = A_UsWtrCamp,
+           Wpast = A_UsWtrPast,
+           Sprcmp = A_UsSepSprCS,
+           SprPast= A_UsSepSprPas,
+           DzPast= A_SepDzud,
+           HayFld = A_HayCutFld)
+hhrights%<>%mutate_at(1:6, funs(factor(.)))
+
+hhcontract<- mor2.hhs %>%
+    select(B_ContractWtrCamp,
+           B_ContractWtrPast,
+           B_ContractSprCamp,
+           B_ContractSprPast,
+           B_ContractDzud,
+           B_ContractHayCut)%>%
+    rename(ContractWtrCamp = B_ContractWtrCamp,
+           ContractWtrPast = B_ContractWtrPast,
+           ContractSprCamp = B_ContractSprCamp,
+           ContractSprPast = B_ContractSprPast,
+           ContractDzud = B_ContractDzud,
+           ContractHayCut = B_ContractHayCut)
+hhcontract%<>%mutate_at(1:6, funs(factor(.)))
+
+
+
+pr0 <- mor2.hhs[which(mor2.hhs$A_UsWtrCamp=="None"),2:10]
+
+           
 # rules -------------------
  
         # GroupJoinifY = q07_GroupJoinRules_ifyes)
@@ -154,9 +189,17 @@ orr <- data.frame(cbrm.ez, territory, rights, fullrules, compliance, aware) #, m
 fcols<- c(2:4, 8:28)
 orr[, fcols] <- lapply(orr[, fcols], as.factor)
 
-orr %<>% mutate_at(cols, funs(factor(.)))
-varTable()
+orr %<>% mutate_at(2, funs(factor(.)))
+orr %<>% mutate_at(3:4, funs(ordered(.)))
+varTable(orr)
 #orr %<>% mutate(GroupJoinRule =  "is.na<-"(GroupJoinifY, GroupJoinifY == -99))
+
+orr$TimingRules<- ordered(orr$TimingRules,  labels= c("None", "Informal", "Formal"))
+orr$Ecologicalzone_4<- ordered(orr$Ecologicalzone_4, labels = c("Desert Steppe", "Steppe","Eastern Steppe", "FstMtn Steppe"))
+
+
+
+
 
 # orr predictor vars only
 orr.pred <- orr[2:28]
@@ -380,6 +423,7 @@ summary(fittheme,
         fit.measures=T)
 # this has the best fit yet
 semPaths(fittheme, whatLabels = "std")
+
 # BUT getting negative variance/Heywood case on the totaldist variable. 
 
 moddzlink2 <- 'mobility =~ 1*logtotdist + logavdist  
@@ -389,12 +433,15 @@ moddzlink2 <- 'mobility =~ 1*logtotdist + logavdist
              rsvDz ~~ gzDzd       # modindicies suggests these are linked
              rsvW ~~  gzW_SF      # as does the earlier EFA
             '
-fitdzlink2 <- cfa(moddzlink2, data = practice.hhs, std.all = TRUE) #  
+fitdzlink2 <- cfa(moddzlink2, data = practice.hhs, std.all = TRUE) # 
+
 summary(fitdzlink2, 
         rsquare = T, 
         standardized = T, 
         fit.measures=T)
-
+semPaths(fitdzlink2,  nCharNodes= 0, "std",
+         whatLabels = "std", layout= "spring", 
+         residuals = FALSE, intercepts = FALSE, edge.label.cex=0.9)
 # Let's look at these by separate Rules groups:
 fitthemer0 <- cfa(modtheme, data = pr0, std.all = TRUE)  
 fitthemer1 <- cfa(modtheme, data = pr1, std.all = TRUE)  
@@ -403,13 +450,11 @@ fitthemer2 <- cfa(modtheme, data = pr2, std.all = TRUE)
 summary(#fitthemer0,
         #fitthemer1,
        fitthemer2,
-        rsquare = T, 
-        standardized = T, 
-        fit.measures=T)
+        rsquare = T, standardized = T, fit.measures=T)
 
+# Now look at 4 factor practices by ecological zone:
 
-# RIGHTS CFA
-rord<- c("CutHayRights", "MechWellRights")
-rights2fmod<- 'f1 =~ 1*WintPastRights + SpringPastRights + DzudPastRights+ FallPastRights+ MechWellRights+CutHayRights
-             f2 =~ 1*HandWellRights+SpringsRights'
-fit.rights<- cfa(rights2fmod, data=rights, ordered = rord)
+orr.ezs<- filter(orr, Ecologicalzone_4 != "Eastern Steppe")
+fitdz.ez <- cfa(modtheme, data = orr.ezs, 
+                  std.all = TRUE, group = "Ecologicalzone_4") #
+summary(fitdz.ez, standardized = TRUE, fit.measures = TRUE)

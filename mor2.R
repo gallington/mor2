@@ -22,16 +22,14 @@ ecol <- select(ecol, -10)
 ecol <- select(ecol, -9)
 #ecol <- select(ecol, -CrudeProtein_percent_Mean500_1000)
 #shorten the variable names
-names(ecol) = sub(pattern = "Mean500_1000", replacement = "", x = names(ecol))
+names(ecol) = sub(pattern = "_Mean500_1000", replacement = "", x = names(ecol))
 # create cor matrix
 cor.ecol<- cor(ecol)
 # plot it
 corrplot(cor.ecol, method="ellipse", tl.cex = 0.5, type = "upper") #tl.pos = "td",
 corrplot.mixed(cor.ecol, tl.cex = 0.5)
 corrplot(cor.ecol, order="hclust", addrect=2, tl.cex = 0.5)
-corrplot(cor.ecol, 
-         method = "number", tl.cex = 0.75,
-         number.cex = 0.75, order="hclust", addrect=2)
+
 # Do similar to above, but w data subdivided by ecological group:
 # EcologicalZone_4Name or Code
 #DS<- mor2 %>% group_by("Ecologicalzone_4Code100")   # 1339

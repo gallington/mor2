@@ -2,13 +2,17 @@ library(lavaan)
 library(semPlot)
 # See input.vars.R script first to format and tidy the data: 
 # See standardizing.R script for code to standardize ecological variables
-# df w standardized vars is rpe.new
+# df w standardized vars is rpe.st
 
+# GROUPING"
+# ORDER EXOG?
+# need a third indicator for rules?
+# INCORP 
 
 # USE THIS BELOW FOR QUICKLY COMPARING FIT MEASURES BTWN RUNS
 fitmsrs <- c("df","chisq", "cfi", "rmsea", "rmsea.pvalue", "srmr")
 
-# NOT USING THIS RIGHT NOW SKIP DOWN
+
 # indiv measurement models starting at smaller scale:
 # migration: (mobility??)
 mig.mod <- 'migration =~ p2s + p3s + p4 +p5
@@ -16,15 +20,11 @@ mig.mod <- 'migration =~ p2s + p3s + p4 +p5
               p4 ~~  p5'
 fit.mig <- cfa(mig.mod,
                data = rpe.new, 
-               std.all = TRUE,
-               meanstructure = TRUE) # woudl need to somehow standardize p2 and p3 first...
+               std.all = TRUE, 
+               ordered = c("p4", "p5")) 
 
-mig.mod <- 'migration =~ p4 +p5'  # underspecified?
-
-
-# STARTS HERE NOW:
-
-# the model w all vars (doesn't work) dichotomous & continuous:            
+mig.mod <- 'migration =~ p4 +p5
+            '
 prac.mod.0<- 'practice =~ pl + p2s + p4 + p5 + p6 +p7 +p8 +p9 + p10'   # nope
 fit.prac0<- cfa(prac.mod.0, data = rpe.new, std.all = TRUE , 
                meanstructure = TRUE)
@@ -32,24 +32,35 @@ summary(fit.prac0,
         rsquare = T, 
         standardized = T, 
         fit.measures=T)
-
-# The model w just the dichotomous vars:
-prac.mod<- 'practice =~   p5 + p4 +p6 +p7 +p8 +p9+ p10'  
+##################
+prac.mod<- 'practice =~   p5 + p4 +p6 +p7 + p10'  
 fit.prac<- cfa(prac.mod, data = rpe.new, std.all = TRUE , 
                meanstructure = TRUE)
-summary(fit.prac, 
+fit.prac.ez<- cfa(prac.mod, data=rpe.ezs, std.all = TRUE, group = "ez")
+
+###################
+# THIS IS THE BEST ONE:
+prac.3fmod <- ' seas.migr =~ 1*p3s + p2s + p10
+          otor =~ 1*p4 + p5 + p9
+          resv.past =~ 1*p7 + p6 + p8 + pl'
+
+fit.prac3f<- cfa(prac.3fmod, data = rpe.new, std.all = TRUE)
+summary(fit.prac3f, 
         rsquare = T, 
         standardized = T, 
         fit.measures=T)
 
-semPaths(fit.prac, whatLabels = "std", layout= "tree")
+semPaths(fit.prac3f, nCharNodes= 0, whatLabels = "std", layout= "tree", residuals = FALSE)
+
+#fit.prac3fez<- cfa(prac.3fmod, data = rpe.ezs, std.all = TRUE, group = "ez")
+# didn't converge
 
 #separate group models
 rpe.None <- subset(rpe.new, r1 == "None")
 rpe.Inf <- subset(rpe.new, r1 == "Informal")
 rpe.Form <- subset(rpe.new, r1 == "Formal")
 
-
+# don't converge if do w 3 factor models:
 fit.prac.NoRule<- cfa(prac.mod, data = rpe.None, std.all = TRUE,  meanstructure = TRUE )
 fit.prac.Inf<- cfa(prac.mod, data = rpe.Inf, std.all = TRUE,  meanstructure = TRUE )
 fit.prac.Form<- cfa(prac.mod, data = rpe.Form, std.all = TRUE,  meanstructure = TRUE )
@@ -86,7 +97,7 @@ summary(config.prac.fit, rsquare = T,standardized = T)
 fitmeasures(config.prac.fit, fit.measures = fitmsrs)
 
 semPaths(config.prac.fit, whatLabels = "std", layout= "tree")
-semPaths(config.prac.fit, "std", layout= "tree", residuals = FALSE)
+
 title(main= "Config Inv Test", add=TRUE, line = -3)
 
 # Metric Invariance test: 
@@ -101,7 +112,6 @@ metric.prac.fit<- cfa(prac.mod, data = rpe.new,
 summary(metric.prac.fit, rsquare = T,standardized = T)
 fitmeasures(metric.prac.fit, fit.measures = fitmsrs)
 semPaths(metric.prac.fit, whatLabels = "std", layout= "tree")
-semPaths(metric.prac.fit, "std", layout= "tree")
 title("Metric Inv fit", line = -3)
 # the (.p2.) etc. indicate how the vars were matched across the groups and all shoudl 
 # have same val for loading on the latent
@@ -121,7 +131,7 @@ fitmeasures(scalar.prac.fit, fit.measures = fitmsrs)
 # see other notes offline....
 
 # next step is parital inv (well, here it prob isn't bc it broke at metric, but just for an example
-# i'm going to keep going)
+#i'm going to keep going)
 
 # but first need to figure out where it broke down / what's the issue
 partialmod <- modindices(scalar.prac.fit)  # this saves as a list
@@ -159,50 +169,64 @@ fitmeasures(partscalar.prac.fit, fit.measures = fitmsrs)
 
 # grassland quality
 # w/ fs
-# w non-standardized ecol data
-e.mod.orig <- 'eco =~ e1s +  e2s+ e3s + e4s'
-
-# w standardized ecol data 
 e.mod <- 'eco =~ gs +  fs+ bare.inv + ls
           fs ~~ bare.inv'
-
-# w non-standardized ecol data:
-fit.eco.ns <- cfa(e.mod.orig, data=rpe, std.all = TRUE)     # not yet?, meanstructure = TRUE)
-summary(fit.eco.ns, rsquare = T, standardized = T)
-fitmeasures(fit.eco.ns, fit.measures = fitmsrs)
-# w standardized ecol data
-fit.eco <- cfa(e.mod, data=rpe.new, std.all = TRUE)     # not yet?, meanstructure = TRUE)
-summary(fit.eco, rsquare = T, standardized = T)
+fit.eco <- cfa(e.mod, data=rpe.new, std.all = TRUE)#, meanstructure = TRUE)
+summary(fit.eco, rsquare = T, standardized = T, fit.measures=T)
+semPaths(fit.eco, nCharNodes= 0, 
+         whatLabels = "std", layout= "tree", 
+         residuals = FALSE, edge.label.cex=0.9)
+#fit.eco.grp <- cfa(e.mod, data=rpe.new, std.all = TRUE, group = "r1")
+#summary(fit.eco.grp, rsquare = T, standardized = T)
 fitmeasures(fit.eco, fit.measures = fitmsrs)
-
-fit.eco.grp <- cfa(e.mod, data=rpe.new, std.all = TRUE, group = "r1")  
-summary(fit.eco.grp, rsquare = T, standardized = T)
-fitmeasures(fit.eco.grp, fit.measures = fitmsrs)
 # w/o fs :  SATURATED. NO DF REMAIN, CFA 1:
 # e.mod <- 'eco =~ gs +  bare.inv + ls'
 # fit.eco <- cfa(e.mod, data=rpe.new, std.all = TRUE)
 # summary(fit.eco, rsquare = T, standardized = T, fit.measures=T)
 # fit.eco.grp <- cfa(e.mod, data=rpe.new, std.all = TRUE, group = "r1")
 
-fit.eco.no<- cfa(e.mod, data = rpe.None, std.all = TRUE)
-fit.eco.inf<- cfa(e.mod, data = rpe.Inf, std.all = TRUE)
-fit.eco.form<- cfa(e.mod, data = rpe.Form, std.all = TRUE )
+fit.eco.r0<- cfa(e.mod, data = rpe.None, std.all = TRUE )
+fit.eco.r1<- cfa(e.mod, data = rpe.Inf, std.all = TRUE )
+fit.eco.r2<- cfa(e.mod, data = rpe.Form, std.all = TRUE )
 
-summary(fit.eco.no, rsquare = T,  standardized = T)
-summary(fit.eco.inf, rsquare = T, standardized = T)
-summary(fit.eco.form, rsquare = T,  standardized = T)
+summary(fit.eco.r0, rsquare = T,  standardized = T, fit.measures=T)
+summary(fit.eco.r1, rsquare = T, standardized = T,  fit.measures=T)
+summary(fit.eco.r2, rsquare = T,  standardized = T, fit.measures=T)
 
-fitmeasures(fit.eco.no, fit.measures = fitmsrs) 
-fitmeasures(fit.eco.inf, fit.measures = fitmsrs) 
-fitmeasures(fit.eco.form, fit.measures = fitmsrs) 
+semPaths(fit.eco.r0, nCharNodes= 0, 
+         whatLabels = "std", layout= "tree", 
+         residuals = FALSE, edge.label.cex=0.9, curvePivot = TRUE)
+title("No Rules", line= -1)
+semPaths(fit.eco.r1, nCharNodes= 0, 
+         whatLabels = "std", layout= "tree", 
+         residuals = FALSE, edge.label.cex=0.9, curvePivot = TRUE)
+title(main= "Informal Rules", line= -1)
+semPaths(fit.eco.r2, nCharNodes= 0, 
+         whatLabels = "std", layout= "tree", 
+         residuals = FALSE, edge.label.cex=0.9, curvePivot = TRUE)
+title(main= "Formal Rules", line= -1)
 
+# across ecol.zones.....
+rpe.DS<- filter(rpe.new, ez == "Desert Steppe")
+rpe.St<- filter(rpe.new, ez == "Steppe")
+rpe.FMS<-filter(rpe.new, ez == "FstMtn Steppe")
 
-semPaths(fit.eco.r0, "std", residuals =FALSE, title = TRUE)
-title("fit.eco.r0")
-semPaths(fit.eco.r1, "std", residuals =FALSE, title = TRUE)
-title(main= "fit.eco.r1")
-semPaths(fit.eco.r2, "std", residuals =FALSE, title = TRUE)
-title(main= "fit.eco.r2")
+fit.eco.DS<- cfa(e.mod, data = rpe.DS, std.all = TRUE )
+fit.eco.St<- cfa(e.mod, data = rpe.St, std.all = TRUE )
+fit.eco.FMS<- cfa(e.mod, data = rpe.FMS, std.all = TRUE )
+
+semPaths(fit.eco.DS, nCharNodes= 0, 
+         whatLabels = "std", layout= "tree", 
+         residuals = FALSE, edge.label.cex=0.9, curvePivot = TRUE)
+title("Desert Steppe", line= -1)
+semPaths(fit.eco.St, nCharNodes= 0, 
+         whatLabels = "std", layout= "tree", 
+         residuals = FALSE, edge.label.cex=0.9, curvePivot = TRUE)
+title(main= "Steppe", line= -1)
+semPaths(fit.eco.FMS, nCharNodes= 0, 
+         whatLabels = "std", layout= "tree", 
+         residuals = FALSE, edge.label.cex=0.9, curvePivot = TRUE)
+title(main= "FM Steppe", line= -1)
 
 # configural invariance:
 # can tell you if groups have the same structure
@@ -211,48 +235,19 @@ config.eco.fit<- cfa(e.mod, data = rpe.new,
                       group = "r1",
                       meanstructure = TRUE)
 summary(config.eco.fit, rsquare = T,standardized = T)
-fitmeasures(config.eco.fit, fit.measures = fitmsrs)  # good cfi and srmr but poor rmsea
-# sooo what does this tell us about structure across groups?
+fitmeasures(config.eco.fit, fit.measures = fitmsrs)  # MODEL DOESN"T CONVERGE!!
+# sooooo def diff structure then??
 
 semPaths(config.eco.fit, whatLabels = "std", layout= "tree")
 title(main= "Config Inv Test", add=TRUE, line = -3)
-# 
+# *************************************************
+# why is the loading for bare in group 3 so HUGE??
+# *************************************************
 
-# Metric Invariance:
-metric.eco.fit<- cfa(e.mod, data = rpe.new, 
-                      #std.all = TRUE, 
-                      group = "r1",
-                      meanstructure = TRUE,
-                      group.equal = c("loadings"))
-summary(metric.eco.fit, rsquare = T,standardized = T)
-fitmeasures(metric.eco.fit, fit.measures = fitmsrs)
-semPaths(metric.eco.fit, whatLabels = "std", layout= "tree")
-title("Metric Inv fit", line = -3)
+# can't calc modification indices bc didn't converge.....
 
-partial.eco.mod <- modindices(metric.eco.fit) 
-# 
-# 
-
-#fs ~~       ls
-
-# these just give you chi-sq test results to see if diff, so really
-# is better to do all the above steps, OR the next step.
-lav.test<- lavTestLRT(config.prac.fit, metric.prac.fit)
-lav.test.eco<- lavTestLRT(config.eco.fit, metric.eco.fit)
-
-# ********************************************************************#
-# MSRMT INVAR -----
-# just cut to the chase:
-prac.mi.e<- measurementInvariance(e.mod, data= rpe.new, group= "r1")
-prac.mi.p<- measurementInvariance(prac.mod, data=rpe.new, group="r1")
-
-
-
-
-
-
-
-
+# NEED TO LOOK AT ALL OF THESE WITH THE ECOL ZONE AS GROUPING!
+# BC not signif msrmt vars in to ecol.ind in sem below for Desert Steppe...
 
 
 
@@ -266,12 +261,69 @@ mod  <- ' # measurement model
 # base two factor model: 
 fit.mod <- sem(mod,  data= rpe.new, std.lv = TRUE, ordered = ord2)
 summary(fit.mod, rsquare = T, standardized = T, fit.measures=T)
-semPaths(fit.mod, "std", layout= "circle", residuals = FALSE)
+semPaths(fit.mod,  nCharNodes= 0, "std",
+         whatLabels = "std", layout= "tree", 
+         residuals = FALSE, intercepts = FALSE, edge.label.cex=1)
 
-
+mod.grp  <- ' # measurement model
+              practice =~ p4 + p5 + p6 +p7 + p10
+              #ecol.ind =~ grass + forb + bare.inv + litter
+              ecol.ind =~ e1 + e2 + e3 + e4
+              # regression
+              ecol.ind ~ practice
+            '
 fit.mod.grp <- sem(mod,  data= rpe.new, std.lv = TRUE, ordered = ord2, group = "r1")
-summary(fit.mod.grp, rsquare = T, standardized = T, fit.measures=T)
-semPaths(fit.mod.grp, "std", layout= "circle", residuals = FALSE)
+
+rpe.ezs<- filter(rpe.new, ez != "Eastern Steppe")
+
+fit.mod.grp <- cfa(mod,  data= rpe.ezs, std.lv = TRUE,  group = "ez")
+summary(fit.mod.grp, standardized = TRUE, fit.measures=T)
+semPaths(fit.mod.grp, whatLabels= "std", layout= "tree", 
+         residuals = FALSE, nCharNodes = 0,
+         title= TRUE,edge.label.cex = 0.9 )
+semPaths(fit.mod.grp, "std", edge.label.cex = 0.9, curvePivot = TRUE, layout = "tree")
+
+# with group = ez
+# first remove Eastern Steppe
+rpe.ezs<- filter(rpe, ez != "Eastern Steppe")
+rpe.ezs%<>%mutate_at(8:14, funs(factor(.)))
+cols<- c(1,8:11,14,22:25)
+rpe.ezs.suc<- dplyr::select(rpe.ezs, c(1,8:18))
+# fit with the data that just used transformed but not standardized ecol vars
+
+# NOT WORKING!!!!!!!!!!
+fit.mod.grp <- sem(mod.grp,  data= rpe.ezs.suc, 
+                   std.lv = TRUE, 
+                   ordered = "ez", 
+                   group = "ez")
+# get error bc sample covriance metric is not pos-def
+# if try to use the non-standardized ecol vars.
+excol<- c(8:11,14)
+cor.ez<- hetcor(rpe.ezs[,excol])
+
+
+# group = CBRM
+#
+fit.grp.cbrm <- cfa(mod,  data= rpejoin, std.lv = TRUE,  group = "CBRM")
+summary(fit.grp.cbrm, standardized = TRUE, fit.measures = TRUE)
+semPaths(fit.grp.cbrm, whatLabels= "std", layout= "tree", 
+         residuals = FALSE, nCharNodes = 0,
+         title= TRUE,edge.label.cex = 0.9 )
+
+
+# interaction between ecol zone and rules?
+mod.rx  <- ' # latents
+              rxez=~ ez*r1
+              practice =~ p4 + p5 + p6 +p7 + p10
+              ecol.ind =~ gs + fs + bare.inv + ls
+              # regression
+              ecol.ind ~ practice + rxez
+            '
+# have to make in to dummy vars......
+fit.rx <- sem(mod.rx, data= rpe.new, std.lv=TRUE, ordered= c("ez, r1"))
+
+
+
 
 
 
@@ -413,6 +465,8 @@ cfa.model2 <- ' # measurement model
 # need to specify correlated errors here? Or only in sem? 
 # fit the model 2
 fit.cfa2 <- cfa(cfa.model2, data= rpe.new, std.lv = TRUE)
+#fit.cfa.grp <- cfa(cfa.model2, data= rpe.new, std.lv = TRUE, group = "ez")
+
 semPaths(fit.cfa2, "std", edge.label.cex = 0.5, curvePivot = TRUE, layout = "tree")
 parameterEstimates(fit.cfa2)
 summary(fit.cfa2, 
