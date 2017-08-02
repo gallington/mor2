@@ -1,4 +1,5 @@
 library(lavaan)
+library(semTools)
 library(semPlot)
 # See input.vars.R script first to format and tidy the data: 
 # See standardizing.R script for code to standardize ecological variables

@@ -1,0 +1,566 @@
+---
+title: "efa_cfa"
+output:
+  html_document: default
+  html_notebook: default
+---
+```{r}
+library(foreign)
+library(corrplot)
+library(car)
+library(ltm)
+library(lavaan)
+library(psych)
+library(semTools)
+library(semPlot)
+library(magrittr)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+```
+
+# generating latent mean values for pos/neg ecol indicators
+1. EFA w new vars: combined, then a pos and a neg
+2. CFAs for pos/neg latents
+3. 
+
+Info on the DATA: 
+
+## input vars
+```{r echo=FALSE}
+mor2<- read.spss("./data/ALL_EcolHHOrgMerged_byUvuljaa_03_15_17_Simplified.sav" , 
+                 to.data.frame=TRUE,
+                 use.value.labels=FALSE) # should this be true?
+# tidy format
+tbl_df(mor2)
+
+###################
+# Ecological Zone #
+# 1 = "DS", # desert steppeRef nos.
+ez <- dplyr :: select(mor2, ez = EcologicalZone_4Code, 
+             RefNum = SocialSurveyReferenceNumber, 
+             CBRM= CBRM, 
+             CBRM_type = CBRM_type,
+             PlotID = UniquePlotID500)  #this one incorps the Uvuulja and site
+
+#################
+##  PRACTICES : #
+p.cols <- c(605, 125,126,129:132, 134, 136, 138)
+practices<- mor2[,p.cols]
+names(practices)<- c("p1","p2","p3", "p4", "p5","p6", "p7", "p8", "p9", "p10")
+# 
+practices$p8[practices$p8<0]=NA   # change -99 to NA
+practices$p5[practices$p5<0]=NA
+
+#############################
+##  ECOLOGICAL INDICATORS:  #
+
+e.cols <- c(1528, 1529, 1536, 1538)
+ecol.ind<- mor2[, e.cols]
+# rename columns
+names(ecol.ind) <- c("e1","e2", "e3", "e4")
+
+##############
+##  RULES  ###
+r.cols <- c(826, 828)   # specifying the columns in the mor2 df
+rules<- mor2[, r.cols]
+names(rules) <- c("r1", "r2")  # timing, sfu
+
+#####################
+#  final dataframe  #
+#
+rpe <- cbind(ez, rules, practices,  ecol.ind)
+rpe%<>%mutate_at(c(1,3:4,11:17), funs(factor(.)))  
+rpe%<>%mutate_at(6:7, funs(ordered(.)))
+#
+
+#####################
+##   NORMALIZE    ###
+# practices
+rpe$pl <- as.numeric(log(rpe$p1+1))
+rpe$p3s<- as.numeric(log(rpe$p3+1))
+rpe$p2s <- as.numeric(log(rpe$p2+1))
+
+# see standardizing.R for normalizing standardized vars
+
+##########################
+#  TENURE 
+# tenure rights 
+hhrts <- mor2 %>%
+  dplyr ::select(A_UsWtrCamp,
+         A_UsWtrPast,
+         A_UsSepSprCS,
+         A_UsSepSprPas,
+         A_SepDzud,
+         A_HayCutFld,
+         RefNum = SocialSurveyReferenceNumber)%>%
+  dplyr ::rename(Wcmp = A_UsWtrCamp,
+         Wpast = A_UsWtrPast,
+         Sprcmp = A_UsSepSprCS,
+         SprPast= A_UsSepSprPas,
+         DzPast= A_SepDzud,
+         HayFld = A_HayCutFld)
+hhrts%<>%mutate_at(1:6, funs(factor(.)))
+hhcont<- mor2 %>%
+  dplyr::select(B_ContractWtrCamp,
+         B_ContractWtrPast,
+         B_ContractSprCamp,
+         B_ContractSprPast,
+         B_ContractDzud,
+         B_ContractHayCut,
+         RefNum = SocialSurveyReferenceNumber)%>%
+  dplyr::rename(ContractWtrCamp = B_ContractWtrCamp,
+         ContractWtrPast = B_ContractWtrPast,
+         ContractSprCamp = B_ContractSprCamp,
+         ContractSprPast = B_ContractSprPast,
+         ContractDzud = B_ContractDzud,
+         ContractHayCut = B_ContractHayCut)
+hhcont%<>%mutate_at(1:6, funs(ordered(.)))
+# trespassing 
+oail<-mor2 %>% dplyr::select(anotherail = as.factor(mor2$AnotherAilLSOnPast),  RefNum = SocialSurveyReferenceNumber)  # from HH survey
+
+#########################
+# Standardize vars by ecological zone:
+
+# standardization function ----------------------------------------------------------------
+
+# create a new col w mean of the ecol var standardized relative to the min and max from the 100-1km plots. 
+stndx<- function( df, mean.var , zone.number){
+  sub.df <- df %>% filter(ec.zn == zone.number)
+  mean.var.sd <- substitute((mean.var - min(sub.df[,2:4]))/(max(sub.df[,2:4])-min(sub.df[,2:4])))
+  sdf <- mutate_(sub.df, mean.var.sd = mean.var.sd)
+  return(sdf)
+}
+# the new column is always just called mean.var, 
+# so will have to change it for each indicator...
+
+
+# sub.df<- grass %>% filter(ec.zn == 4)
+# a<- (sub.df$gmean - min(sub.df[,2:4]))
+# b<- ((max(sub.df[,2:4])-min(sub.df[,2:4])))
+# c<- a/b
+# summary(c)
+
+
+
+
+
+# grass -----------------------------------------------------------------------------------
+# 1. GRASS, ALL ZONES: 
+#
+# prep the df:
+grass100<- mor2$PerGrassCover100
+grass500<- mor2$PerGrassCover500 
+grass1k<- mor2$PerGrassCover1000
+gmean <- mor2$PerGrassCover_percent_Mean500_1000
+ec.zn<- mor2$Ecologicalzone_4Code100
+RefNum<- mor2$SocialSurveyReferenceNumber
+grass<- as.data.frame(cbind(ec.zn, grass100, grass500, grass1k, gmean, RefNum))
+tbl_df(grass)
+
+
+
+# still need to change the name of the column ...
+
+g1<- stndx(grass, gmean, 1)
+g2<- stndx(grass, gmean, 2)
+g3<- stndx(grass, gmean, 3)
+g4<- stndx(grass, gmean, 4)
+# overwrite the grass df above w this new one or just add the new column?
+gstan<- bind_rows(g1,g2,g3,g4) %>%
+        rename(g.stand = mean.var.sd)
+
+# forb####################################################
+# 2. Forb Cover all zones:
+forb100<- mor2$PerForbCover100
+forb500<- mor2$PerForbCover500 
+forb1k<- mor2$PerForbCover1000
+fmean <- mor2$PerForbCover_percent_Mean500_1000
+ec.zn<- mor2$Ecologicalzone_4Code100
+RefNum<- mor2$SocialSurveyReferenceNumber
+forb<- as.data.frame(cbind(ec.zn, forb100, forb500, forb1k, fmean, RefNum))
+tbl_df(forb)
+
+# call the function to standardize the mean val by ecol zone:
+f1<- stndx(forb, fmean, 1)
+f2<- stndx(forb, fmean, 2)
+f3<- stndx(forb, fmean, 3)
+f4<- stndx(forb, fmean, 4)
+# overwrite the forbdf above w this new one or just add the new column?
+fstan<- bind_rows(f1,f2,f3,f4) %>%
+  rename(f.stand = mean.var.sd) 
+#%>%
+ # select(-ec.zn)   # remove ecol zone so don't end up with duplicates when combine
+
+
+#bare##################################
+# 3. Bare Soil:  
+bare100<- mor2$BareSoilCover100
+#included 500 here bc there were lower vals at 500 which threw off diff btwn mean and min/max
+bare500<- mor2$BareSoilCover500 
+bare1k<- mor2$BareSoilCover1000
+bmean <- mor2$BareSoil_percent_Mean500_1000
+ec.zn<- mor2$Ecologicalzone_4Code100
+RefNum<- mor2$SocialSurveyReferenceNumber
+bare<- as.data.frame(cbind(ec.zn, bare100, bare500, bare1k, bmean, RefNum))
+tbl_df(bare)
+
+
+# call the function to standardize the mean val by ecol zone:
+b1<- stndx(bare, bmean, 1)
+b2<- stndx(bare, bmean, 2)
+b3<- stndx(bare, bmean, 3)
+b4<- stndx(bare, bmean, 4)
+# overwrite the bare df above w this new one or just add the new column?
+bstan<- bind_rows(b1,b2,b3,b4) %>%
+  rename(b.stand = mean.var.sd)
+#%>%
+ # select(-ec.zn) #remove ecol zone so don't end up with duplicates when combine
+
+#litter################################
+# 4. Litter
+litter100<- mor2$LitterCover100
+#same here as with bare, had to include 500 msrmnt bc lower
+litter500<- mor2$LitterCover500 
+litter1k<- mor2$LitterCover1000
+lmean <- mor2$LitterCover_percent_Mean500_1000
+ec.zn<- mor2$Ecologicalzone_4Code100
+RefNum<- mor2$SocialSurveyReferenceNumber
+litter<- as.data.frame(cbind(ec.zn, litter100, litter500, litter1k, lmean, RefNum))
+tbl_df(litter)
+
+# call the function to standardize the mean val by ecol zone:
+l1<- stndx(litter, lmean, 1)
+l2<- stndx(litter, lmean, 2)
+l3<- stndx(litter, lmean, 3)
+l4<- stndx(litter, lmean, 4)
+# overwrite the litter df above w this new one or just add the new column?
+lstan<- bind_rows(l1,l2,l3,l4) %>%
+  rename(l.stand = mean.var.sd) 
+#%>%
+ # select(-ec.zn) #remove ecol zone so don't end up with duplicates when combine
+
+
+#compile################################
+#  5.  add these back to rpe 
+######  .
+
+#join back to rpe, aligning by RefNum
+rpe.ar<- arrange(rpe, ez)
+
+rpejoin <- left_join(rpe, fstan[,6:7], by= "RefNum") %>% 
+  left_join(gstan[,6:7], by= "RefNum") %>%
+  left_join(bstan[,6:7], by= "RefNum") %>%
+  left_join(lstan[,6:7], by= "RefNum") %>%
+  left_join(oail, by = "RefNum") %>%
+  left_join(hhcont, by = "RefNum") %>%
+  left_join(hhrts, by = "RefNum") %>%
+  left_join(hhtrends, by = "RefNum")
+
+rpejoin$gs <- sqrt(rpejoin$g.stand)    # new version of e1s
+rpejoin$fs <- sqrt(rpejoin$f.stand)  # new version of e2s
+rpejoin$ls <- sqrt(rpejoin$l.stand)    # new version of e4
+rpejoin %<>% mutate(bare.inv = (1 - b.stand))
+
+
+# add in the soils parameters
+
+library(readxl)
+soils <- read_excel("/nfs/gallington-data/Herder_sem/data/Soil surface data_Ginger.xlsx", 
+                    sheet = "Sheet1")
+#View(soils)
+soils %<>% mutate_at(9:18, funs(factor(.)))
+
+# do these need to be flipped? so best condition is highest?
+erosion.levels<- c("high erosion", "medium erosion", "little erosion")
+retention.levels <- c("isolated", "fragmented", "connected")
+soils$`SRD_3classes_with name` <- ordered(soils$`SRD_3classes_with name`, levels = erosion.levels)
+soils$`RRC_3classes_with name` <- ordered(soils$`RRC_3classes_with name`, levels = retention.levels)
+
+
+# bring rpejoin in from standardizing.R
+soils500<- soils %>% filter(DistanceClass_m == 500) %>%
+  dplyr::select(PlotID ='UniquePlotID', RRC=`RRC_3classes_with name`, SRD=`SRD_3classes_with name`)
+
+
+rpejoin$long<- as.numeric(rpejoin$long)
+rpejoin$lat<- as.numeric(rpejoin$lat)
+
+# have to add PlotID to rpe from mor2...
+rpesoil <- left_join(rpejoin, soils500, by = "PlotID")
+tbl_df(rpesoil)
+
+```
+
+# Factor Analysis
+```{r}
+# subset the full df to just get the ecol related vars:
+ecols<- dplyr :: select(rpesoil, g.stand, f.stand, bare.inv, l.stand, RRC, SRD, ndvi)
+
+# create correlation matrix using hetcor function for moving on...
+ecor <- hetcor(ecols)$cor
+
+```
+
+## with pos/neg indicators combined
+### trying diff methods to compare outputs
+```{r}
+fa.parallel(ecor, n.obs = nrow(ecols), fm = "ml")$fa.values
+```
+
+with fa() from the psych pkg
+```{r}
+fa1 <- fa(ecor, factors = 4, rotation = "varimax", fm = "ml")
+summary(fa1)
+fa1$loadings
+#fa1$Structure
+fa1$residual
+```
+Which suggests that one factor works as well.
+But the proportion of variance explained is really low = 0.42
+Trying w another approach, varying the number of factors that it forces, and comparing the variance explained...
+usin gthe factanal() from the XXXX pkg: 
+This didn't work with 4, not enough variables.
+So tried 3:
+```{r}
+factanal(~g.stand+ f.stand+ bare.inv+ l.stand+ RRC+ SRD+ ndvi, 
+         covmat = ecor, n.obs = nrow(ecols),
+         factors = 3, rotation = "varimax", fm = "ml")$loadings
+```
+Cum Var is 0.664. But the loadings across the factors isn't particularly informative.
+
+### factanal() specifying 2 factors:
+```{r}
+factanal(~g.stand+ f.stand+ bare.inv+ l.stand+ RRC+ SRD+ ndvi, 
+         covmat = ecor, n.obs = nrow(ecols),
+         factors = 2, rotation = "varimax", fm = "ml")$loadings
+```
+```{r}
+factanal(~g.stand+ f.stand+ bare.inv+ l.stand+ RRC+ SRD+ ndvi, 
+         covmat = ecor, n.obs = nrow(ecols),
+         factors = 1, rotation = "varimax", fm = "ml")$loadings
+```
+This matches the output from the previous method w one factor.
+So, it is better with two factors, but they don' tbreak down in a clear way except that forbs falls out separately.
+But this was with everything together, so now trying with pos/neg indicators separately.
+
+
+## POSITIVE INDICATORS 
+```{r}
+#  have to resubset to just get the indicators of integrity
+ecols.pos<- dplyr :: select(rpesoil, g.stand, l.stand, bare.inv, RRC, ndvi)
+
+# create correlation matrix using hetcor function for moving on...
+ecor.pos <- hetcor(ecols.pos)$cor
+```
+Now factor analysis from this:
+```{r}
+fa2 <- fa(ecor.pos, factors = 4, rotation = "varimax", fm = "ml")
+summary(fa2)
+fa2$loadings
+#fa2$residual
+```
+This method suggests that just one factor is sufficient. GOOD!
+And with alternate version:
+
+```{r}
+factanal(~g.stand+ f.stand+ bare.inv+ l.stand+ RRC+ SRD+ ndvi, 
+         covmat = ecor.pos, n.obs = nrow(ecols),
+         factors = 1, rotation = "varimax", fm = "ml")$loadings
+```
+trying with specifying 2 factors, just to see:
+```{r}
+factanal(~g.stand+ f.stand+ bare.inv+ l.stand+ RRC+ SRD+ ndvi, 
+         covmat = ecor, n.obs = nrow(ecols),
+         factors = 2, rotation = "varimax", fm = "ml")$loadings
+```
+Only get slightly higher cummulative variance and loadings are hard to decipher.
+
+### EFA W NEGATIVE INDICATORS...
+
+```{r}
+#  have to resubset to just get the indicators of integrity
+ecols.neg<- dplyr :: select(rpesoil, f.stand, SRD)
+
+# create correlation matrix using hetcor function for moving on...
+ecor.neg <- hetcor(ecols.neg)$cor
+```
+Now factor analysis from this:
+```{r}
+fa2n <- fa(ecor.neg, factors = 4, rotation = "varimax", fm = "ml")
+summary(fa2n)
+fa2n$loadings
+#fa2$residual
+```
+
+## summary so far
+All of this is suggesting we just go with a single latent Ecological Condition construct.
+Looks like we will just keep RRC and SRD together.
+But even still the prop of variance explained is pretty low?? 
+The forbs are messing everything up?
+
+*Just one more thing:*
+## Trying again with original data, not standaradized by ecol zone...
+Also removed forbs, bc they just aren't lining up.
+```{r}
+# first have to flip e3 (which is % bare ground) to match the directionality of the others
+
+rpesoil %<>% mutate(e3.inv = (100-e3))
+ecol.vars<- dplyr :: select(rpesoil,e1, e3.inv, e4, RRC, SRD, ndvi)
+
+# create correlation matrix using hetcor function for moving on...
+ecor.orig.vars <- hetcor(ecol.vars)$cor
+# and a quick factor analysis w these vars:
+fa.ov <- fa(ecor.orig.vars, factors = 4, rotation = "varimax", fm = "ml")
+summary(fa.ov)
+fa.ov$loadings
+
+```
+ Still holding strong w one factor. 
+ 62.8% of variance explained. Best yet?
+ Eventually we'd want to flip the bare (e3) to fix the sign.
+
+ 
+Let's compare that to the standardized vars, and remove forbs also.
+I'm just calling this the same thing and writing over it
+```{r}
+# subset the full df to just get the ecol related vars:
+ecols<- dplyr :: select(rpesoil, g.stand, bare.inv, l.stand, RRC, SRD, ndvi)
+
+# create correlation matrix using hetcor function for moving on...
+ecor <- hetcor(ecols)$cor
+# and EFA it:
+fa <- fa(ecor, factors = 2, rotation = "varimax", fm = "ml")
+summary(fa)
+fa$loadings
+
+```
+Poorer fit with these...................................
+???? SO, use orig vars? Those are normalized but not standardized to ez.
+
+## CFA
+# or: ok, let's just go back to CFA w this new configuration....
+See cfa.R for code from the original cfa runs and tests of measurement invariance.
+holding here for reference.....modificationindices(fit.cfa3, sort. = TRUE)
+```{r}
+# USE THIS BELOW FOR QUICKLY COMPARING FIT MEASURES BTWN RUNS
+fitmsrs <- c("df","chisq", "cfi", "rmsea", "rmsea.pvalue", "srmr")
+#but, these aren't based on the standardized
+
+# ecological indicator mesurement model:
+ecol.mod <- 'eco =~ g.stand+ bare.inv + l.stand + RRC+ SRD+ ndvi'
+fit.ecol.mod <- cfa(ecol.mod, data= rpesoil, std.lv = TRUE)
+eco.mod <- 'eco =~ e1 + e3 + e4 + RRC+ SRD+ ndvi'
+fit.eco.mod <- cfa(eco.mod, data= rpesoil, std.lv = TRUE)
+summary(fit.ecol.mod, 
+  #      rsquare = T, 
+        standardized = T, 
+        fit.measures=T)
+summary(fit.eco.mod, 
+  #     rsquare = T, 
+        standardized = T, 
+        fit.measures=T)
+
+```
+Let's check the modification indices too:
+```{r}
+modificationindices(fit.ecol.mod, sort. = TRUE) # with the standardized ecol vars
+modificationindices(fit.eco.mod, sort. = TRUE) # not standardized, orgi normalized msrmnts
+```
+Making edits to the model based on the modification indices:
+
+```{r}
+# ecological indicator mesurement model:
+ecol.mod <- 'eco =~ g.stand+ bare.inv + l.stand + RRC+ SRD+ ndvi
+             l.stand ~~ RRC  
+            '
+fit.ecol.mod <- cfa(ecol.mod, data= rpesoil, std.lv = TRUE)
+eco.mod <- 'eco =~ e1 + e3.inv + e4 + RRC+ SRD+ ndvi
+       #     e3.inv ~~ ndvi
+            '
+fit.eco.mod <- cfa(eco.mod, data= rpesoil, std.lv = TRUE)
+summary(fit.ecol.mod, 
+  #      rsquare = T, 
+        standardized = T, 
+        fit.measures=T)
+summary(fit.eco.mod, 
+  #     rsquare = T, 
+        standardized = T, 
+        fit.measures=T)
+```
+### Ok, so.... how do we decide which is better???
+With or without the standardized??? 
+Or is the message that we are ok to go with either?
+
+### Create a table with general summary of outputs.
+
+## Check out the diagrams anyway:
+```{r}
+semPaths(fit.ecol.mod, "std", edge.label.cex = 0.75, layout = "tree", residuals = FALSE)
+title("stnd_ez", line=1)
+```
+
+```{r}
+semPaths(fit.eco.mod, "std", edge.label.cex = 0.75, layout = "tree", residuals = FALSE)
+title("orig_vars", line = 1)
+```
+
+## Eastimating predicted values:
+Notes from Kelly's email:
+Estimating predicted values – if I’m understanding your question correctly, I think you want the function `r lavPredict()` (http://finzi.psych.upenn.edu/library/lavaan/html/lavPredict.html) with the default “type = “lv”. First you run a model with sem or cfa function, and then the fit of that model is what gets passed to this predict function. The output is a table with the predicted values for each of the rows in your original data. Then you can use those values to estimate the mean within each of the ecological zones or other categories. 
+
+```{r}
+#type	= A character string. If "lv", estimated values for the latent variables in the model are computed. If "ov", model predicted values for the indicators of the latent variables in the model are computed.
+
+# predicting based on the unstandardized data:
+eco.pred <- lavPredict(fit.eco.mod, type = "lv", label = TRUE)
+# predicting based on the data standardized by ez:
+ecol.pred <- lavPredict(fit.ecol.mod, type = "lv", label = TRUE) 
+```
+How much do these values differ?
+Range is same but the distributions are maybe different?
+```{r}
+hist(eco.pred[,1])
+hist(ecol.pred[,1])
+```
+Let's test them:
+```{r}
+ks.test(eco.pred[,1], ecol.pred[,1])
+```
+OK, so we can probably reasonably conclude that these latent vals are drawn from the same distribution??
+
+
+Can we just assume that these values will map in the same order to the original df? how can we compare averages across groups, etc. if we can't be sure which HH they belong to?
+### how to asign these back to the df w RefNums?
+Will try just adding it to it for now....
+
+```{r}
+eco.lv <- as.data.frame(eco.pred[,1])
+ecol.lv <- as.data.frame(ecol.pred[,1])
+rpe.lv<- cbind(rpesoil, eco.lv, ecol.lv)
+names(rpe.lv)[55:56] <- c("eco.lv", "eco.s.lv")
+```
+
+## let's play with plotting it just to see....
+unstandardized:
+```{r}
+gez<- ggplot(rpe.lv, aes(CBRM_type, eco.lv))
+gez + geom_boxplot()
+gez + geom_violin()
+gez + geom_violin()+
+  facet_wrap(~ ez, labeller = label_both)
+
+```
+standardized:
+```{r}
+gez<- ggplot(rpe.lv, aes(ez, eco.s.lv))
+gez + geom_violin()
+
+```
+
+
+
+
+
+## final notes::
+
