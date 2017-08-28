@@ -1,10 +1,11 @@
 ---
 title: "efa_cfa"
 output:
-  html_document: default
+  pdf_document: default
   html_notebook: default
+  html_document: default
 ---
-```{r}
+```{r scho = FALSE, eval = FALSE}
 library(foreign)
 library(corrplot)
 library(car)
@@ -17,6 +18,10 @@ library(magrittr)
 library(tidyr)
 library(dplyr)
 library(ggplot2)
+library(rgdal)
+library(sp)
+library(MatchIt)
+
 ```
 
 # generating latent mean values for pos/neg ecol indicators
@@ -27,6 +32,18 @@ library(ggplot2)
 Info on the DATA: 
 
 ## input vars
+Maybe instead of this, just a note to run :
+1. input.vars.R
+2. standardizing.R
+3. hh_trends.R
+4. soil_params.R
+rather than putting all the code in here?? 
+what's the best practice?
+
+# TO DO:
+## create a new df w the pieces we need from rpe, the predicted latent values, and all of the covariates to be used for matching.
+
+
 ```{r echo=FALSE}
 mor2<- read.spss("./data/ALL_EcolHHOrgMerged_byUvuljaa_03_15_17_Simplified.sav" , 
                  to.data.frame=TRUE,
@@ -239,6 +256,25 @@ lstan<- bind_rows(l1,l2,l3,l4) %>%
   rename(l.stand = mean.var.sd) 
 #%>%
  # select(-ec.zn) #remove ecol zone so don't end up with duplicates when combine
+
+
+# ndvi values exported from GEE:
+pttrends <- read.csv("./data/pttrends.csv", stringsAsFactors = FALSE)
+#pttrends <- readOGR(dsn = "./data", layer = "pttrends.csv")
+pttrends<- pttrends[1:130, 1:5]
+
+geo<- pttrends$.geo
+
+var<- sapply(pttrends$.geo, function(x) strsplit(x, split="[", fixed = TRUE))
+coord<- sapply(var, function(x) x[2])
+names(coord)<- NULL
+
+coord<- sapply(coord, function(x) substr(x, 1, nchar(x)-2))
+split<- sapply(coord, function(x) strsplit(x, split = ","))
+pttrends$long <- sapply(split, function(x) x[1])
+pttrends$lat <- sapply(split, function(x) x[2])
+
+hhtrends<- dplyr::select(pttrends, -.geo)
 
 
 #compile################################
@@ -507,7 +543,7 @@ title("orig_vars", line = 1)
 
 ## Eastimating predicted values:
 Notes from Kelly's email:
-Estimating predicted values – if I’m understanding your question correctly, I think you want the function `r lavPredict()` (http://finzi.psych.upenn.edu/library/lavaan/html/lavPredict.html) with the default “type = “lv”. First you run a model with sem or cfa function, and then the fit of that model is what gets passed to this predict function. The output is a table with the predicted values for each of the rows in your original data. Then you can use those values to estimate the mean within each of the ecological zones or other categories. 
+Estimating predicted values – if I’m understanding your question correctly, I think you want the function `lavPredict()` (http://finzi.psych.upenn.edu/library/lavaan/html/lavPredict.html) with the default “type = “lv”. First you run a model with sem or cfa function, and then the fit of that model is what gets passed to this predict function. The output is a table with the predicted values for each of the rows in your original data. Then you can use those values to estimate the mean within each of the ecological zones or other categories. 
 
 ```{r}
 #type	= A character string. If "lv", estimated values for the latent variables in the model are computed. If "ov", model predicted values for the indicators of the latent variables in the model are computed.
@@ -558,9 +594,49 @@ gez + geom_violin()
 
 ```
 
-
-
-
-
 ## final notes::
+These predicteed latent vals for ecological indicator will be uses as a response variable in subsequent modelling, including BHM and the matching stuff.... 
+so maybe we should play around with it a bit first to see if anything interesting shakes out...
+
+# lm w the latent var
+```{r}
+# scatterplotMatrix(
+#   formula = ~  pl + p2s + p3s + eco.lv |r1,
+#   data = rpe.lv,
+#   diagonal = "density",
+#   by.groups = TRUE)
+
+
+```
+
+## SETTING THINGS UP TO START MATCHING:
+playing with the code to see how it works:
+will need to add the additional covariate to the df prior to actually doing the analysis.
+https://www.r-bloggers.com/using-the-r-matchit-package-for-propensity-score-analysis/
+```{r}
+install.packages("MatchIt")
+library(MatchIt)
+
+# the predicted latent values for ecol.lv range from -2 thru +2, but matchit need 
+# for them to be bounded between 0 - 1.
+#
+
+tbl_df(rpe.lv)
+pe.match.data<- dplyr::select(rpe.lv, RefNum, CBRM, CBRM_type, ez, slope, ndvi, eco.lv) %>% 
+  na.omit() %>%
+  mutate(eco.int = scales::rescale(eco.lv, to=c(0, 1)))   # rescale form 0-1.
+
+# trial run of setting up the code to match
+# need to add additional vars to the data file.
+m.out1 <- matchit(eco.int ~ ez + ndvi, data = pe.match.data, method = "nearest", distance = "logit")
+
+
+# a little bit of code to get the info on matched pairs....
+# set rownames to ID column:
+rownames(pe.match.data) <- pe.match.data$RefNum
+mm <- m.out1$match.matrix
+tx <- as.numeric(row.names(mm))
+m<-cbind(tx,as.numeric(mm))
+
+```
 
