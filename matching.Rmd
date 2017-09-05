@@ -1,6 +1,8 @@
 ---
 title: "Matching"
-output: html_notebook
+output:
+  html_document: default
+  html_notebook: default
 ---
 ```{r, message=FALSE}
 library(MatchIt)
@@ -10,7 +12,17 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(magrittr)
+library(gridExtra)
+library(Zelig)
 ```
+
+## some notes:
+*need to correct to use the normalized practice vars
+* ok to mix continuous and ordinal vars?
+*establish best approach for comparing matched
+*set up matching by indiv practice var
+* plot the distributions not the mean joyplot style
+
 
 Initial matching trials w the MOR2 HH Survey data.... 
 
@@ -34,51 +46,64 @@ hhmatch <- mor2 %>%
   dplyr ::select(CBRM,
          SoumCode,
          ez = EcologicalZone_4Code,
-         RefNum = SocialSurveyReferenceNumber
+         RefNum = SocialSurveyReferenceNumber,
+         Trsp = AnotherAilLSOnPast
          ) 
+hhmatch%<>% mutate_at(c(1,3,5), funs(factor(.)))            # ordered(.)))
 
 # here using rpe.lv from the efa._cfa.Rmd doc.
 # these are the extracted latent means from the cfa of ecological variables
 lvs<- readRDS("rpe_lv.R")
-tbl_df(lvs)
-hhmatch %<>% left_join(lvs[,c(2,8:17,56)], by= "RefNum")
+#tbl_df(lvs)
+hhmatch %<>% left_join(lvs[,c(2,
+                              7,
+                              11:17,
+                              22:24,
+                              55
+                              )], by= "RefNum")
 
 ```
-
-
-
-
-2.
+# CBRM as Treatment
+## 2. matching for full dataset
 
 ```{r, message=FALSE}
-# matching for full dataset
+
+#remove NAs
+
+#hhmatch$SoumCode<- as.factor(hhmatch$SoumCode)
 
 match.data<- hhmatch %>% 
   na.omit() %>%
-  mutate(eco.int = scales::rescale(eco.s.lv, to=c(0, 1)))   # rescale from 0-1.
+# rescale the response var from 0-1?
+  mutate(eco.int = scales::rescale(eco.lv, to=c(0, 1)))   
+
 m.full.summary<- summary(m.out1 <- matchit(CBRM ~ 
+                                          Trsp+
                                           ez + 
-                                          SoumCode+
-                                          p1 +
-                                          p2 +
-                                          p3 +
+                                          pl +
+                                          p2s +
+                                          p3s +
                                           p4 +
                                           p5 +
                                           p6 +
                                           p7 +
-                                          p8 +
-                                          p9 +
-                                          p10, 
+                                          p8,
+                                          #p9 +
+                                          #p10, 
                                         data = match.data, 
-                                        method = "full",   #, distance = "logit")
+                                        method = "full", distance = "logit",
                                         discard = "both"
-                                        ), standardize = TRUE  #, addlvariables = cfug_data[,c("fracforestICI00", "elev")]
+                                        ), standardize = TRUE #,  
+                                           #addlvariables = match.data[,c("p9", "p51", "p61")]  # why errors w this???
                                         )
 ```
 # get summary and generate dataset
 ```{r}
 m.full.summary
-full.data.m <- match.data(m.out1)
+full.data.m <- match.data(m.out1) # pulls matched data out of matchit object. 
+## obtain matched data for the treatment group
+m.data.trt <- match.data(m.out1, group = "treat")
+m.data.ctrl <- match.data(m.out1, group = "control")
 ```
 ### plot matching results for matching on full data 
 ```{r}
@@ -136,21 +161,21 @@ stmdif.full <- ggplot(StMeanDif, aes(y = covariates )) +
 stmdif.full
 ```
 
-# generate propensity scores for full dataset
+# generate propensity scores for full (unmatched) dataset
 ```{r}
 pscores <- glm(CBRM ~
               ez + 
               SoumCode+
-              p1 +
-              p2 +
-              p3 +
-              p4 +
-              p5 +
-              p6 +
-              p7 +
-              p8 +
-              p9 +
-              p10, 
+              pl +
+              p2s +
+              p3s, # +
+              # p4 +
+              # p5 +
+              # p6 +
+              # p7 +
+              # p8 +
+              # p9 +
+              # p10, 
             data = match.data, family = binomial)
 
 
@@ -163,7 +188,7 @@ full.pscore.pre <- ggplot(data=match.data) +
   geom_density(data = match.data[which(match.data$CBRM == "0"), ], fill = "yellow3", color = "yellow4", alpha = 0.2, aes(x = ps)) +        
   geom_density(data = match.data[which(match.data$CBRM == "1"), ], fill = "navyblue", color = "mediumpurple4", alpha = 0.2, aes(x = ps)) + 
   xlim(-0.2, 1.2) +
-  ylim(0, 4) +
+#  ylim(0, 4) +       # set this to match the actual range of the data!!!!!
   theme_classic() +
   xlab("Propensity score") +
   ylab("Density") +
@@ -182,9 +207,9 @@ full.pscore.pre
 ```{r}
 full.pscore.post <- ggplot(data=full.data.m) + 
   geom_density(data = full.data.m[which(full.data.m$CBRM == "0"), ], fill = "yellow3", color = "yellow4", alpha = 0.2, aes(x = distance, weight = weights/sum(weights))) +
-  geom_density(data = full.data.m[which(full.data.m$CBRM == "1"), ], fill = "navyblue", color = "mediumpurple4", alpha = 0.2, aes(x = distance)) +
+  geom_density(data = full.data.m[which(full.data.m$CBRM == "1"), ], fill = "navyblue", color = "mediumpurple4", alpha = 0.2, aes(x = distance)) +  # here distance = propensity score...
   xlim(-0.2, 1.2) +
-  ylim(0, 4) +
+#  ylim(0, 4) +
   theme_classic() +
   xlab("Propensity score") +
   ylab("Density") +
@@ -208,6 +233,263 @@ grid.arrange(full.pscore.pre, full.pscore.post, ncol=1)      #  This should be 7
 
 
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+### zelig stats...
+```{r}
+library(Zelig)
+# run the parametric analysis
+#z.out<- zelig(eco.int ~ CBRM + SoumCode + ez + p1 + p2 +p3 +p4 +p5 +p6 +p7 +p8 +p9 + p10,model = "ls", data = full.data.m)
+z.out<- zelig(eco.s.lv ~ CBRM  + ez + pl + p2s +p3s ,model = "ls", data = full.data.m, weights = "weights")
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+# then set the explanatory variables at their means and change the trt var from a 0 to a 1
+x.out <- setx(z.out, CBRM = 0)
+x1.out<- setx(z.out, CBRM = 1)
+# compute the result and examine a summary:
+s.out <- sim(z.out, x = x.out, x1 = x1.out)
+
+summary(s.out)
+```
+
+With weights:
+```{r}
+# how to incorporate the weights?
+# here just multiplying the latent mean by the weight....
+full.data.m %<>%mutate(eco.lv = (eco.s.lv + 2)*weights)
+x<-full.data.m %>% group_by(subclass, CBRM) %>% summarise(mean(eco.lv))
+x$subclass<- as.factor(x$subclass)
+x$CBRM <- as.factor(x$CBRM)
+colnames(x)[3] <- "mean.eco.lv"
+e<- ggplot(data=x)+
+  geom_point(aes(y=mean.eco.lv, x= subclass, color=factor(CBRM)))+
+  ylim(0, 15)+
+  ggtitle("weighted ecol indicator by subclass")
+#facet_grid(. ~ subclass)
+e
+
+```
+
+Without weights
+```{r}
+full.data.m %<>%mutate(eco.lv = eco.s.lv)
+x<-full.data.m %>% group_by(subclass, CBRM) %>% summarise(mean(eco.lv))
+x$subclass<- as.factor(x$subclass)
+x$CBRM <- as.factor(x$CBRM)
+colnames(x)[3] <- "mean.eco.lv"
+e<- ggplot(data=x)+
+  geom_point(aes(y=mean.eco.lv, x= subclass, color=factor(CBRM)))+
+  #ylim(0, 15)+
+  ggtitle("ecol indicator by subclass")
+e
+```
+## But really none of these direct comparisons are correct.  We should do some linear modeling w the matchings vars as covariates.
+
+
+# TRSP as Treatment
+## 2. matching for full dataset
+
+```{r, message=FALSE}
+
+#remove NAs
+
+#hhmatch$SoumCode<- as.factor(hhmatch$SoumCode)
+
+match.data<- hhmatch %>% 
+  na.omit() %>%
+# rescale the response var from 0-1?
+  mutate(eco.int = scales::rescale(eco.lv, to=c(0, 1)))   
+
+tr.full.summary<- summary(tr.out1 <- matchit(Trsp ~
+                                          #CBRM + 
+                                          ez + 
+                                          pl +
+                                          p2s +
+                                          p3s +
+                                          p4 +
+                                          p5 +
+                                          p6 +
+                                          p7 +
+                                          p8 +
+                                          p9 +
+                                          p10, 
+                                        data = match.data, 
+                                        method = "full", distance = "logit",
+                                        discard = "both"
+                                        ), standardize = TRUE  
+                                          # addlvariables = match.data[,c("p41", "p51", "p61")]  # why errors w this???
+                                        )
+# get summary and generate dataset
+tr.full.summary
+full.data.tr <- match.data(tr.out1) # pulls matched data out of matchit object. 
+## obtain matched data for the treatment group
+tr.data.trt <- match.data(tr.out1, group = "treat")
+tr.data.ctrl <- match.data(tr.out1, group = "control")
+
+# generate pre and post matching Std. Mean. Diff. datasets
+trfull.sum.all <- tr.full.summary$sum.all         #sum.all is the pre-matching data
+trfull.sum.mat <-tr.full.summary$sum.matched      #mat is after matching
+# rename the col header to make it easier to call it later
+trfull.sum.all <- rename(trfull.sum.all, StMeanDiff = "Std. Mean Diff.")
+trfull.sum.mat <- rename(trfull.sum.mat, StMeanDiff = "Std. Mean Diff.")
+
+
+# write matching results files
+######commented out until we actually need to exprt these....
+#write.csv(full.sum.all, "./data/matching/full_prematching_hh.csv")
+#write.csv(full.sum.mat, "./data/matching/full_postmatching_hh.csv")
+
+# generate column for covariate names in the df, bc the output has the rows labelled but they aren't in a column
+covariates <- row.names(tr.full.summary$sum.all)
+
+# generate dataset for plotting
+#### ASK JOHAN ABOUT THIS ONE NOT SURE 
+StMeanDif <- data.frame(cbind(covariates, trfull.sum.all$StMeanDiff, trfull.sum.mat$StMeanDiff))
+#StMeanDif <- data.frame(cbind(covariates, trfull.sum.all$StMeanDiff, trfull.sum.mat$StMeanDiff))
+StMeanDif$V2 <- as.numeric(paste(StMeanDif$V2))
+StMeanDif$V3 <- as.numeric(paste(StMeanDif$V3))
+
+
+# Q HERE TOO WHAT??
+# change row names for variables so that they appear in order
+#levels(StMeanDif$covariates)[levels(StMeanDif$covariates)=="distance"]                  <- "a. Propensity_score"
+#levels(StMeanDif$covariates)[levels(StMeanDif$covariates)=="prop_fug.area.post"]        <- "Q. CF area post 2000"
+#levels(StMeanDif$covariates)[levels(StMeanDif$covariates)=="area_h"]                    <- "P. VDC size"
+# ...
+
+scaleFUN <- function(x) sprintf("%.2f", x)
+```
+# Plot:
+```{r}
+# plot Standardized mean differences
+stmdif.full <- ggplot(StMeanDif, aes(y = covariates )) +
+  geom_point(aes(x = V3), colour = "sienna4", size = 7, alpha = 1) + geom_point(aes(x = V3), colour = "orange", size = 6, alpha = 1) + # with replacement
+  geom_point(aes(x = V2), colour = "black", size = 9, alpha = 1, shape = 1) +
+  scale_x_continuous(limits=c(-1, 1.5), breaks = c(-1, -0.5, -0.25, 0, 0.25, 0.5, 1, 1.5, 2, 2.5)) +
+  geom_vline(xintercept = 0, lty="dotted") +
+  geom_vline(xintercept = -0.25, lty="dotted") +
+  geom_vline(xintercept = 0.25, lty="dotted") +
+  theme_classic() +
+  xlab("Std. mean difference") +
+  ylab("Matching covariates") +
+  theme(axis.title.x = element_text(size=12, vjust=-0.2),
+        axis.text.x = element_text(size=12),
+        axis.title.y = element_text(size=12, vjust=1),
+        axis.text.y = element_text(size=12),
+        axis.line.x = element_line(color="black"),
+        axis.line.y = element_line(color="black"))
+stmdif.full
+```
+
+# generate propensity scores for full (unmatched) dataset
+```{r}
+pscores <- glm(Trsp~
+              CBRM +
+              ez + 
+              pl +
+              p2s +
+              p3s +
+              p4 +
+              p5 +
+              p6 +
+              p7 +
+              p8 +
+              p9 +
+              p10,
+            data = match.data, family = binomial)
+
+
+match.data$ps <- predict(pscores, type = "response")
+
+```
+# Plot Propensity Scores 
+```{r}
+# before matching
+full.pscore.pre <- ggplot(data=match.data) + 
+  geom_density(data = match.data[which(match.data$CBRM == "0"), ], fill = "yellow3", color = "yellow4", alpha = 0.2, aes(x = ps)) +        
+  geom_density(data = match.data[which(match.data$CBRM == "1"), ], fill = "navyblue", color = "mediumpurple4", alpha = 0.2, aes(x = ps)) + 
+  xlim(-0.2, 1.2) +
+#  ylim(0, 4) +       # set this to match the actual range of the data!!!!!
+  theme_classic() +
+  xlab("Propensity score") +
+  ylab("Density") +
+  ggtitle("Before Matching") +
+  theme(axis.title.x = element_text(size=12, vjust=-0.2),
+        axis.text.x = element_text(size=12),
+        axis.title.y = element_text(size=12, vjust=1),
+        axis.text.y = element_text(size=12),
+        plot.title = element_text(size=18, face = "bold", hjust = 0.5),
+        axis.line.x = element_line(color="black"),
+        axis.line.y = element_line(color="black")
+  )
+#  after matching
+
+full.pscore.post <- ggplot(data=full.data.m) + 
+  geom_density(data = full.data.m[which(full.data.m$CBRM == "0"), ], fill = "yellow3", color = "yellow4", alpha = 0.2, aes(x = distance, weight = weights/sum(weights))) +
+  geom_density(data = full.data.m[which(full.data.m$CBRM == "1"), ], fill = "navyblue", color = "mediumpurple4", alpha = 0.2, aes(x = distance)) +  # here distance = propensity score...
+  xlim(-0.2, 1.2) +
+#  ylim(0, 4) +
+  theme_classic() +
+  xlab("Propensity score") +
+  ylab("Density") +
+  ggtitle("After Matching") +
+  theme(axis.title.x = element_text(size=12, vjust=-0.2),
+        axis.text.x = element_text(size=12),
+        axis.title.y = element_text(size=12, vjust=1),
+        axis.text.y = element_text(size=12),
+        plot.title = element_text(size=18, face = "bold", hjust = 0.5),
+        axis.line.x = element_line(color="black"),
+        axis.line.y = element_line(color="black")
+  )
+#full.pscore.post
+
+#stmdif.full + scale_x_continuous(labels=scaleFUN)            # This should be 9" x 7" when exporting .pdf
+grid.arrange(full.pscore.pre, full.pscore.post, ncol=1)      #  This should be 7" x 7" when exporting .pdf
+```
+
+### zelig stats...
+```{r}
+library(Zelig)
+# run the parametric analysis
+z.out<- zelig(eco.int ~ Trsp + CBRM + ez + pl + p2s +p3s +p4 +p5 +p6 +p7 +p8 +p9 + p10,model = "ls", data = full.data.tr)
+#z.out<- zelig(eco.int ~ Trsp+ CBRM  + ez + pl + p2s +p3s ,model = "ls", data = full.data.m, weights = "weights")
+
+# then set the explanatory variables at their means and change the trt var from a 0 to a 1
+x.out <- setx(z.out, Trsp = 0)
+x1.out<- setx(z.out, Trsp = 1)
+# compute the result and examine a summary:
+s.out <- sim(z.out, x = x.out, x1 = x1.out)
+
+summary(s.out)
+plot(s.out)
+```
+#  Estimate Avg Treatment Efffect on the Treated (where Trt = Trespassing)
+predicts certain quantities of interest by conditioning on the observed value of the dependent variable  
+In a matched sampling design, the sample average treatment effect for the treated can be estimated by computing the difference between the observed dependent variable for the treated group and their expected or predicted values of the dependent variable under no treatment 
+```{r}
+# fit model to control group only
+z.out1<- zelig(eco.int ~ CBRM + ez + pl + p2s +p3s +p4 +p5 +p6 +p7 +p8 +p9 + p10,model = "ls", data = match.data(tr.out1, "control"))
+# conditional prediction which ues observed values
+x.out2 <- setx(z.out1, data = match.data(tr.out1, "treat"), cond = TRUE) 
+s.out2 <- sim(z.out1, x = x.out2)
+
+summary(s.out2)
+# output is ev = expected values, pv = predicted values
+plot(s.out2)
+```
+
+# Estimate Average Treatment Effect: 
+
+
+#  Estimate Avg Treatment Efffect on the Treated (where Trt = CBRM)
+predicts certain quantities of interest by conditioning on the observed value of the dependent variable  
+In a matched sampling design, the sample average treatment effect for the treated can be estimated by computing the difference between the observed dependent variable for the treated group and their expected or predicted values of the dependent variable under no treatment 
+```{r}
+# fit model to control group only
+z.out1<- zelig(eco.int ~ CBRM + ez + pl + p2s +p3s +p4 +p5 +p6 +p7 +p8 +p9 + p10,model = "ls", data = match.data(m.out1, "control"))
+# conditional prediction which ues observed values
+x.out2 <- setx(z.out1, data = match.data(tr.out1, "treat"), cond = TRUE) 
+s.out2 <- sim(z.out1, x = x.out2)
+
+summary(s.out2)
+# output is ev = expected values, pv = predicted values
+plot(s.out2)
+```
+
