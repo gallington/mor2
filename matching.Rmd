@@ -58,10 +58,17 @@ As the procedure only controls for observed variables, any hidden bias due to la
 mor2<- read.spss("./data/ALL_EcolHHOrgMerged_byUvuljaa_03_15_17_Simplified.sav" , 
                  to.data.frame=TRUE,
                  use.value.labels=FALSE) #
-
-# 
 # tidy format
 tbl_df(mor2)
+
+# load jay's data on env params
+soum_stats<- readRDS("./soum_stats.rds")
+
+# load the latent means from the CFA
+#   these are the extracted latent means from the cfa of ecological     variables
+#   this file was generated in the efa_cfa.Rmd doc.
+lvs<- readRDS("rpe_lv.R")
+lvs$RefNum <- as.factor(lvs$RefNum)
 
 hhmatch <- mor2 %>%
   dplyr ::select(CBRM,
@@ -76,10 +83,7 @@ hhmatch%<>% mutate_at(c(1,4,6), funs(factor(.)))            # ordered(.)))
 hhmatch$SoumName <- trimws(as.character(hhmatch$SoumName))
 hhmatch$AimagName <- trimws(as.character(hhmatch$AimagName))
 
-# here using rpe.lv from the efa._cfa.Rmd doc.
-# these are the extracted latent means from the cfa of ecological variables
-lvs<- readRDS("rpe_lv.R")
-lvs$RefNum <- as.factor(lvs$RefNum)
+
 #tbl_df(lvs)
 hhmatch %<>% left_join(lvs[,c(2,
                               7,
@@ -88,9 +92,8 @@ hhmatch %<>% left_join(lvs[,c(2,
                               55
                               )], by= "RefNum")
 
-# now add  cols for ppt mean and sd: (from jaydata.R)
-load("./lt.ppt.R")
-hhmatch %<>% left_join(lt.ppt, by = c("AimagName", "SoumName"))
+
+hhmatch %<>% left_join(soum_stats, by = c("AimagName", "SoumName"))
 # the "SoumID.x" that comes thru here is the Soum ID from Jay's jay, which do not match teh MOR2 codes, so i'm keeping them in for reference, just in case.
 ```
 
@@ -245,7 +248,8 @@ stmdif.full
 ```
 
 ### generate propensity scores for full (unmatched) dataset
-```{r, eval= FALSE}
+```{r, eval = FALSE}
+raw.data <- match.data
 pscores <- glm(CBRM ~
               ez + 
               Trsp +
@@ -260,14 +264,14 @@ pscores <- glm(CBRM ~
               # p8 +
               # p9 +
               # p10, 
-            data = match.data, family = binomial)
+            data = raw.data, family = binomial)
 
 
 raw.data$ps <- predict(pscores, type = "response")
 
 ```
 ### Plot Propensity Scores before matching
-```{r}
+```{r, eval = FALSE}
 full.pscore.pre <- ggplot(data=match.data) + 
   geom_density(data = raw.data[which(raw.data$CBRM == "0"), ], fill = "yellow3", color = "yellow4", alpha = 0.2, aes(x = ps)) +        
   geom_density(data = raw.data[which(raw.data$CBRM == "1"), ], fill = "navyblue", color = "mediumpurple4", alpha = 0.2, aes(x = ps)) + 
@@ -288,7 +292,7 @@ full.pscore.pre <- ggplot(data=match.data) +
 full.pscore.pre
 ```
 ### Plot Propensity Scores after matching
-```{r}
+```{r, eval = FALSE}
 full.pscore.post <- ggplot(data=full.data.m) + 
   geom_density(data = full.data.m[which(full.data.m$CBRM == "0"), ], fill = "yellow3", color = "yellow4", alpha = 0.2, aes(x = distance, weight = weights/sum(weights))) +
   geom_density(data = full.data.m[which(full.data.m$CBRM == "1"), ], fill = "navyblue", color = "mediumpurple4", alpha = 0.2, aes(x = distance)) +  # here distance = propensity score...
@@ -310,7 +314,7 @@ full.pscore.post
 ```
 
 ### plot matching figures
-```{r}
+```{r, eval = FALSE}
 stmdif.full + scale_x_continuous(labels=scaleFUN)            # This should be 9" x 7" when exporting .pdf
 grid.arrange(full.pscore.pre, full.pscore.post, ncol=1)      #  This should be 7" x 7" when exporting .pdf
 ```
@@ -318,7 +322,7 @@ grid.arrange(full.pscore.pre, full.pscore.post, ncol=1)      #  This should be 7
 
 
 ### zelig stats...
-```{r}
+```{r, eval = FALSE}
 library(Zelig)
 # run the parametric analysis
 #z.out<- zelig(eco.int ~ CBRM + SoumCode + ez + p1 + p2 +p3 +p4 +p5 +p6 +p7 +p8 +p9 + p10,model = "ls", data = full.data.m)
@@ -386,14 +390,15 @@ tr.full.summary<- summary(tr.out1 <- matchit(Trsp ~
                                           pl +
                                           p2s +
                                           p3s +
-                                          p4 +
-                                          p5 +
-                                          p6 +
-                                          p7 +
-                                          p8 +
-                                          p9 +
-                                          p10 +
-                                          ltpptmean
+                                          # p4 +
+                                          # p5 +
+                                          # p6 +
+                                          # p7 +
+                                          # p8 +
+                                          # p9 +
+                                          # p10 +
+                                          ltmeanppt +
+                                          ltmeansfu,
                                         data = match.data, 
                                         method = "full", distance = "logit",
                                         discard = "both"
@@ -403,8 +408,8 @@ tr.full.summary<- summary(tr.out1 <- matchit(Trsp ~
 tr.full.summary
 full.data.tr <- match.data(tr.out1) # pulls matched data out of matchit object. 
 ## obtain matched data for the treatment group
-tr.data.trt <- match.data(tr.out1, group = "treat")
-tr.data.ctrl <- match.data(tr.out1, group = "control")
+#tr.data.trt <- match.data(tr.out1, group = "treat")
+#tr.data.ctrl <- match.data(tr.out1, group = "control")
 
 # generate pre and post matching Std. Mean. Diff. datasets
 trfull.sum.all <- tr.full.summary$sum.all         #sum.all is the pre-matching data
@@ -412,12 +417,6 @@ trfull.sum.mat <-tr.full.summary$sum.matched      #mat is after matching
 # rename the col header to make it easier to call it later
 trfull.sum.all <- rename(trfull.sum.all, StMeanDiff = "Std. Mean Diff.")
 trfull.sum.mat <- rename(trfull.sum.mat, StMeanDiff = "Std. Mean Diff.")
-
-
-# write matching results files
-######commented out until we actually need to exprt these....
-#write.csv(full.sum.all, "./data/matching/full_prematching_hh.csv")
-#write.csv(full.sum.mat, "./data/matching/full_postmatching_hh.csv")
 
 # generate column for covariate names in the df, bc the output has the rows labelled but they aren't in a column
 covariates <- row.names(tr.full.summary$sum.all)
@@ -453,23 +452,40 @@ stmdif.full <- ggplot(StMeanDif, aes(y = covariates )) +
 stmdif.full
 ```
 
+### balance.plot
+```{r}
+love.plot(bal.tab(tr.out1), 
+          stat = "mean.diffs",  # c("mean.diffs", "variance.ratios", "ks.statistics"), 
+          # cant' get var ratios for binary vars... can't get this to work unless select one stat msr at a time.
+          threshold = .2, 
+          no.missing = TRUE,
+          var.order = NULL)
+
+bal.tab(tr.out1, # the matchit object
+        un = TRUE,  # print stats for unadjusted and adjusted sample?
+        m.threshold = .1, # threshold for mean diffs. they suggest .1 which is more conservative than our 0.25 that we were using before
+        int = FALSE, #include interactions?
+        disp.means = TRUE,
+        disp.v.ratio = TRUE,
+        disp.ks =TRUE
+        )
+# 
+b<- bal.plot(tr.out1, "distance", which = "both")
+# this returns a ggplot object
+b+ theme_bw() # so just need to adjust the aesthetics.
+
+```
+
 ### generate propensity scores for full (unmatched) dataset
 ```{r}
-pscores <- glm(Trsp~
-              CBRM +
-              ez + 
-              pl +
-              p2s +
-              p3s +
-              p4 +
-              p5 +
-              p6 +
-              p7 +
-              p8 +
-              p9 +
-              p10,
+pscores <- glm(Trsp ~
+                ez + 
+                pl +
+                p2s +
+                p3s +
+                ltmeanppt +
+                ltmeansfu,
             data = match.data, family = binomial)
-
 
 match.data$ps <- predict(pscores, type = "response")
 
@@ -520,7 +536,7 @@ grid.arrange(full.pscore.pre, full.pscore.post, ncol=1)      #  This should be 7
 ```
 
 ## zelig stats...
-```{r}
+```{r, eval = FALSE}
 library(Zelig)
 # run the parametric analysis
 z.out<- zelig(eco.int ~ Trsp + CBRM + ez + pl + p2s +p3s +p4 +p5 +p6 +p7 +p8 +p9 + p10,model = "ls", data = full.data.tr)
@@ -557,7 +573,7 @@ plot(s.out2)
 ###  Estimate Avg Treatment Efffect on the Treated (where Trt = CBRM)
 predicts certain quantities of interest by conditioning on the observed value of the dependent variable  
 In a matched sampling design, the sample average treatment effect for the treated can be estimated by computing the difference between the observed dependent variable for the treated group and their expected or predicted values of the dependent variable under no treatment 
-```{r}
+```{r, eval = FALSE}
 # fit model to control group only
 z.out1<- zelig(eco.int ~ CBRM + ez + pl + p2s +p3s +p4 +p5 +p6 +p7 +p8 +p9 + p10,model = "ls", data = match.data(tr.out1, "control"))
 # conditional prediction which ues observed values
@@ -584,7 +600,7 @@ p4.full.summary<- summary(p4.out1 <- matchit(p4 ~
                                           #p5 +
                                           p6 +
                                           p7 +
-                                          p8,# +
+                                          p8 ,#+
                                           # p9 +
                                           # p10 +
                                           #ltmeanppt+
@@ -674,7 +690,7 @@ p5.data.ctrl <- match.data(p5.out1, group = "control")
 
 ```
 
-balanace.plot
+## Balance plot
 ```{r}
 love.plot(bal.tab(p5.out1), 
           stat =  "mean.diffs",   #c("mean.diffs", "variance.ratios", "ks.statistics"), 
@@ -753,7 +769,114 @@ b+ theme_bw() # so just need to adjust the aesthetics.
 
 ```
 
-```{r}
+# Grazing out of Season
+
+## p9: Grazing winter pastures in summer and fall
+```{r P6,}
+
+p9.full.summary<- summary(p9.out1 <- matchit(p9 ~
+                                          avail.forage+
+                                          ltmeansfu+ 
+                                          CBRM + 
+                                          ez + 
+                                          Trsp+
+                                          pl +
+                                          p2s +
+                                          p3s +
+                                          p4 +
+                                          p5 + 
+                                          p10,
+                                        data = raw.data, 
+                                        method = "full", 
+                                        distance = "logit",
+                                        discard = "both"
+                                        ), standardize = TRUE  
+                                        )
+# get summary and generate dataset
+p9.full.summary
+full.data.p9 <- match.data(p9.out1) # pulls matched data out of matchit object. 
+## obtain matched data for the treatment group
+p9.data.trt <- match.data(p9.out1, group = "treat")
+p9.data.ctrl <- match.data(p9.out1, group = "control")
+
+# balanace.plot
+
+love.plot(bal.tab(p9.out1), 
+          stat =  "mean.diffs",   #c("mean.diffs", "variance.ratios", "ks.statistics"), 
+          # cant' get var ratios for binary vars... can't get this to work unless select one stat msr at a time.
+          threshold = .2,  #c(.2, 2), 
+          no.missing = TRUE,
+          var.order = NULL)
+
+bal.tab(p9.out1, # the matchit object
+        un = TRUE,  # print stats for unadjusted and adjusted sample?
+        m.threshold = 0.2, #.1, # threshold for mean diffs. they suggest .1 which is more conservative than our 0.25 that we were using before
+        int = FALSE, #include interactions?
+        disp.means = TRUE,
+        disp.v.ratio = TRUE,
+        disp.ks =TRUE
+        )
+# 
+b<- bal.plot(p9.out1, "distance", which = "both")
+# this returns a ggplot object
+b+ theme_bw() # so just need to adjust the aesthetics.
+
+
+```
+## p10: Grazing dzud pastures in non-emergency
+```{r P10,}
+
+p10.full.summary<- summary(p10.out1 <- matchit(p10 ~
+                                          avail.forage+
+                                          ltmeansfu+ 
+                                          CBRM + 
+                                          ez + 
+                                          Trsp+
+                                          pl +
+                                          p2s +
+                                          p3s +
+                                          p4 +
+                                          p5 + 
+                                          p10,
+                                        data = raw.data, 
+                                        method = "full", 
+                                        distance = "logit",
+                                        discard = "both"
+                                        ), standardize = TRUE  
+                                        )
+# get summary and generate dataset
+p10.full.summary
+full.data.p10 <- match.data(p10.out1) # pulls matched data out of matchit object. 
+## obtain matched data for the treatment group
+p10.data.trt <- match.data(p10.out1, group = "treat")
+p10.data.ctrl <- match.data(p10.out1, group = "control")
+
+# balanace.plot
+
+love.plot(bal.tab(p10.out1), 
+          stat =  "mean.diffs",   #c("mean.diffs", "variance.ratios", "ks.statistics"), 
+          # cant' get var ratios for binary vars... can't get this to work unless select one stat msr at a time.
+          threshold = .2,  #c(.2, 2), 
+          no.missing = TRUE,
+          var.order = NULL)
+
+bal.tab(p10.out1, # the matchit object
+        un = TRUE,  # print stats for unadjusted and adjusted sample?
+        m.threshold = 0.2, #.1, # threshold for mean diffs. they suggest .1 which is more conservative than our 0.25 that we were using before
+        int = FALSE, #include interactions?
+        disp.means = TRUE,
+        disp.v.ratio = TRUE,
+        disp.ks =TRUE
+        )
+# 
+b<- bal.plot(p10.out1, "distance", which = "both")
+# this returns a ggplot object
+b+ theme_bw() # so just need to adjust the aesthetics.
+
+
+```
+
+```{r, eval = FALSE}
 p4data<-full.data.p4[complete.cases(full.data.p4),]
 p4.mod<- glm(eco.int ~ p4 +
                         CBRM +
@@ -768,7 +891,7 @@ p4.mod<- glm(eco.int ~ p4 +
                         # p9 +
                         # p10 +
                         ltmeanppt+
-                        ltmeansd,
+                        ltsdppt,
               data = p4data, weights = "weights", family = poisson(link = "logit"))
              
 p4.mod<- glm((eco.int*weights) ~ p4 +
@@ -784,7 +907,7 @@ p4.mod<- glm((eco.int*weights) ~ p4 +
           # p9 +
           # p10 +
           ltmeanppt+
-          ltmeansd,
+          ltsdppt,
           data = p4data)
 summary(p4.mod)
 ```
@@ -792,7 +915,7 @@ summary(p4.mod)
 
 
 Try w zelig...
-```{r}
+```{r, eval = FALSE}
 # this uses the Zelig 5 process:
 #z.out<- zls$new()
 
@@ -830,17 +953,6 @@ plot(s.out)
 In a matched sampling design, the sample average treatment effect for the treated can be estimated by computing the difference between the observed dependent variable for the treated group and their expected or predicted values of the dependent variable under no treatment.
 SO compare the values of eco.int for P4=1 (in matched data or original raw??) vs. ev or pv of eco.int for p4=0
 
-Plot first differences:
-```{r}
-yl <- "Difference in Expected Ecol Condition"
-su <- "(E(eco.int | Fall Otor)) - E((eco.int | No Fall Otor)))"
-plot.ci(s.out, qi = "fd", xlab = xl, ylab = yl, main = ma, sub = su)
-
-library(stargazer)
-library(tidyverse)
-s.out %>% from_zelig_model() %>% stargazer(type = 'html')
-```
-
 
 # Comparing distributions of post-matched data:
 
@@ -867,6 +979,7 @@ plot(ecdf(tr_0))
 
 tr_1<- (full.data.tr$eco.int*full.data.tr$weights)[which(full.data.tr$Trsp==1)]
 lines(ecdf(tr_1), col = 'blue')
+abline(h = 0.5, lty = 2, col='black' )
 
 ks.test(tr_0, tr_1)
 # Look! One piece of evidence that they are different!
@@ -876,6 +989,9 @@ ggplot(full.data.tr, aes(x=(eco.int*weights), colour=as.factor(Trsp))) + geom_de
 
 # Means pre & post
 full.data.tr%>% group_by(Trsp)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
+
+full.data.tr%>% group_by(Trsp)%>% summarise(pre= median(eco.int), post= median(eco.int*weights))
+
 ```
 
 ## P4: Fall Otor
@@ -934,8 +1050,26 @@ ggplot(full.data.p6, aes(x=(eco.int*weights), colour=p6)) + geom_density()
 full.data.p6%>% group_by(p6)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
 ```
 
+## P9: Grazed Winter-Sum/Fall
+```{r}
 
+p9_0<- (full.data.p9$eco.int*full.data.p9$weights)[which(full.data.p9$p9==0)]
+plot(ecdf(p9_0))
 
+p9_1<- (full.data.p9$eco.int*full.data.p9$weights)[which(full.data.p9$p9==1)]
+lines(ecdf(p9_1), col = 'blue')
+
+ks.test(p9_0, p9_1)
+# 
+
+# Density plots
+ggplot(full.data.p9, aes(x=(eco.int*weights), colour=p9)) + geom_density()
+
+# Means pre & post
+full.data.p9%>% group_by(p9)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
+
+full.data.p9%>% group_by(p9)%>% summarise(pre= median(eco.int), post= median(eco.int*weights))
+```
 
 
 
