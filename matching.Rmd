@@ -772,7 +772,7 @@ b+ theme_bw() # so just need to adjust the aesthetics.
 # Grazing out of Season
 
 ## p9: Grazing winter pastures in summer and fall
-```{r P6,}
+```{r P9,}
 
 p9.full.summary<- summary(p9.out1 <- matchit(p9 ~
                                           avail.forage+
