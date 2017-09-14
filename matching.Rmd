@@ -22,15 +22,19 @@ library(cobalt)
 ```
 
 ## TO DOs and reminders:
-* establish best approach for comparing matched
-* set up matching by indiv practice var
-* plot the distributions not the mean 
-
+* fix RMD code to not print all the R code chunks along w the results...?
+* insert ref to efa_cfa.Rmd exported pdf
+* Qs re: latent means rescale then weighted---ok to interpret directly?
 
 ## General Notes on matching and propensity scores...
+
+The goal of matching is to get trt and ctrl groups with similar distributions of covariates. Then when comparing trt effect on outcome , we can be more conifdent that we are actually detecting the impact of that trt (here it is CBRM or an individual practice) versus the confounding impact of the covariates. One advantage of matching methods is that we can identify areas where the covariate distributions do not sufficiently overlap, and exclude those samples from the subsequent analysis, as they would create additional bias (this is partic imp in subsequent linear modeling, etc.). Basically we are trying to reduce bias in our estimation of the effect of different "treatments" (practices, or institution)
+
+
 The Standardized Diff in means should generally be < 0.25  (Some say 0.1)
 Ratio of variances of the propensity scores should be around 1. 
-Note: in matchIt the default label for pscores is "distance"
+Note: in matchIt the default label for propensity scores is "distance"
+so that is often used below. 
 
 Re: choosing variables for matching: "Include in the matching procedure any covariates that may be related to treatment assignment and the outcome"-(Stuart and Rubin 2007)
 generally should not match on variables that are affected by the treatment assignment
@@ -38,23 +42,37 @@ Post-matching:
 Use analyses appropriate for non-independent matched samples if more than one nonparticipant is matched to each participant
 Note: When you have multiple matches for a single treated observation, it is essential to use Weighted Least Squares rather than OLS.
 As the procedure only controls for observed variables, any hidden bias due to latent variables may remain after matching.
+We are matching for a few different "treatments", each of which will be matched based on relevat covariates.
+Starting first with CBRM status (Yes/No). We want to compare the outcomes re: ecological condition with this method compared to that of earlier studies that did not control for these confounding factors.  Then we will compare the ecological outcomes under individual practices (esp p4-p10).
 
-### some useful links and references: (eventually move this to the bottom):
-[cobalt vignette](https://cran.r-project.org/web/packages/cobalt/vignettes/cobalt_basic_use.html) 
-[Stanford tutorial](https://stanford.edu/~ejdemyr/r-tutorials-archive/tutorial8.html) on propensity score matching.
+One question: Should we just use exact matching for CBRM, since the original study was established to have a relatively balanced number of CBRM and non-CBRM households? 
+Then potentially continue with full matching for the Practices 'treatments'?  
+How best to include Trespassing? As a Trt? or a Covariate?
 
-[ggjoy](https://cran.r-project.org/web/packages/ggjoy/vignettes/introduction.html) vignette.
-[xtable](https://cran.r-project.org/web/packages/xtable/vignettes/xtableGallery.pdf)
+### Matching method
+We are using 'optimal full matching', which will allow us to 
 
-[zelig commands](https://r.iq.harvard.edu/docs/zelig/3.4-8/Zelig_Commands.html)
+### Assessing balance
+We
 
-## Bring in the data....
+**Propensity score** :the probability of *receiving* the treatment, given the observed covriates. We want to ensure that the p-scores are as similar as we can, before we start to estimate the effect of a given treatment.  They summarize all of the covariates in to a single scalar-- at each value of p-score, the distribution of the covariates is the same in teh trt and cntrl groups.
+
+### Variable selection
+From Stuart (2010) "include all vars known to be related to treatment assignment, and the outcome"
+and/or: include set of covariates known to be realted to the outcome var, then check the balance on all/additional covariates. Then add in any addtnl covariates that seem really unmatched.
+
+**DO NOT** include covariate that might be affected by the treatment!
+
+## Loading Data....
+This includes MOR2 HH survey data, data from Jay Angerer on environmental parameters and forage availability and stockign density at the soum level.  And also the outcome variance, which I am generally referring to here as Ecological Integrity Index (please help me come up with a better name if you don't feel like that's a good choice). This Ecol Int Index value is the outcome of the Comfirmatory Factor Analysis (INSERT NAME OF the pdf once I've exported it from the Rmd). See that document for a description of the process of  generating the latent mean value for Ecological Integrity. The raw latent mean is scaled from -2 thru 2. I rescaled these values to be from 0-1. Then later they are weighted, resulting in a final range of values = [###].
+--summary stats on that
+--should these be set to quantiles?
+
 ```{r load, echo=FALSE, message=FALSE, cache = TRUE}
 # STEP 1: subsetting the mor2 data:
 # for use in matching....
 
-# this is the data on just the 130 HH That have paired ecological data,
-# along with their associated Organizational info
+# this is the data on just the 130 HH That have paired ecological data,along with their associated Organizational info
 mor2<- read.spss("./data/ALL_EcolHHOrgMerged_byUvuljaa_03_15_17_Simplified.sav" , 
                  to.data.frame=TRUE,
                  use.value.labels=FALSE) #
@@ -65,7 +83,7 @@ tbl_df(mor2)
 soum_stats<- readRDS("./soum_stats.rds")
 
 # load the latent means from the CFA
-#   these are the extracted latent means from the cfa of ecological     variables
+#   these are the extracted latent means from the cfa of ecological variables
 #   this file was generated in the efa_cfa.Rmd doc.
 lvs<- readRDS("rpe_lv.R")
 lvs$RefNum <- as.factor(lvs$RefNum)
@@ -97,15 +115,16 @@ hhmatch %<>% left_join(soum_stats, by = c("AimagName", "SoumName"))
 # the "SoumID.x" that comes thru here is the Soum ID from Jay's jay, which do not match teh MOR2 codes, so i'm keeping them in for reference, just in case.
 ```
 
+```{r}
+# list of the params in the df
+str(hhmatch)
+```
 
-Going to do the matching with a few different "treatments".
-Starting first with CBRM status (Yes/No). We want to compare the outcomes re: ecological condition with this method compared to that of earlier studies that did not control for these confounding factors.  Then we will compare the ecological outcomes under individual practices (esp p4-p10).
 
-One question: Should we just use exact matching for CBRM, since the original study was established to have a relatively balanced number of CBRM and non-CBRM households? 
-Then potentially continue with full matching for the Practices 'treatments'?  
-How best to include Trespassing? As a Trt? or a Covariate?
 
-# CBRM as Treatment
+# Matching: 
+
+## CBRM as Treatment
 
 ```{r, message=FALSE}
 
@@ -141,24 +160,25 @@ m.out1 <- matchit(CBRM ~
 m.full.summary<- summary(m.out1, 
                          standardize = TRUE)# ,  
                          #addlvariables = #match.data[,c("p4","p9", "p10")]) # why errors w this if try to include more than one at a time???
-                                        
+                                      
 ```
 ### get summary of matched data and generate dataset
 If matching is done well, the treatment and control groups will have (near) identical means of each covariate at each value of the propensity score.
+Reminder: we are assessing good match on St Diff in Means of matched groups <0.2 and var ratio around 1.  But since we know that some of these can vary based on more than just means we should also consider a test of their distributions (like Komologrov-Smirnoff)
 ```{r}
 m.full.summary
 # try to make a df out of that summary by calling indiv lists and then kable to table
 full.data.m <- match.data(m.out1) # pulls matched data out of matchit object. 
 ## obtain matched data for the treatment group
+#   keeping this here for reference in case need to export these later, but in general not using these separately
 m.data.trt <- match.data(m.out1, group = "treat")
 m.data.ctrl <- match.data(m.out1, group = "control")
 ```
-### other plotting options for the matched v. unmatched data
-joyplot:
+### plotting to compare the matched v. unmatched data
 
-love.plot: this is like what johan made
-& balanace.plot
+
 ```{r}
+# this is done with balance.plot but see also Johan's code for his versions of plottin these
 love.plot(bal.tab(m.out1), 
           stat = "mean.diffs",  # c("mean.diffs", "variance.ratios", "ks.statistics"), 
           # cant' get var ratios for binary vars... can't get this to work unless select one stat msr at a time.
@@ -181,17 +201,8 @@ b+ theme_bw() # so just need to adjust the aesthetics.
 
 ```
 
-
-```{r}
-
-```
-
-
-Let's try it first with just the 
-
-in order to plot matching results for matching on full data: 
-### tidy up some matching results for plotting
-```{r}
+### hidden extra plotting info that i'm saving.....
+```{r, eval = FALSE}
 # generate pre and post matching Std. Mean. Diff. datasets
 # this is SUMMARY data
 full.sum.all <- m.full.summary$sum.all
@@ -214,19 +225,6 @@ StMeanDif <- data.frame(cbind(covariates, full.sum.all$StMeanDiff, full.sum.mat$
 StMeanDif$V2 <- as.numeric(paste(StMeanDif$V2))
 StMeanDif$V3 <- as.numeric(paste(StMeanDif$V3))
 
-
-# Q HERE TOO WHAT??
-# change row names for variables so that they appear in order
-levels(StMeanDif$covariates)[levels(StMeanDif$covariates)=="distance"]                  <- "a. Propensity_score"
-#levels(StMeanDif$covariates)[levels(StMeanDif$covariates)=="prop_fug.area.post"]        <- "Q. CF area post 2000"
-#levels(StMeanDif$covariates)[levels(StMeanDif$covariates)=="area_h"]                    <- "P. VDC size"
-# ...
-
-scaleFUN <- function(x) sprintf("%.2f", x)
-
-```
-### here's the actual plotting code:
-```{r}
 # plot Standardized mean differences
 stmdif.full <- ggplot(StMeanDif, aes(y = covariates )) +
   geom_point(aes(x = V3), colour = "sienna4", size = 8, alpha = 1) + geom_point(aes(x = V3), colour = "orange", size = 6, alpha = 1) + # with replacement
@@ -245,10 +243,10 @@ stmdif.full <- ggplot(StMeanDif, aes(y = covariates )) +
         axis.line.x = element_line(color="black"),
         axis.line.y = element_line(color="black"))
 stmdif.full
-```
+
 
 ### generate propensity scores for full (unmatched) dataset
-```{r, eval = FALSE}
+
 raw.data <- match.data
 pscores <- glm(CBRM ~
               ez + 
@@ -269,9 +267,8 @@ pscores <- glm(CBRM ~
 
 raw.data$ps <- predict(pscores, type = "response")
 
-```
 ### Plot Propensity Scores before matching
-```{r, eval = FALSE}
+
 full.pscore.pre <- ggplot(data=match.data) + 
   geom_density(data = raw.data[which(raw.data$CBRM == "0"), ], fill = "yellow3", color = "yellow4", alpha = 0.2, aes(x = ps)) +        
   geom_density(data = raw.data[which(raw.data$CBRM == "1"), ], fill = "navyblue", color = "mediumpurple4", alpha = 0.2, aes(x = ps)) + 
@@ -290,9 +287,9 @@ full.pscore.pre <- ggplot(data=match.data) +
         axis.line.y = element_line(color="black")
   )
 full.pscore.pre
-```
+
 ### Plot Propensity Scores after matching
-```{r, eval = FALSE}
+
 full.pscore.post <- ggplot(data=full.data.m) + 
   geom_density(data = full.data.m[which(full.data.m$CBRM == "0"), ], fill = "yellow3", color = "yellow4", alpha = 0.2, aes(x = distance, weight = weights/sum(weights))) +
   geom_density(data = full.data.m[which(full.data.m$CBRM == "1"), ], fill = "navyblue", color = "mediumpurple4", alpha = 0.2, aes(x = distance)) +  # here distance = propensity score...
@@ -311,65 +308,13 @@ full.pscore.post <- ggplot(data=full.data.m) +
         axis.line.y = element_line(color="black")
   )
 full.pscore.post
-```
+
 
 ### plot matching figures
-```{r, eval = FALSE}
+
 stmdif.full + scale_x_continuous(labels=scaleFUN)            # This should be 9" x 7" when exporting .pdf
 grid.arrange(full.pscore.pre, full.pscore.post, ncol=1)      #  This should be 7" x 7" when exporting .pdf
 ```
-
-
-
-### zelig stats...
-```{r, eval = FALSE}
-library(Zelig)
-# run the parametric analysis
-#z.out<- zelig(eco.int ~ CBRM + SoumCode + ez + p1 + p2 +p3 +p4 +p5 +p6 +p7 +p8 +p9 + p10,model = "ls", data = full.data.m)
-z.out<- zelig(eco.int ~ CBRM  + ez + pl + p2s +p3s ,model = "ls", data = full.data.m, weights = "weights")
-
-# then set the explanatory variables at their means and change the trt var from a 0 to a 1
-x.out <- setx(z.out, CBRM = 0)
-x1.out<- setx(z.out, CBRM = 1)
-# compute the result and examine a summary:
-s.out <- sim(z.out, x = x.out, x1 = x1.out)
-
-summary(s.out)
-```
-
-With weights:
-```{r}
-# how to incorporate the weights?
-# here just multiplying the latent mean by the weight....
-# full.data.m %<>%mutate(eco.lv = (eco.s.lv + 2)*weights)
-# x<-full.data.m %>% group_by(subclass, CBRM) %>% summarise(mean(eco.lv))
-# x$subclass<- as.factor(x$subclass)
-# x$CBRM <- as.factor(x$CBRM)
-# colnames(x)[3] <- "mean.eco.lv"
-# e<- ggplot(data=x)+
-#   geom_point(aes(y=mean.eco.lv, x= subclass, color=factor(CBRM)))+
-#   ylim(0, 15)+
-#   ggtitle("weighted ecol indicator by subclass")
-# #facet_grid(. ~ subclass)
-# e
-
-```
-
-Without weights
-```{r}
-# full.data.m %<>%mutate(eco.lv = eco.s.lv)
-# x<-full.data.m %>% group_by(subclass, CBRM) %>% summarise(mean(eco.lv))
-# x$subclass<- as.factor(x$subclass)
-# x$CBRM <- as.factor(x$CBRM)
-# colnames(x)[3] <- "mean.eco.lv"
-# e<- ggplot(data=x)+
-#   geom_point(aes(y=mean.eco.lv, x= subclass, color=factor(CBRM)))+
-#   #ylim(0, 15)+
-#   ggtitle("ecol indicator by subclass")
-# e
-```
-**But really none of these direct comparisons are correct.  We should do some linear modeling w the matchings vars as covariates.**
-
 
 # TRSP as Treatment
 
@@ -1072,7 +1017,17 @@ full.data.p9%>% group_by(p9)%>% summarise(pre= median(eco.int), post= median(eco
 ```
 
 
+### some useful links and references: 
 
+Add Stuart & King cites here.
+
+[cobalt vignette](https://cran.r-project.org/web/packages/cobalt/vignettes/cobalt_basic_use.html) 
+[Stanford tutorial](https://stanford.edu/~ejdemyr/r-tutorials-archive/tutorial8.html) on propensity score matching.
+
+[ggjoy](https://cran.r-project.org/web/packages/ggjoy/vignettes/introduction.html) vignette.
+[xtable](https://cran.r-project.org/web/packages/xtable/vignettes/xtableGallery.pdf)
+
+[zelig commands](https://r.iq.harvard.edu/docs/zelig/3.4-8/Zelig_Commands.html)
 
 
 
