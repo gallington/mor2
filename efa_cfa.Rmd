@@ -5,7 +5,7 @@ output:
   html_notebook: default
   html_document: default
 ---
-```{r scho = FALSE, eval = FALSE}
+```{r echo = FALSE, messages = FALSE}
 library(foreign)
 library(corrplot)
 library(car)
@@ -24,35 +24,23 @@ library(MatchIt)
 
 ```
 
-# generating latent mean values for pos/neg ecol indicators
-1. EFA w new vars: combined, then a pos and a neg
-2. CFAs for pos/neg latents
-3. 
+#### Info on the DATA: 
 
-Info on the DATA: 
+In order to execute this file you need to have already run the following:
+1. hh_trends.R
+2. soil_params.R
 
-## input vars
-Maybe instead of this, just a note to run :
-1. input.vars.R
-2. standardizing.R
-3. hh_trends.R
-4. soil_params.R
-rather than putting all the code in here?? 
-what's the best practice?
-
-# TO DO:
-## create a new df w the pieces we need from rpe, the predicted latent values, and all of the covariates to be used for matching.
-
+### Data screening:
 
 ```{r echo=FALSE}
-mor2<- read.spss("./data/ALL_EcolHHOrgMerged_byUvuljaa_03_15_17_Simplified.sav" , 
+mor2<- foreign::read.spss("./data/ALL_EcolHHOrgMerged_byUvuljaa_03_15_17_Simplified.sav" , 
                  to.data.frame=TRUE,
-                 use.value.labels=FALSE) # should this be true?
+                 use.value.labels=FALSE) #
 # tidy format
 tbl_df(mor2)
 
 ###################
-# Ecological Zone #
+# Ecological Zone & #
 # 1 = "DS", # desert steppeRef nos.
 ez <- dplyr :: select(mor2, ez = EcologicalZone_4Code, 
              RefNum = SocialSurveyReferenceNumber, 
@@ -335,7 +323,9 @@ ecols<- dplyr :: select(rpesoil, g.stand, f.stand, bare.inv, l.stand, RRC, SRD, 
 
 # create correlation matrix using hetcor function for moving on...
 ecor <- hetcor(ecols)$cor
-
+k<- KMO(ecor)
+kable(k$MSA, digits = 2, col.names = "Overall MSA")
+kable(k$MSAi, digits = 2, col.names = "Individual/MSA")
 ```
 
 ## with pos/neg indicators combined
@@ -537,8 +527,12 @@ title("stnd_ez", line=1)
 ```
 
 ```{r}
-semPaths(fit.eco.mod, "std", edge.label.cex = 0.75, layout = "tree", residuals = FALSE)
-title("orig_vars", line = 1)
+semPaths(fit.eco.mod, "std", 
+         edge.label.cex = 0.95, 
+         layout = "circle", 
+         residuals = FALSE,
+         intercepts = TRUE)
+title("CFA of Latent Ecological Condition", line = 1)
 ```
 
 ## Eastimating predicted values:
@@ -557,6 +551,16 @@ How much do these values differ?
 Range is same but the distributions are maybe different?
 ```{r}
 hist(eco.pred[,1])
+title("Predicted Latent Ecological Condition for Each Household")
+
+ggplot(data=eco.pred.df, aes(x=pred.eco))+
+ # geom_histogram(fill = "#2b83ba", binwidth = 0.2)+
+ # geom_density(fill = "#2b83ba")+
+  geom_dotplot(fill = "#2b83ba")+
+  geom_vline(xintercept = -0.4, linetype = 2)+
+  labs(title = "Predicted Latent Ecological Condition for Each Household")+
+  theme_bw()
+
 hist(ecol.pred[,1])
 ```
 Let's test them:
@@ -595,11 +599,11 @@ gez + geom_violin()
 ```
 
 ## final notes::
-These predicteed latent vals for ecological indicator will be uses as a response variable in subsequent modelling, including BHM and the matching stuff.... 
+These predicteed latent vals for ecological indicator will be used as a response variable in subsequent modelling, including BHM and the matching stuff.... 
 so maybe we should play around with it a bit first to see if anything interesting shakes out...
 
 # lm w the latent var
-```{r}
+```{r, echo = FALSE}
 # scatterplotMatrix(
 #   formula = ~  pl + p2s + p3s + eco.lv |r1,
 #   data = rpe.lv,
@@ -609,34 +613,4 @@ so maybe we should play around with it a bit first to see if anything interestin
 
 ```
 
-## SETTING THINGS UP TO START MATCHING:
-playing with the code to see how it works:
-will need to add the additional covariate to the df prior to actually doing the analysis.
-https://www.r-bloggers.com/using-the-r-matchit-package-for-propensity-score-analysis/
-```{r}
-install.packages("MatchIt")
-library(MatchIt)
-
-# the predicted latent values for ecol.lv range from -2 thru +2, but matchit need 
-# for them to be bounded between 0 - 1.
-#
-
-tbl_df(rpe.lv)
-pe.match.data<- dplyr::select(rpe.lv, RefNum, CBRM, CBRM_type, ez, slope, ndvi, eco.lv) %>% 
-  na.omit() %>%
-  mutate(eco.int = scales::rescale(eco.lv, to=c(0, 1)))   # rescale form 0-1.
-
-# trial run of setting up the code to match
-# need to add additional vars to the data file.
-m.out1 <- matchit(eco.int ~ ez + ndvi, data = pe.match.data, method = "nearest", distance = "logit")
-
-
-# a little bit of code to get the info on matched pairs....
-# set rownames to ID column:
-rownames(pe.match.data) <- pe.match.data$RefNum
-mm <- m.out1$match.matrix
-tx <- as.numeric(row.names(mm))
-m<-cbind(tx,as.numeric(mm))
-
-```
 
