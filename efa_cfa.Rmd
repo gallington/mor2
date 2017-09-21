@@ -23,6 +23,14 @@ library(sp)
 library(MatchIt)
 
 ```
+Note: On 9/20 I removed all the extra code that is pulling variables from mor2 that aren't being used in the EFA process.  
+All we really need here are the ecological parameters and the Ref Number IDs so we can link it back with the other data on practices, etc. later.
+
+### Factor Analysis:
+The main applications of factor analytic techniques are: (1) to reduce the number of variables and (2) to detect structure in the relationships between variables, that is to classify variables. Therefore, factor analysis is applied as a data reduction or structure detection method 
+
+
+
 
 #### Info on the DATA: 
 
@@ -39,257 +47,68 @@ mor2<- foreign::read.spss("./data/ALL_EcolHHOrgMerged_byUvuljaa_03_15_17_Simplif
 # tidy format
 tbl_df(mor2)
 
-###################
-# Ecological Zone & #
-# 1 = "DS", # desert steppeRef nos.
-ez <- dplyr :: select(mor2, ez = EcologicalZone_4Code, 
+
+eco.params <- dplyr :: select(mor2, 
+            # identifiers for linking w other datasets:
              RefNum = SocialSurveyReferenceNumber, 
-             CBRM= CBRM, 
-             CBRM_type = CBRM_type,
-             PlotID = UniquePlotID500)  #this one incorps the Uvuulja and site
-
-#################
-##  PRACTICES : #
-p.cols <- c(605, 125,126,129:132, 134, 136, 138)
-practices<- mor2[,p.cols]
-names(practices)<- c("p1","p2","p3", "p4", "p5","p6", "p7", "p8", "p9", "p10")
-# 
-practices$p8[practices$p8<0]=NA   # change -99 to NA
-practices$p5[practices$p5<0]=NA
-
-#############################
-##  ECOLOGICAL INDICATORS:  #
-
-e.cols <- c(1528, 1529, 1536, 1538)
-ecol.ind<- mor2[, e.cols]
-# rename columns
-names(ecol.ind) <- c("e1","e2", "e3", "e4")
-
-##############
-##  RULES  ###
-r.cols <- c(826, 828)   # specifying the columns in the mor2 df
-rules<- mor2[, r.cols]
-names(rules) <- c("r1", "r2")  # timing, sfu
-
-#####################
-#  final dataframe  #
-#
-rpe <- cbind(ez, rules, practices,  ecol.ind)
-rpe%<>%mutate_at(c(1,3:4,11:17), funs(factor(.)))  
-rpe%<>%mutate_at(6:7, funs(ordered(.)))
-#
-
-#####################
-##   NORMALIZE    ###
-# practices
-rpe$pl <- as.numeric(log(rpe$p1+1))
-rpe$p3s<- as.numeric(log(rpe$p3+1))
-rpe$p2s <- as.numeric(log(rpe$p2+1))
-
-# see standardizing.R for normalizing standardized vars
-
-##########################
-#  TENURE 
-# tenure rights 
-hhrts <- mor2 %>%
-  dplyr ::select(A_UsWtrCamp,
-         A_UsWtrPast,
-         A_UsSepSprCS,
-         A_UsSepSprPas,
-         A_SepDzud,
-         A_HayCutFld,
-         RefNum = SocialSurveyReferenceNumber)%>%
-  dplyr ::rename(Wcmp = A_UsWtrCamp,
-         Wpast = A_UsWtrPast,
-         Sprcmp = A_UsSepSprCS,
-         SprPast= A_UsSepSprPas,
-         DzPast= A_SepDzud,
-         HayFld = A_HayCutFld)
-hhrts%<>%mutate_at(1:6, funs(factor(.)))
-hhcont<- mor2 %>%
-  dplyr::select(B_ContractWtrCamp,
-         B_ContractWtrPast,
-         B_ContractSprCamp,
-         B_ContractSprPast,
-         B_ContractDzud,
-         B_ContractHayCut,
-         RefNum = SocialSurveyReferenceNumber)%>%
-  dplyr::rename(ContractWtrCamp = B_ContractWtrCamp,
-         ContractWtrPast = B_ContractWtrPast,
-         ContractSprCamp = B_ContractSprCamp,
-         ContractSprPast = B_ContractSprPast,
-         ContractDzud = B_ContractDzud,
-         ContractHayCut = B_ContractHayCut)
-hhcont%<>%mutate_at(1:6, funs(ordered(.)))
-# trespassing 
-oail<-mor2 %>% dplyr::select(anotherail = as.factor(mor2$AnotherAilLSOnPast),  RefNum = SocialSurveyReferenceNumber)  # from HH survey
-
-#########################
-# Standardize vars by ecological zone:
-
-# standardization function ----------------------------------------------------------------
-
-# create a new col w mean of the ecol var standardized relative to the min and max from the 100-1km plots. 
-stndx<- function( df, mean.var , zone.number){
-  sub.df <- df %>% filter(ec.zn == zone.number)
-  mean.var.sd <- substitute((mean.var - min(sub.df[,2:4]))/(max(sub.df[,2:4])-min(sub.df[,2:4])))
-  sdf <- mutate_(sub.df, mean.var.sd = mean.var.sd)
-  return(sdf)
-}
-# the new column is always just called mean.var, 
-# so will have to change it for each indicator...
+             PlotID = UniquePlotID500,  #this one incorps the Uvuulja and site
+             Lat = Latitude500, # bc need to match later at 500
+             Long= Longitude500,
+            # grasses:
+             PerrGrass = PerGrassCover_percent_Mean500_1000,
+             Grass_bm = Grass_gm2_Mean500_1000,
+            # AnuGrass = AnGrassCover_percent_Mean500_1000,  #  not enough of this to use it. Mostly zeros....
+             TotGrassCover = TotalGrassCover_percent_Mean500_1000,
+            # Acnath = Acnath_gm2_Mean500_1000,  # almost allll zeros
+            # forbs:
+             PerrForb = PerForbCover_percent_Mean500_1000,
+             AnuForb = AnForbCover_percent_Mean500_1000,
+             Forb_bm = Forb_gm2_Mean500_1000,
+            # sedges:
+             Sedges = TotalSedgeCover_percent_Mean500_1000,
+            # shrubs:
+             Shrubs = TotalShrubCover_percent_Mean500_1000,
+             TotFoliar = TotalFoliarCover_percent_Mean500_1000,
+            # BasalCover = BasalCover_percent_Mean500_1000,   # something is wrong w this variable. values are huge and tiny.
+            # abiotic params:
+             BareSoil = BareSoil_percent_Mean500_1000,
+             LitterCover = LitterCover_percent_Mean500_1000,
+             Protein = CrudeProtein_percent_Mean500_1000,
+            # species richness:
+             SpRich = SpeciesRichnessMean500_1000
+             )
 
 
-# sub.df<- grass %>% filter(ec.zn == 4)
-# a<- (sub.df$gmean - min(sub.df[,2:4]))
-# b<- ((max(sub.df[,2:4])-min(sub.df[,2:4])))
-# c<- a/b
-# summary(c)
-
-
-
-
-
-# grass -----------------------------------------------------------------------------------
-# 1. GRASS, ALL ZONES: 
-#
-# prep the df:
-grass100<- mor2$PerGrassCover100
-grass500<- mor2$PerGrassCover500 
-grass1k<- mor2$PerGrassCover1000
-gmean <- mor2$PerGrassCover_percent_Mean500_1000
-ec.zn<- mor2$Ecologicalzone_4Code100
-RefNum<- mor2$SocialSurveyReferenceNumber
-grass<- as.data.frame(cbind(ec.zn, grass100, grass500, grass1k, gmean, RefNum))
-tbl_df(grass)
-
-
-
-# still need to change the name of the column ...
-
-g1<- stndx(grass, gmean, 1)
-g2<- stndx(grass, gmean, 2)
-g3<- stndx(grass, gmean, 3)
-g4<- stndx(grass, gmean, 4)
-# overwrite the grass df above w this new one or just add the new column?
-gstan<- bind_rows(g1,g2,g3,g4) %>%
-        rename(g.stand = mean.var.sd)
-
-# forb####################################################
-# 2. Forb Cover all zones:
-forb100<- mor2$PerForbCover100
-forb500<- mor2$PerForbCover500 
-forb1k<- mor2$PerForbCover1000
-fmean <- mor2$PerForbCover_percent_Mean500_1000
-ec.zn<- mor2$Ecologicalzone_4Code100
-RefNum<- mor2$SocialSurveyReferenceNumber
-forb<- as.data.frame(cbind(ec.zn, forb100, forb500, forb1k, fmean, RefNum))
-tbl_df(forb)
-
-# call the function to standardize the mean val by ecol zone:
-f1<- stndx(forb, fmean, 1)
-f2<- stndx(forb, fmean, 2)
-f3<- stndx(forb, fmean, 3)
-f4<- stndx(forb, fmean, 4)
-# overwrite the forbdf above w this new one or just add the new column?
-fstan<- bind_rows(f1,f2,f3,f4) %>%
-  rename(f.stand = mean.var.sd) 
-#%>%
- # select(-ec.zn)   # remove ecol zone so don't end up with duplicates when combine
-
-
-#bare##################################
-# 3. Bare Soil:  
-bare100<- mor2$BareSoilCover100
-#included 500 here bc there were lower vals at 500 which threw off diff btwn mean and min/max
-bare500<- mor2$BareSoilCover500 
-bare1k<- mor2$BareSoilCover1000
-bmean <- mor2$BareSoil_percent_Mean500_1000
-ec.zn<- mor2$Ecologicalzone_4Code100
-RefNum<- mor2$SocialSurveyReferenceNumber
-bare<- as.data.frame(cbind(ec.zn, bare100, bare500, bare1k, bmean, RefNum))
-tbl_df(bare)
-
-
-# call the function to standardize the mean val by ecol zone:
-b1<- stndx(bare, bmean, 1)
-b2<- stndx(bare, bmean, 2)
-b3<- stndx(bare, bmean, 3)
-b4<- stndx(bare, bmean, 4)
-# overwrite the bare df above w this new one or just add the new column?
-bstan<- bind_rows(b1,b2,b3,b4) %>%
-  rename(b.stand = mean.var.sd)
-#%>%
- # select(-ec.zn) #remove ecol zone so don't end up with duplicates when combine
-
-#litter################################
-# 4. Litter
-litter100<- mor2$LitterCover100
-#same here as with bare, had to include 500 msrmnt bc lower
-litter500<- mor2$LitterCover500 
-litter1k<- mor2$LitterCover1000
-lmean <- mor2$LitterCover_percent_Mean500_1000
-ec.zn<- mor2$Ecologicalzone_4Code100
-RefNum<- mor2$SocialSurveyReferenceNumber
-litter<- as.data.frame(cbind(ec.zn, litter100, litter500, litter1k, lmean, RefNum))
-tbl_df(litter)
-
-# call the function to standardize the mean val by ecol zone:
-l1<- stndx(litter, lmean, 1)
-l2<- stndx(litter, lmean, 2)
-l3<- stndx(litter, lmean, 3)
-l4<- stndx(litter, lmean, 4)
-# overwrite the litter df above w this new one or just add the new column?
-lstan<- bind_rows(l1,l2,l3,l4) %>%
-  rename(l.stand = mean.var.sd) 
-#%>%
- # select(-ec.zn) #remove ecol zone so don't end up with duplicates when combine
-
+#NO. BC we end up useing these ppt and ndvi vars later when matching, so we cannot also use them to decribe this as well.
 
 # ndvi values exported from GEE:
-pttrends <- read.csv("./data/pttrends.csv", stringsAsFactors = FALSE)
-#pttrends <- readOGR(dsn = "./data", layer = "pttrends.csv")
-pttrends<- pttrends[1:130, 1:5]
+# replace these w Jay's values when we get them:
+# pttrends <- read.csv("./data/pttrends.csv", stringsAsFactors = FALSE)
+# #pttrends <- readOGR(dsn = "./data", layer = "pttrends.csv")
+# pttrends<- pttrends[1:130, 1:5]
+# 
+# geo<- pttrends$.geo
+# 
+# var<- sapply(pttrends$.geo, function(x) strsplit(x, split="[", fixed = TRUE))
+# coord<- sapply(var, function(x) x[2])
+# names(coord)<- NULL
+# 
+# coord<- sapply(coord, function(x) substr(x, 1, nchar(x)-2))
+# split<- sapply(coord, function(x) strsplit(x, split = ","))
+# pttrends$long <- sapply(split, function(x) x[1])
+# pttrends$lat <- sapply(split, function(x) x[2])
+# 
+# preciptrend <- dplyr::select(pttrends, -.geo)
+# preciptrend %<>% mutate_at(5:6, funs(as.numeric(.))) %>%
+#   rename(long2 = long, lat2 = lat)
 
-geo<- pttrends$.geo
-
-var<- sapply(pttrends$.geo, function(x) strsplit(x, split="[", fixed = TRUE))
-coord<- sapply(var, function(x) x[2])
-names(coord)<- NULL
-
-coord<- sapply(coord, function(x) substr(x, 1, nchar(x)-2))
-split<- sapply(coord, function(x) strsplit(x, split = ","))
-pttrends$long <- sapply(split, function(x) x[1])
-pttrends$lat <- sapply(split, function(x) x[2])
-
-hhtrends<- dplyr::select(pttrends, -.geo)
-
-
-#compile################################
-#  5.  add these back to rpe 
-######  .
-
-#join back to rpe, aligning by RefNum
-rpe.ar<- arrange(rpe, ez)
-
-rpejoin <- left_join(rpe, fstan[,6:7], by= "RefNum") %>% 
-  left_join(gstan[,6:7], by= "RefNum") %>%
-  left_join(bstan[,6:7], by= "RefNum") %>%
-  left_join(lstan[,6:7], by= "RefNum") %>%
-  left_join(oail, by = "RefNum") %>%
-  left_join(hhcont, by = "RefNum") %>%
-  left_join(hhrts, by = "RefNum") %>%
-  left_join(hhtrends, by = "RefNum")
-
-rpejoin$gs <- sqrt(rpejoin$g.stand)    # new version of e1s
-rpejoin$fs <- sqrt(rpejoin$f.stand)  # new version of e2s
-rpejoin$ls <- sqrt(rpejoin$l.stand)    # new version of e4
-rpejoin %<>% mutate(bare.inv = (1 - b.stand))
+# WHY ARE THERE ALL THESE NEGATIVE VALUES???????????
+# DO NOT USE MEAN OR SLOPE.
 
 
 # add in the soils parameters
 
-library(readxl)
+#library(readxl)
 soils <- read_excel("/nfs/gallington-data/Herder_sem/data/Soil surface data_Ginger.xlsx", 
                     sheet = "Sheet1")
 #View(soils)
@@ -300,75 +119,193 @@ erosion.levels<- c("high erosion", "medium erosion", "little erosion")
 retention.levels <- c("isolated", "fragmented", "connected")
 soils$`SRD_3classes_with name` <- ordered(soils$`SRD_3classes_with name`, levels = erosion.levels)
 soils$`RRC_3classes_with name` <- ordered(soils$`RRC_3classes_with name`, levels = retention.levels)
-
-
-# bring rpejoin in from standardizing.R
+# can't average bc they are categorical so chose to use 500 m 
 soils500<- soils %>% filter(DistanceClass_m == 500) %>%
   dplyr::select(PlotID ='UniquePlotID', RRC=`RRC_3classes_with name`, SRD=`SRD_3classes_with name`)
 
+# now add the soils and ndvi 
 
-rpejoin$long<- as.numeric(rpejoin$long)
-rpejoin$lat<- as.numeric(rpejoin$lat)
+eco.params %<>% left_join(soils500, by = "PlotID")
+eco.params <- mutate(eco.params, Bare.inv = (sqrt(100 - BareSoil))) %>% dplyr::select(-BareSoil)
 
-# have to add PlotID to rpe from mor2...
-rpesoil <- left_join(rpejoin, soils500, by = "PlotID")
-tbl_df(rpesoil)
+eco.params$Protein[eco.params$Protein == "NA"] <- mean(eco.params$Protein)
 
+# TRANSFORMED DATA ***********************************************************
+test<- eco.params %>% mutate_at(c(5:12, 14:15), funs(log(1+.)))
+# ******************************************************************************
 ```
 
-# Factor Analysis
+## Factor Analysis
+results are essentially correlations between the variables and the factors (or "new" variables), as they are extracted by default; these correlations are also called factor loadings.
+#### Checking the correlation matrix and sampling adequacy for different combinations of variables
+First with the full set of vars
 ```{r}
 # subset the full df to just get the ecol related vars:
-ecols<- dplyr :: select(rpesoil, g.stand, f.stand, bare.inv, l.stand, RRC, SRD, ndvi)
-
+ecols<- dplyr :: select(test, 5:19)
 # create correlation matrix using hetcor function for moving on...
 ecor <- hetcor(ecols)$cor
-k<- KMO(ecor)
+corrplot(ecor)
+```
+OK so it looks like we need to remove some vars that are really nighly correlated.
+
+```{r}
+# 9/21::
+ecol <- dplyr::select(test, c(5,8,11,12,14:19))
+
+# 9/20:
+eco1<- dplyr :: select(eco.params, c(5,8, 13, 14, 17:22))  # MSA = 0.81
+eco2<- dplyr :: select(eco.params, c(5,8, 14, 17:22)) # MSA = 0.84
+# put forb back in?
+eco3<- dplyr :: select(eco.params, c(5,8,10, 14, 17:22)) # MSA= 0.74
+# original set of vars:
+eco0<- dplyr :: select(eco.params, c(5,10, 17, 22))  # MSA = 0.59
+ecor <- hetcor(ecol)$cor
+corrplot(ecor)
+```
+
+Let's check sampling adequacy w this subset:
+Overall = 0.83. This is good enough to move forward w the CFA.
+```{r}
+# Kaiser (1975) suggested that KMO > .9 were marvelous, in the .80s, mertitourious, in the .70s, middling, in the .60s, medicore, in the 50s, miserable, and less than .5, unacceptable.
+k<- KMO(ecor)   
+
 kable(k$MSA, digits = 2, col.names = "Overall MSA")
 kable(k$MSAi, digits = 2, col.names = "Individual/MSA")
 ```
 
+```{r}
+
+
+# create correlation matrix using hetcor function for moving on...
+ecor <- hetcor(ecols)$cor
+
+# Assessing sampling adequacy:
+# Kaiser (1975) suggested that KMO > .9 were marvelous, in the .80s, mertitourious, in the .70s, middling, in the .60s, medicore, in the 50s, miserable, and less than .5, unacceptable.
+k<- KMO(ecor)   
+kable(k$MSA, digits = 2, col.names = "Overall MSA")
+kable(k$MSAi, digits = 2, col.names = "Individual/MSA")
+
+cortest.bartlett(ecor, n = 130)
+```
+So, with all the ecological parameters together, we get an MSA of 0.24 = Unacceptable.
+We can then assess each individual parameter to see which we might need to remove from consideration bc the sample size is too low.
+It looks like a lot shoudl be removed.  But we had much better MSA in earlier iterations where we were using smaller number of params. So, let's remove a few of the ones we've just added, to see how this affects the score.
+
+The test after the data were transformed/normalized retains the most number of variables and also has a good MSA. (Note, some vars were removed entirely bc not enough data, see notes in import)
+
+
+### (draft)final list of paramaters to use going forward...
+
+So, now the the data are transformed, we can pretty much keep everythig except maybe Annual Forb, which has the worst MSA score...
+```{r}
+#eco.vars<- eco.params[,c(5, 8, 13, 16:22)]
+
+# with normalized data, removing Annual Forb:
+test2<- dplyr::select(test, -AnuForb)
+eco.vars<- test2[,5:18]  # pulling out just the eco dat to create corr matrix
+# create correlation matrix using hetcor function for moving on...
+ecor <- hetcor(eco.vars)$cor
+```
+
+
+
 ## with pos/neg indicators combined
 ### trying diff methods to compare outputs
 ```{r}
-fa.parallel(ecor, n.obs = nrow(ecols), fm = "ml")$fa.values
+fa.parallel(ecor, n.obs = nrow(eco.vars), fm = "ml")$fa.values
 ```
+This now suggests 3 factor....
 
 with fa() from the psych pkg
 ```{r}
-fa1 <- fa(ecor, factors = 4, rotation = "varimax", fm = "ml")
-summary(fa1)
-fa1$loadings
-#fa1$Structure
-fa1$residual
+faml <- fa(ecor, factors = 4, rotation = "varimax", fm = "ml", n.iter = 500, n.obs= nrow(eco.vars))
+# get same result if vary teh number of proposed factors...
+faols <- fa(ecor, factors = 4, rotation = "varimax", fm = "ols")
+faminres <- fa(ecor, factors = 4, rotation = "varimax", fm = "minres")
+faml
+faml$loadings
+faols$loadings 
+faminres$loadings
+#faminres$Structure
+#fa1$residual
 ```
 Which suggests that one factor works as well.
-But the proportion of variance explained is really low = 0.42
+(Old version::But the proportion of variance explained is really low = 0.43_
+Prop var explained is now = 0.52
+What is going on with protein and bare.inv???
+
+
 Trying w another approach, varying the number of factors that it forces, and comparing the variance explained...
 usin gthe factanal() from the XXXX pkg: 
-This didn't work with 4, not enough variables.
 So tried 3:
 ```{r}
-factanal(~g.stand+ f.stand+ bare.inv+ l.stand+ RRC+ SRD+ ndvi, 
-         covmat = ecor, n.obs = nrow(ecols),
+factanal(~PerrGrass+ TotGrassCover + PerrForb + Forb_bm+ Sedges +Bare.inv + LiiterCover + Protein + SpRich + RRC+ SRD, 
+         covmat = ecor, n.obs = nrow(eco.vars),
          factors = 3, rotation = "varimax", fm = "ml")$loadings
 ```
-Cum Var is 0.664. But the loadings across the factors isn't particularly informative.
+(OLD VERSION:Cum Var is 0.664. But the loadings across the factors isn't particularly informative.)
+New Version: Cum Var is 0.687on 3 factors... but a little hard to interpret...
 
-### factanal() specifying 2 factors:
 ```{r}
-factanal(~g.stand+ f.stand+ bare.inv+ l.stand+ RRC+ SRD+ ndvi, 
-         covmat = ecor, n.obs = nrow(ecols),
-         factors = 2, rotation = "varimax", fm = "ml")$loadings
+f1<- factanal(~PerrGrass+ Grass_bm+ TotGrassCover + PerrForb + Forb_bm+ Sedges +Bare.inv + LitterCover + Protein + SpRich + RRC+ SRD, 
+         covmat = ecor, n.obs = nrow(eco.vars),
+         factors = 1, rotation = "varimax", fm = "ml")#
+f1
+```
+Check out the difference in Uniquenesses between the runs w diff numb of factors. We want LOW uniqueness values (but not toooooo low--> Heywood)
+```{r}
+f2<- factanal(~PerrGrass + Grass_bm + TotGrassCover + PerrForb +     Forb_bm + Sedges + Bare.inv + LitterCover + Protein + SpRich +     RRC + SRD,
+         covmat = ecor, n.obs = nrow(eco.vars),
+         factors = 2, rotation = "varimax", fm = "ml")#$loadings
+f2
+```
+
+
+
+```{r}
+f3<- factanal(~PerrGrass + Grass_bm + TotGrassCover + PerrForb +     Forb_bm + Sedges + Bare.inv + LitterCover + Protein + SpRich +     RRC + SRD,
+         covmat = ecor, n.obs = nrow(eco.vars),
+         factors = 3, rotation = "varimax", fm = "ml")#$loadings
+f4<- factanal(~PerrGrass + Grass_bm + TotGrassCover + PerrForb +     Forb_bm + Sedges + Bare.inv + LitterCover + Protein + SpRich +     RRC + SRD,
+         covmat = ecor, n.obs = nrow(eco.vars),
+         factors = 4, rotation = "varimax", fm = "ml")#$loadings
+```
+OK, there's just too much overlap in some of these vars. Let's cut it down again:
+
+```{r}
+corrplot(ecor)
+trim<- test[, c(1:5,8,9,  11, 12,  14:19 )]
+
+tcor<- hetcor(trim[,5:15])$cor
+corrplot(tcor)
+
 ```
 ```{r}
-factanal(~g.stand+ f.stand+ bare.inv+ l.stand+ RRC+ SRD+ ndvi, 
-         covmat = ecor, n.obs = nrow(ecols),
-         factors = 1, rotation = "varimax", fm = "ml")$loadings
+ft<- factanal(~PerrGrass + PerrForb +   AnuForb + Sedges + Bare.inv + LitterCover + Protein + SpRich +     RRC + SRD,
+         covmat = tcor, n.obs = nrow(eco.vars),
+         factors = 2, rotation = "varimax", fm = "ml")#$loadings
+ft
 ```
-This matches the output from the previous method w one factor.
-So, it is better with two factors, but they don' tbreak down in a clear way except that forbs falls out separately.
-But this was with everything together, so now trying with pos/neg indicators separately.
+
+
+
+OK, need to figure out what is going on with Protein and Bare Ground..................
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ## POSITIVE INDICATORS 
