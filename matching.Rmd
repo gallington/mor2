@@ -1,11 +1,30 @@
 ---
-title: "Matching w. the MOR2 HH Survey"
+fig_height: 2
+fig_width: 3
 output:
-  html_document: default
+  pdf_document: default
   html_notebook: default
+  html_document: default
 ---
+### Household herding decisions predict winter pasture conditions in Mongolia using an integrated social-ecological analysis approach
+##### María E. Fernández-Giménez, Ginger Allington, Jay Angerer, Robin Reid, Chantsallkham Jamsranjav, Tungalag Ulambayar
+<br>
+#### Table of Contents
 
-```{r, message=FALSE}
+[I. Notes][]
+
+[II. Introduction][]
+
+[III. Methods][]
+
+[Matching method][]
+
+[Outcome Variable][]
+
+[Matching][]
+
+[IV. Results][] 
+```{r preliminaries, message=FALSE, echo = FALSE}
 library(MatchIt)
 library(optmatch)
 library(foreign)
@@ -19,14 +38,34 @@ library(knitr)
 library(xtable)
 library(ggjoy)
 library(cobalt)
+library(dummy)
 ```
 
-## TO DOs and reminders:
+#### I. Notes
+TO DOs and reminders:  
 * fix RMD code to not print all the R code chunks along w the results...?
 * insert ref to efa_cfa.Rmd exported pdf
 * Qs re: latent means rescale then weighted---ok to interpret directly?
+* add a table of variable name shortcuts for maria & robin & chantsaa to reference
 
-## General Notes on matching and propensity scores...
+### Abstract
+
+### II. Introduction
+* Global importance and threats to temperate grasslands and Mongolia as a key example
+* Scaling challenges of linking social and ecological data to understand impacts and feedbacks in coupled human-natural systems, especially grasslands
+*	Evidence from fine-scale grazing management experiments does not scale to ranch-level management units and does not account for human adaptive decision-making (Briske et al. 2008, subsequent papers and debate)
+*	A few ranch-scale case studies are beginning to couple household-level decisions and management with ranch-scale ecological outcomes (Wilmer et al. in press, Teague et al, etc.). However, most of these studies are limited in the number of cases (<20 ranchers) and confined to a single ecological zone (e.g. E Colorado, S Texas). 
+*	Evidence from extensive scale remote sensing studies that correlate greenness and livestock populations also overlook household and collective decision making at local scales and fail to overcome confounding of correlation and causation, leading to spurious conclusions. Also, they look at only one or two variables (greenness and land cover types)
+*	This study draws on a unique multi-scalar integrated social-ecological data set that explicitly couples individual household decisions/behaviors and community-level institutions with pasture-level field-based ecological data and multi-scalar remote sensing and climate data to examine the impacts of household behavior and community-level institutions on ecological conditions, and vice versa, at the pasture scale (~250-500 ha), accounting for landscape context in the surrounding district (~10,000- xxx ha).
+*	It applies a novel two (three?) step process that 1) uses a single robust, integrated and holistic index of ecological health as a response variable, and 2) compares ecological outcomes in sets of matched households for each management decision or institution, to determine the effects of each practice or institutional variable while accounting for potentially confounding influences.
+*	As such, our study makes important methodological and empirical contributions to the study and understanding of coupled social-ecological systems in temperate grasslands grazed by domestic livestock. 
+*	Methodologically it…
+*	Empirically, it shows that herder decisions do matter and that key practices and institutional innovations have a measurable and beneficial impact on grassland ecological conditions in Mongolian winter pastures. [focus on the practices and institutions that matter the most…}
+*	These results have important policy and management implications….
+
+### III. Methods
+
+##### General Notes on matching and propensity scores...
 
 The goal of matching is to get trt and ctrl groups with similar distributions of covariates. Then when comparing trt effect on outcome , we can be more conifdent that we are actually detecting the impact of that trt (here it is CBRM or an individual practice) versus the confounding impact of the covariates. One advantage of matching methods is that we can identify areas where the covariate distributions do not sufficiently overlap, and exclude those samples from the subsequent analysis, as they would create additional bias (this is partic imp in subsequent linear modeling, etc.). Basically we are trying to reduce bias in our estimation of the effect of different "treatments" (practices, or institution)
 
@@ -50,11 +89,15 @@ Then potentially continue with full matching for the Practices 'treatments'?
 How best to include Trespassing? As a Trt? or a Covariate?
 
 ### Matching method
-We are using 'optimal full matching', which will allow us to 
+We are using 'optimal full matching', which will allow us to maintain the largest number of samples while also reducing bias
 
 ### Assessing balance
-We
+We assess overall balance through several measures.
+1. Standardized Mean Difference (< 0.1-0.25 depending on context) between Treatment and Control, for the Matched and Unmatched datasets. 
+2. Variance ratios (aim is close to 1) - between Treatment and Control, for the Matched and Unmatched datasets. 
+3. Komologorov-Smirnoff tests of distribution. - between Treatment and Control, for the Matched and Unmatched datasets. We will also use this test to assess the ECDF of the outcome variable under the Treatment compared to the Control (post-matching)
 
+We  also assess the overlap in teh distribution of the
 **Propensity score** :the probability of *receiving* the treatment, given the observed covriates. We want to ensure that the p-scores are as similar as we can, before we start to estimate the effect of a given treatment.  They summarize all of the covariates in to a single scalar-- at each value of p-score, the distribution of the covariates is the same in teh trt and cntrl groups.
 
 ### Variable selection
@@ -63,12 +106,17 @@ and/or: include set of covariates known to be realted to the outcome var, then c
 
 **DO NOT** include covariate that might be affected by the treatment!
 
-## Loading Data....
+### Data....
 This includes MOR2 HH survey data, data from Jay Angerer on environmental parameters and forage availability and stockign density at the soum level.  And also the outcome variance, which I am generally referring to here as Ecological Integrity Index (please help me come up with a better name if you don't feel like that's a good choice). This Ecol Int Index value is the outcome of the Comfirmatory Factor Analysis (INSERT NAME OF the pdf once I've exported it from the Rmd). See that document for a description of the process of  generating the latent mean value for Ecological Integrity. The raw latent mean is scaled from -2 thru 2. I rescaled these values to be from 0-1. Then later they are weighted, resulting in a final range of values = [###].
 --summary stats on that
 --should these be set to quantiles?
 
-```{r load, echo=FALSE, message=FALSE, cache = TRUE}
+### Outcome Variable
+Generating the Ecological Integrity Index
+(for now, see separate document on this)
+
+
+```{r load, echo=FALSE, message=FALSE, warning=FALSE}
 # STEP 1: subsetting the mor2 data:
 # for use in matching....
 
@@ -77,7 +125,7 @@ mor2<- read.spss("./data/ALL_EcolHHOrgMerged_byUvuljaa_03_15_17_Simplified.sav" 
                  to.data.frame=TRUE,
                  use.value.labels=FALSE) #
 # tidy format
-tbl_df(mor2)
+#tbl_df(mor2)
 
 # load jay's data on env params
 soum_stats<- readRDS("./soum_stats.rds")
@@ -87,6 +135,14 @@ soum_stats<- readRDS("./soum_stats.rds")
 #   this file was generated in the efa_cfa.Rmd doc.
 lvs<- readRDS("rpe_lv.R")
 lvs$RefNum <- as.factor(lvs$RefNum)
+
+for(level in unique(lvs$ez)){
+  lvs[paste("dummy", level, sep = "_")] <- ifelse(lvs$ez == level, 1, 0)
+}
+lvs %<>% rename(ez1_DS = dummy_1,
+                ez2_St = dummy_2,
+                ez3_ES = dummy_3,
+                ez4_FMS = dummy_4)
 
 hhmatch <- mor2 %>%
   dplyr ::select(CBRM,
@@ -103,11 +159,13 @@ hhmatch$AimagName <- trimws(as.character(hhmatch$AimagName))
 
 
 #tbl_df(lvs)
-hhmatch %<>% left_join(lvs[,c(2,
-                              7,
-                              11:17,
-                              22:24,
-                              55
+hhmatch %<>% left_join(lvs[,c(2, # RefNum
+                              6, # r1
+                              11:17, # p4-p10
+                              22:24, # p1-p3
+                              44,  # slope of ndvi
+                              55,   # eco int latent mean 
+                              57:60 # ecological zone dummy vars
                               )], by= "RefNum")
 
 
@@ -115,41 +173,53 @@ hhmatch %<>% left_join(soum_stats, by = c("AimagName", "SoumName"))
 # the "SoumID.x" that comes thru here is the Soum ID from Jay's jay, which do not match teh MOR2 codes, so i'm keeping them in for reference, just in case.
 ```
 
-```{r}
+### Table of the variables used in the analysis:
+Eventually this will also list the units, a description and indicate which covariates were used in each matching exercise.  
+**NOTE**: as of now Jay's data are summarized in two ways:  
+1. long-term mean over all years in dataset  
+2. means up to 2011  
+A more appropriate measure is probably:  
+3. Slope of trend through 2011, for the practices vars.  
+But for the CBRM 'treatment', we want to be able to consider the context *at the time the CBRM was formed* or, in the years leading up to it. Which means we shoudl be using either:  
+4. mean from start up to the year that the CBRM was formed  
+5. slope of the trend up to the year it was formed.  
+However, these were all happening on different years, and the dzud impacts the calc of lt-trend if we end it around that time. So, how shoudl we handle this?
+
+**Table 1.** A full list of variables used in this analysis. (See Table 1 in the word & excell docs too). This will eventually also contain descriptios of the variables and the units and source. 
+
+```{r, echo = FALSE}
 # list of the params in the df
-str(hhmatch)
+#str(hhmatch)
+hname<- names(hhmatch)
+kable(hname, format= "markdown", col.names = c("Variables"))
+
 ```
 
 
 
-# Matching: 
+### Matching 
 
-## CBRM as Treatment
-
-```{r, message=FALSE}
-
-#remove NAs
-
-#hhmatch$SoumCode<- as.factor(hhmatch$SoumCode)
-
+#### CBRM as Treatment
+I'm including these bits of code so that you can see which variables have been included in each matching procedure. But eventually this will be condensed in to one Table. Potentially combined w Table 1. 
+```{r, message=FALSE, warning=FALSE}
 raw.data<- hhmatch %>% 
   na.omit() %>%
-# rescale the response var from 0-1?
   mutate(eco.int = scales::rescale(eco.lv, to=c(0, 1)))   
-
-#raw.data$CBRM<- raw.data$CBRM==0 
-
 m.out1 <- matchit(CBRM ~ 
-                    SoumCode+
-                    Trsp+
-                    ez + 
-                    pl +
-                    p2s +
-                    p3s ,
-                   # p4 +
-                   #  p5 +
-                   # p6 +
-                   #  p7 +
+                  # SoumCode+
+                  # Trsp+
+                    ez1_DS +
+                    ez2_St +
+                    ez3_ES +
+                    ez4_FMS +
+                  # pl +
+                   #p2s +
+                   #p3s +
+                     slope +  # slope of ndvi at HHS
+                     p4 +
+                     p5 +
+                     p6 +
+                     p7 ,
                    #  p8 +
                    #  p9 ,   # get error if try to include these in addlvars
                     #p10, 
@@ -158,51 +228,86 @@ m.out1 <- matchit(CBRM ~
                   discard = "both"
                   )
 m.full.summary<- summary(m.out1, 
-                         standardize = TRUE)# ,  
-                         #addlvariables = #match.data[,c("p4","p9", "p10")]) # why errors w this if try to include more than one at a time???
-                                      
+                         standardize = TRUE,  
+                         addlvariables = raw.data[,c("p4")]) 
+                                     
 ```
-### get summary of matched data and generate dataset
+#### Retrieve summary of matched data and generate dataset
 If matching is done well, the treatment and control groups will have (near) identical means of each covariate at each value of the propensity score.
 Reminder: we are assessing good match on St Diff in Means of matched groups <0.2 and var ratio around 1.  But since we know that some of these can vary based on more than just means we should also consider a test of their distributions (like Komologrov-Smirnoff)
-```{r}
-m.full.summary
+
+(I'm gong to insert this format of these data in here just this time. The rest of the examples will be with a diff output. I'm includin this as well as there is slightly diff info in it, just so everyone can see it.)
+**CBRM : Summary of Final Sample Size**
+```{r, results= 'asis', echo = FALSE}
+knitr::kable(m.full.summary$nn, caption = "Summary of Final Sample Size")
+
 # try to make a df out of that summary by calling indiv lists and then kable to table
+```
+
+**Summary Stats of CBRM & Non-CBRM un-matched**
+```{r, results= 'asis', echo = FALSE}
+#m.full.summary
+knitr::kable(m.full.summary$sum.all, caption = "Summary Stats of CBRM & Non-CBRM un-matched", digits = 3)
+```
+**Summary Stats of CBRM & Non-CBRM Matched**
+```{r, results= 'asis', echo = FALSE}
+knitr::kable(m.full.summary$sum.matched, caption = "Summary Stats of CBRM & Non-CBRM Matched", digits = 3)
+```
+
+Export the data file.
+```{r,  echo = FALSE}
 full.data.m <- match.data(m.out1) # pulls matched data out of matchit object. 
 ## obtain matched data for the treatment group
 #   keeping this here for reference in case need to export these later, but in general not using these separately
 m.data.trt <- match.data(m.out1, group = "treat")
 m.data.ctrl <- match.data(m.out1, group = "control")
 ```
-### plotting to compare the matched v. unmatched data
 
+### Plotting to compare the matched v. unmatched data
 
-```{r}
+In assessing covariate balance we are looking for mean differences < 0.25, variance rations ~1  
+And similar distributions between Trt and Ctrl, particularly for the Propensity Scores.
+
+```{r, echo = FALSE}
 # this is done with balance.plot but see also Johan's code for his versions of plottin these
-love.plot(bal.tab(m.out1), 
+# change variable names:
+v <- data.frame(old = c("distance", "ez1_DS", "ez2_St", "ez3_ES", 
+                        "ez4_FMS", "p4_0", "p5_0", "p6_0", 
+                        "p7_0", "slope"),
+                new = c("Propensity score", "Desert Steppe", "Steppe", 
+                        "Eastern Steppe", "Forest/Mtn Steppe", "Fall Otor", "Winter Otor", 
+                        "Reserve Winter Pastures", "Reserve Spring Pastures", "NDVI Trend"))
+a<- love.plot(bal.tab(m.out1), 
           stat = "mean.diffs",  # c("mean.diffs", "variance.ratios", "ks.statistics"), 
           # cant' get var ratios for binary vars... can't get this to work unless select one stat msr at a time.
           threshold = .2, 
           no.missing = TRUE,
-          var.order = NULL)
+          var.order = NULL,
+         # colors = c("#998ec3","#f1a340"),
+          var.names = v)
 
-bal.tab(m.out1, # the matchit object
+# try to figure out how to plot this so it looks nicer....
+d<-bal.tab(m.out1, # the matchit object
         un = TRUE,  # print stats for unadjusted and adjusted sample?
-        m.threshold = .1, # threshold for mean diffs. they suggest .1 which is more conservative than our 0.25 that we were using before
+        m.threshold = .25, # threshold for mean diffs. they suggest .1 which is more conservative than our 0.25 that we were using before
         int = FALSE, #include interactions?
         disp.means = TRUE,
         disp.v.ratio = TRUE,
-        disp.ks =TRUE
+        disp.ks =TRUE,
+        var.names = v
         )
-# 
-b<- bal.plot(m.out1, "distance", which = "both")
+kable(d$Balance)
+b<- bal.plot(m.out1, "distance", which = "unadjusted")+theme_bw()
+c<- bal.plot(m.out1, "distance", which = "adjusted")+theme_bw() 
 # this returns a ggplot object
 b+ theme_bw() # so just need to adjust the aesthetics.
-
+c
+#e<- grid.arrange(a,b,c, ncol=1, widths = 2)
+ggsave(e, filename = "./plots/cbrm_balance.png", width=2, height = 7)
 ```
 
-### hidden extra plotting info that i'm saving.....
-```{r, eval = FALSE}
+**hidden extra plotting info that i'm saving.....**
+```{r, eval = FALSE, echo = FALSE}
 # generate pre and post matching Std. Mean. Diff. datasets
 # this is SUMMARY data
 full.sum.all <- m.full.summary$sum.all
@@ -244,24 +349,15 @@ stmdif.full <- ggplot(StMeanDif, aes(y = covariates )) +
         axis.line.y = element_line(color="black"))
 stmdif.full
 
-
 ### generate propensity scores for full (unmatched) dataset
 
 raw.data <- match.data
 pscores <- glm(CBRM ~
               ez + 
               Trsp +
-              #SoumCode+
               pl +
               p2s +
-              p3s, # +
-              # p4 +
-              # p5 +
-              # p6 +
-              # p7 +
-              # p8 +
-              # p9 +
-              # p10, 
+              p3s, 
             data = raw.data, family = binomial)
 
 
@@ -316,89 +412,37 @@ stmdif.full + scale_x_continuous(labels=scaleFUN)            # This should be 9"
 grid.arrange(full.pscore.pre, full.pscore.post, ncol=1)      #  This should be 7" x 7" when exporting .pdf
 ```
 
-# TRSP as Treatment
+### TRSP as Treatment
+
+9/14: Take a look at what is happening w p1, and ez 1 and ez 2.
+Also the variance ratios for long-term mean sfu var
 
 ```{r data, message=FALSE}
 
-#remove NAs
-
-#hhmatch$SoumCode<- as.factor(hhmatch$SoumCode)
-
-match.data<- hhmatch %>% 
-  na.omit() %>%
-# rescale the response var from 0-1?
-  mutate(eco.int = scales::rescale(eco.lv, to=c(0, 1)))   
-
 tr.full.summary<- summary(tr.out1 <- matchit(Trsp ~
-                                          #CBRM + 
-                                          ez + 
+                                          ppt11 +
+                                          sfu11 +
+                                          avail.forage +
+                                          CBRM + 
+                                          ez1_DS +
+                                          ez2_St +
+                                          ez3_ES +
+                                          ez4_FMS +
                                           pl +
                                           p2s +
-                                          p3s +
-                                          # p4 +
-                                          # p5 +
-                                          # p6 +
-                                          # p7 +
-                                          # p8 +
-                                          # p9 +
-                                          # p10 +
-                                          ltmeanppt +
-                                          ltmeansfu,
-                                        data = match.data, 
+                                          p3s ,
+                                        data =raw.data, 
                                         method = "full", distance = "logit",
                                         discard = "both"
                                         ), standardize = TRUE 
                                         )
 # get summary and generate dataset
-tr.full.summary
 full.data.tr <- match.data(tr.out1) # pulls matched data out of matchit object. 
-## obtain matched data for the treatment group
-#tr.data.trt <- match.data(tr.out1, group = "treat")
-#tr.data.ctrl <- match.data(tr.out1, group = "control")
-
-# generate pre and post matching Std. Mean. Diff. datasets
-trfull.sum.all <- tr.full.summary$sum.all         #sum.all is the pre-matching data
-trfull.sum.mat <-tr.full.summary$sum.matched      #mat is after matching
-# rename the col header to make it easier to call it later
-trfull.sum.all <- rename(trfull.sum.all, StMeanDiff = "Std. Mean Diff.")
-trfull.sum.mat <- rename(trfull.sum.mat, StMeanDiff = "Std. Mean Diff.")
-
-# generate column for covariate names in the df, bc the output has the rows labelled but they aren't in a column
-covariates <- row.names(tr.full.summary$sum.all)
-
-# generate dataset for plotting
-#### ASK JOHAN ABOUT THIS ONE NOT SURE 
-StMeanDif <- data.frame(cbind(covariates, trfull.sum.all$StMeanDiff, trfull.sum.mat$StMeanDiff))
-#StMeanDif <- data.frame(cbind(covariates, trfull.sum.all$StMeanDiff, trfull.sum.mat$StMeanDiff))
-StMeanDif$V2 <- as.numeric(paste(StMeanDif$V2))
-StMeanDif$V3 <- as.numeric(paste(StMeanDif$V3))
-
 
 ```
-### Plot matching results:
-```{r}
-# plot Standardized mean differences
-stmdif.full <- ggplot(StMeanDif, aes(y = covariates )) +
-  geom_point(aes(x = V3), colour = "sienna4", size = 7, alpha = 1) + geom_point(aes(x = V3), colour = "orange", size = 6, alpha = 1) + # with replacement
-  geom_point(aes(x = V2), colour = "black", size = 9, alpha = 1, shape = 1) +
-  scale_x_continuous(limits=c(-1, 1.5), breaks = c(-1, -0.5, -0.25, 0, 0.25, 0.5, 1, 1.5, 2, 2.5)) +
-  geom_vline(xintercept = 0, lty="dotted") +
-  geom_vline(xintercept = -0.25, lty="dotted") +
-  geom_vline(xintercept = 0.25, lty="dotted") +
-  theme_classic() +
-  xlab("Std. mean difference") +
-  ylab("Matching covariates") +
-  theme(axis.title.x = element_text(size=12, vjust=-0.2),
-        axis.text.x = element_text(size=12),
-        axis.title.y = element_text(size=12, vjust=1),
-        axis.text.y = element_text(size=12),
-        axis.line.x = element_line(color="black"),
-        axis.line.y = element_line(color="black"))
-stmdif.full
-```
-
+## Plot matching results:
 ### balance.plot
-```{r}
+```{r, echo = FALSE}
 love.plot(bal.tab(tr.out1), 
           stat = "mean.diffs",  # c("mean.diffs", "variance.ratios", "ks.statistics"), 
           # cant' get var ratios for binary vars... can't get this to work unless select one stat msr at a time.
@@ -421,166 +465,45 @@ b+ theme_bw() # so just need to adjust the aesthetics.
 
 ```
 
-### generate propensity scores for full (unmatched) dataset
-```{r}
-pscores <- glm(Trsp ~
-                ez + 
-                pl +
-                p2s +
-                p3s +
-                ltmeanppt +
-                ltmeansfu,
-            data = match.data, family = binomial)
-
-match.data$ps <- predict(pscores, type = "response")
-
-```
-### Plot Propensity Scores 
-```{r}
-# before matching
-full.pscore.pre <- ggplot(data=match.data) + 
-  geom_density(data = match.data[which(match.data$CBRM == "0"), ], fill = "yellow3", color = "yellow4", alpha = 0.2, aes(x = ps)) +        
-  geom_density(data = match.data[which(match.data$CBRM == "1"), ], fill = "navyblue", color = "mediumpurple4", alpha = 0.2, aes(x = ps)) + 
-  xlim(-0.2, 1.2) +
-#  ylim(0, 4) +       # set this to match the actual range of the data!!!!!
-  theme_classic() +
-  xlab("Propensity score") +
-  ylab("Density") +
-  ggtitle("Before Matching") +
-  theme(axis.title.x = element_text(size=12, vjust=-0.2),
-        axis.text.x = element_text(size=12),
-        axis.title.y = element_text(size=12, vjust=1),
-        axis.text.y = element_text(size=12),
-        plot.title = element_text(size=18, face = "bold", hjust = 0.5),
-        axis.line.x = element_line(color="black"),
-        axis.line.y = element_line(color="black")
-  )
-#  after matching
-
-full.pscore.post <- ggplot(data=full.data.m) + 
-  geom_density(data = full.data.m[which(full.data.m$CBRM == "0"), ], fill = "yellow3", color = "yellow4", alpha = 0.2, aes(x = distance, weight = weights/sum(weights))) +
-  geom_density(data = full.data.m[which(full.data.m$CBRM == "1"), ], fill = "navyblue", color = "mediumpurple4", alpha = 0.2, aes(x = distance)) +  # here distance = propensity score...
-  xlim(-0.2, 1.2) +
-#  ylim(0, 4) +
-  theme_classic() +
-  xlab("Propensity score") +
-  ylab("Density") +
-  ggtitle("After Matching") +
-  theme(axis.title.x = element_text(size=12, vjust=-0.2),
-        axis.text.x = element_text(size=12),
-        axis.title.y = element_text(size=12, vjust=1),
-        axis.text.y = element_text(size=12),
-        plot.title = element_text(size=18, face = "bold", hjust = 0.5),
-        axis.line.x = element_line(color="black"),
-        axis.line.y = element_line(color="black")
-  )
-#full.pscore.post
-
-#stmdif.full + scale_x_continuous(labels=scaleFUN)            # This should be 9" x 7" when exporting .pdf
-grid.arrange(full.pscore.pre, full.pscore.post, ncol=1)      #  This should be 7" x 7" when exporting .pdf
-```
-
-## zelig stats...
-```{r, eval = FALSE}
-library(Zelig)
-# run the parametric analysis
-z.out<- zelig(eco.int ~ Trsp + CBRM + ez + pl + p2s +p3s +p4 +p5 +p6 +p7 +p8 +p9 + p10,model = "ls", data = full.data.tr)
-#z.out<- zelig(eco.int ~ Trsp+ CBRM  + ez + pl + p2s +p3s ,model = "ls", data = full.data.m, weights = "weights")
-
-# then set the explanatory variables at their means and change the trt var from a 0 to a 1
-x.out <- setx(z.out, Trsp = 0)
-x1.out<- setx(z.out, Trsp = 1)
-# compute the result and examine a summary:
-s.out <- sim(z.out, x = x.out, x1 = x1.out)
-
-summary(s.out)
-plot(s.out)
-```
-###  Estimate Avg Treatment Efffect on the Treated (where Trt = Trespassing)
-predicts certain quantities of interest by conditioning on the observed value of the dependent variable  
-In a matched sampling design, the sample average treatment effect for the treated can be estimated by computing the difference between the observed dependent variable for the treated group and their expected or predicted values of the dependent variable under no treatment 
-```{r}
-# fit model to control group only
-z.out1<- zelig(eco.int ~ CBRM + ez + pl + p2s +p3s  +p5 +p6 +p7 +p8 +p9 + p10,#p4 was causing error
-               model = "ls", data = match.data(tr.out1, "control"))
-# conditional prediction which ues observed values
-x.out2 <- setx(z.out1, data = match.data(tr.out1, "treat"), cond = TRUE) 
-s.out2 <- sim(z.out1, x = x.out2)
-
-summary(s.out2)
-# output is ev = expected values, pv = predicted values
-plot(s.out2)
-```
-
-### Estimate Average Treatment Effect: 
-
-
-###  Estimate Avg Treatment Efffect on the Treated (where Trt = CBRM)
-predicts certain quantities of interest by conditioning on the observed value of the dependent variable  
-In a matched sampling design, the sample average treatment effect for the treated can be estimated by computing the difference between the observed dependent variable for the treated group and their expected or predicted values of the dependent variable under no treatment 
-```{r, eval = FALSE}
-# fit model to control group only
-z.out1<- zelig(eco.int ~ CBRM + ez + pl + p2s +p3s +p4 +p5 +p6 +p7 +p8 +p9 + p10,model = "ls", data = match.data(tr.out1, "control"))
-# conditional prediction which ues observed values
-x.out2 <- setx(z.out1, data = match.data(tr.out1, "treat"), cond = TRUE) 
-s.out2 <- sim(z.out1, x = x.out2)
-
-summary(s.out2)
-# output is ev = expected values, pv = predicted values
-plot(s.out2)
-```
-
-# PRACTICES as Treatments...
-## p4: fall Otor
+## PRACTICES as Treatments...
+### p4: fall Otor
 
 To discuss w Maria: Which other vars to include for matching?
-```{r P4,}
+
+See issue w poor matching w ez3--possibly bc so few?
+Actually, none of the ez are improved w matching... remove all? 
+Generally the mean diff is still pretty low for all and the overall match is good
+So it might be more important to include?  This is an example of one where I want to 
+talk some more w Kelly about what this really means/how it will influence our interpretation of results.
+
+```{r P4, }
 
 p4.full.summary<- summary(p4.out1 <- matchit(p4 ~
                                           CBRM + 
-                                          ez + 
-                                          #pl +
-                                          #p2s +
-                                          #p3s +
-                                          #p5 +
+                                          ez1_DS +
+                                          ez2_St +
+                                          ez3_ES +
+                                          ez4_FMS + 
                                           p6 +
                                           p7 +
-                                          p8 ,#+
-                                          # p9 +
-                                          # p10 +
-                                          #ltmeanppt+
-                                          #ltmeansd, 
+                                          p8 +
+                                          ppt11 +
+                                          sfu11+
+                                          avail.forage,
                                         data = raw.data, 
                                         method = "full", distance = "logit",
                                         discard = "both"
                                         ), standardize = TRUE  
                                         )
 # get summary and generate dataset
-p4.full.summary
+#p4.full.summary
 full.data.p4 <- match.data(p4.out1) # pulls matched data out of matchit object. 
-## obtain matched data for the treatment group
-p4.data.trt <- match.data(p4.out1, group = "treat")
-p4.data.ctrl <- match.data(p4.out1, group = "control")
 
-# generate pre and post matching Std. Mean. Diff. datasets
-p4full.sum.all <- p4.full.summary$sum.all         #sum.all is the pre-matching data
-p4full.sum.mat <-p4.full.summary$sum.matched      #mat is after matching
-# rename the col header to make it easier to call it later
-p4full.sum.all <- rename(p4full.sum.all, StMeanDiff = "Std. Mean Diff.")
-p4full.sum.mat <- rename(p4full.sum.mat, StMeanDiff = "Std. Mean Diff.")
-
-# generate column for covariate names in the df, bc the output has the rows labelled but they aren't in a column
-covariates <- row.names(p4.full.summary$sum.all)
-
-# generate dataset for plotting
-StMeanDif <- data.frame(cbind(covariates, p4full.sum.all$StMeanDiff, p4full.sum.mat$StMeanDiff))
-StMeanDif$V2 <- as.numeric(paste(StMeanDif$V2))
-StMeanDif$V3 <- as.numeric(paste(StMeanDif$V3))
 
 ```
 
-balanace.plot
-```{r}
+balance.plot
+```{r, echo = FALSE}
 love.plot(bal.tab(p4.out1), 
           stat =  "mean.diffs",   #c("mean.diffs", "variance.ratios", "ks.statistics"), 
           # cant' get var ratios for binary vars... can't get this to work unless select one stat msr at a time.
@@ -596,6 +519,7 @@ bal.tab(p4.out1, # the matchit object
         disp.v.ratio = TRUE,
         disp.ks =TRUE
         )
+
 # 
 b<- bal.plot(p4.out1, "distance", which = "both")
 # this returns a ggplot object
@@ -610,33 +534,26 @@ b+ theme_bw() # so just need to adjust the aesthetics.
 p5.full.summary<- summary(p5.out1 <- matchit(p5 ~
                                           CBRM + 
                                           ez + 
-                                          #pl +
-                                          #p2s +
-                                          #p3s +
-                                          #p4 +
                                           p6 +
                                           p7 +
-                                          p8,# +
-                                          # p9 +
-                                          # p10 +
-                                          #ltmeanppt+
-                                          #ltmeansd, 
+                                          p8 +
+                                          ppt11 +
+                                          sfu11+
+                                          avail.forage, 
                                         data = raw.data, 
                                         method = "full", distance = "logit",
                                         discard = "both"
                                         ), standardize = TRUE  
                                         )
 # get summary and generate dataset
-p5.full.summary
+#p5.full.summary
 full.data.p5 <- match.data(p5.out1) # pulls matched data out of matchit object. 
-## obtain matched data for the treatment group
-p5.data.trt <- match.data(p5.out1, group = "treat")
-p5.data.ctrl <- match.data(p5.out1, group = "control")
+
 
 ```
 
 ## Balance plot
-```{r}
+```{r, echo = FALSE}
 love.plot(bal.tab(p5.out1), 
           stat =  "mean.diffs",   #c("mean.diffs", "variance.ratios", "ks.statistics"), 
           # cant' get var ratios for binary vars... can't get this to work unless select one stat msr at a time.
@@ -661,33 +578,23 @@ b+ theme_bw() # so just need to adjust the aesthetics.
 ```
 
 # p6: Reserve Winter Pastures:
+What additional covariates should we consider here?
 ```{r P6,}
 
 p6.full.summary<- summary(p6.out1 <- matchit(p6 ~
                                           CBRM + 
                                           ez + 
-                                          #pl +
-                                          #p2s +
-                                          #p3s +
                                           p4 +
-                                          p5 + #+
-                                          #p7 +
-                                          #p8,# +
-                                          # p9 +
-                                          # p10 +
-                                          ltmeanppt, #+
-                                          #ltmeansd, 
+                                          p5 + 
+                                          ltmeanppt, 
                                         data = raw.data, 
                                         method = "full", distance = "logit",
                                         discard = "both"
                                         ), standardize = TRUE  
                                         )
 # get summary and generate dataset
-p6.full.summary
+# p6.full.summary
 full.data.p6 <- match.data(p6.out1) # pulls matched data out of matchit object. 
-## obtain matched data for the treatment group
-p6.data.trt <- match.data(p6.out1, group = "treat")
-p6.data.ctrl <- match.data(p6.out1, group = "control")
 
 # balanace.plot
 
@@ -708,8 +615,98 @@ bal.tab(p6.out1, # the matchit object
         )
 # 
 b<- bal.plot(p6.out1, "distance", which = "both")
-# this returns a ggplot object
-b+ theme_bw() # so just need to adjust the aesthetics.
+b+ theme_bw() 
+
+
+```
+
+## p7: Reserve Spring Pastures
+```{r p7,}
+
+p7.full.summary<- summary(p7.out1 <- matchit(p7 ~
+                                          CBRM + 
+                                          ez + 
+                                          p4 +
+                                          p5 + #+
+                                          p6 +
+                                          p8 +
+                                          ltmeanppt,  
+                                        data = raw.data, 
+                                        method = "full", distance = "logit",
+                                        discard = "both"
+                                        ), standardize = TRUE  
+                                        )
+# get summary and generate dataset
+# p7.full.summary
+full.data.p7 <- match.data(p7.out1) # pulls matched data out of matchit object. 
+
+# balanace.plot
+
+love.plot(bal.tab(p7.out1), 
+          stat =  "mean.diffs",   #c("mean.diffs", "variance.ratios", "ks.statistics"), 
+          # cant' get var ratios for binary vars... can't get this to work unless select one stat msr at a time.
+          threshold = .2,  #c(.2, 2), 
+          no.missing = TRUE,
+          var.order = NULL)
+
+bal.tab(p7.out1, # the matchit object
+        un = TRUE,  # print stats for unadjusted and adjusted sample?
+        m.threshold = 0.2, #.1, # threshold for mean diffs. they suggest .1 which is more conservative than our 0.25 that we were using before
+        int = FALSE, #include interactions?
+        disp.means = TRUE,
+        disp.v.ratio = TRUE,
+        disp.ks =TRUE
+        )
+# 
+b<- bal.plot(p7.out1, "distance", which = "both")
+b+ theme_bw() 
+
+
+```
+
+## p8: Reserve Dzud Pastures
+```{r p8,}
+
+p8.full.summary<- summary(p8.out1 <- matchit(p8 ~
+                                          CBRM + 
+                                          ez + 
+                                          p4 +
+                                          p5 + #+
+                                          p6 +
+                                          p7 +
+                                          ltmeanppt, 
+                                        data = raw.data, 
+                                        method = "full", distance = "logit",
+                                        discard = "both"
+                                        ), standardize = TRUE  
+                                        )
+# get summary and generate dataset
+# p8.full.summary
+full.data.p8 <- match.data(p8.out1) # pulls matched data out of matchit object. 
+## obtain matched data for the treatment group
+p8.data.trt <- match.data(p8.out1, group = "treat")
+p8.data.ctrl <- match.data(p8.out1, group = "control")
+
+# balanace.plot
+
+love.plot(bal.tab(p8.out1), 
+          stat =  "mean.diffs",   #c("mean.diffs", "variance.ratios", "ks.statistics"), 
+          # cant' get var ratios for binary vars... can't get this to work unless select one stat msr at a time.
+          threshold = .2,  #c(.2, 2), 
+          no.missing = TRUE,
+          var.order = NULL)
+
+bal.tab(p8.out1, # the matchit object
+        un = TRUE,  # print stats for unadjusted and adjusted sample?
+        m.threshold = 0.2, #.1, # threshold for mean diffs. they suggest .1 which is more conservative than our 0.25 that we were using before
+        int = FALSE, #include interactions?
+        disp.means = TRUE,
+        disp.v.ratio = TRUE,
+        disp.ks =TRUE
+        )
+# 
+b<- bal.plot(p8.out1, "distance", which = "both")
+b+ theme_bw() 
 
 
 ```
@@ -738,11 +735,9 @@ p9.full.summary<- summary(p9.out1 <- matchit(p9 ~
                                         ), standardize = TRUE  
                                         )
 # get summary and generate dataset
-p9.full.summary
+#p9.full.summary
 full.data.p9 <- match.data(p9.out1) # pulls matched data out of matchit object. 
 ## obtain matched data for the treatment group
-p9.data.trt <- match.data(p9.out1, group = "treat")
-p9.data.ctrl <- match.data(p9.out1, group = "control")
 
 # balanace.plot
 
@@ -763,13 +758,12 @@ bal.tab(p9.out1, # the matchit object
         )
 # 
 b<- bal.plot(p9.out1, "distance", which = "both")
-# this returns a ggplot object
-b+ theme_bw() # so just need to adjust the aesthetics.
 
+b+ theme_bw() 
 
 ```
 ## p10: Grazing dzud pastures in non-emergency
-```{r P10,}
+```{r P10, eval = FALSE, echo = FALSE}
 
 p10.full.summary<- summary(p10.out1 <- matchit(p10 ~
                                           avail.forage+
@@ -815,93 +809,24 @@ bal.tab(p10.out1, # the matchit object
         )
 # 
 b<- bal.plot(p10.out1, "distance", which = "both")
-# this returns a ggplot object
-b+ theme_bw() # so just need to adjust the aesthetics.
+
+b+ theme_bw() 
 
 
 ```
 
-```{r, eval = FALSE}
-p4data<-full.data.p4[complete.cases(full.data.p4),]
-p4.mod<- glm(eco.int ~ p4 +
-                        CBRM +
-                        ez +
-                        # pl +
-                        # p2s +
-                        # p3s +
-                        # p5 +
-                        p6 +
-                        p7 +
-                        p8 +
-                        # p9 +
-                        # p10 +
-                        ltmeanppt+
-                        ltsdppt,
-              data = p4data, weights = "weights", family = poisson(link = "logit"))
-             
-p4.mod<- glm((eco.int*weights) ~ p4 +
-          CBRM +
-          ez +
-          # pl +
-          # p2s +
-          # p3s +
-          p5 +
-          p6 +
-          p7 +
-          p8 +
-          # p9 +
-          # p10 +
-          ltmeanppt+
-          ltsdppt,
-          data = p4data)
-summary(p4.mod)
-```
 
-
-
-Try w zelig...
-```{r, eval = FALSE}
-# this uses the Zelig 5 process:
-#z.out<- zls$new()
-
-# this is Zelig4 still
-z.out<- zelig(eco.int ~ p4 +
-                        CBRM +
-                        ez +
-                        # pl +
-                        # p2s +
-                        # p3s +
-                        # p5 +
-                        p6 +
-                        p7 +
-                        p8 +
-                        # p9 +
-                        # p10 +
-                        ltmeanppt+
-                        ltmeansd, 
-              model = "logit", data = full.data.p4, weights = "weights")
-summary(z.out)
-# then set the explanatory variables at their means and change the trt var from a 0 to a 1
-x.out <- setx(z.out, p4 = 0)
-x1.out<- setx(z.out, p4 = 1)
-# compute the result and examine a summary:
-s.out <- sim(z.out, x = x.out, x1 = x1.out)
-
-summary(s.out)
-## [1] "Expected Values: E(Y|X)"            
-## [2] "Expected Values: E(Y|X1)"           
-## [3] "Predicted Values: Y|X"              
-## [4] "Predicted Values: Y|X1"             
-## [5] "First Differences: E(Y|X1) - E(Y|X)"
-plot(s.out)
-```
 In a matched sampling design, the sample average treatment effect for the treated can be estimated by computing the difference between the observed dependent variable for the treated group and their expected or predicted values of the dependent variable under no treatment.
 SO compare the values of eco.int for P4=1 (in matched data or original raw??) vs. ev or pv of eco.int for p4=0
 
+### IV. Results
 
-# Comparing distributions of post-matched data:
+While mean values for ecological condition were not difference for the Trt and control across all comparisons, all except for Grazing Winter Pasture Out of Season resulted in significantly different distributions between the Treatment and Control groups, with significantly higher median values for Ecological Condition for the Treatment groups. 
 
-# CBRM
+
+### Figures and tables for comparing distributions of post-matched data:
+
+## CBRM
 ```{r}
 cbrm_0<-(full.data.m$eco.int*full.data.m$weights)[which(full.data.m$CBRM==0)]
 cbrm_1<-(full.data.m$eco.int*full.data.m$weights)[which(full.data.m$CBRM==1)]
@@ -909,13 +834,23 @@ plot(ecdf(cbrm_0))
 lines(ecdf(cbrm_1), col = 'blue')
 
 ks.test(cbrm_0, cbrm_1)
+t.test(cbrm_0, cbrm_1)
 # Density plots
 ggplot(full.data.m, aes(x=(eco.int*weights), colour=CBRM)) + geom_density()
 
 # Means pre & post
-full.data.m%>% group_by(CBRM)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
+cbrm_mu<- full.data.m%>% group_by(CBRM)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
+# Medians
+cbrm_med<-full.data.m%>% group_by(CBRM)%>% summarise(pre= median(eco.int), post= median(eco.int*weights))
+x<- bind_cols(cbrm_mu, cbrm_med)%>% rename(Trt = CBRM)
+
+cb<- gather(cbrm_med, "Trt", "Level", 1)
 
 ```
+Distributions signif diff, Medians and distrib of CBRM = 1 shifted to higher.
+
+
+
 ## Tresspassing:
 ```{r}
 
@@ -927,16 +862,18 @@ lines(ecdf(tr_1), col = 'blue')
 abline(h = 0.5, lty = 2, col='black' )
 
 ks.test(tr_0, tr_1)
-# Look! One piece of evidence that they are different!
+t.test(tr_0, tr_1)
+# 
 
 # Density plots
 ggplot(full.data.tr, aes(x=(eco.int*weights), colour=as.factor(Trsp))) + geom_density()
 
 # Means pre & post
-full.data.tr%>% group_by(Trsp)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
+trsp_mu<- full.data.tr%>% group_by(Trsp)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
 
-full.data.tr%>% group_by(Trsp)%>% summarise(pre= median(eco.int), post= median(eco.int*weights))
+trsp_med<- full.data.tr%>% group_by(Trsp)%>% summarise(pre= median(eco.int), post= median(eco.int*weights))
 
+tr<- gather(trsp_med, "Trt", "Level", 1)
 ```
 
 ## P4: Fall Otor
@@ -949,15 +886,21 @@ p4_1<- (full.data.p4$eco.int*full.data.p4$weights)[which(full.data.p4$p4==1)]
 lines(ecdf(p4_1), col = 'blue')
 
 ks.test(p4_0, p4_1)
-# Look! One piece of evidence that they are different!
+t.test(p4_0, p4_1)
+# 
 
 # Density plots
 ggplot(full.data.p4, aes(x=(eco.int*weights), colour=p4)) + geom_density()
 # Means pre & post
-full.data.p4%>% group_by(p4)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
+p4_mu<- full.data.p4%>% group_by(p4)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
+# Medians
+p4_med<- full.data.p4%>% group_by(p4)%>% summarise(pre= median(eco.int), post= median(eco.int*weights))
+x<- bind_cols(p4_mu, p4_med)
+
+p4<- gather(p4_med, "Trt", "Level", 1)
 ```
 
-# P5: Winter Otor
+## P5: Winter Otor
 ```{r}
 
 p5_0<- (full.data.p5$eco.int*full.data.p5$weights)[which(full.data.p5$p5==0)]
@@ -967,16 +910,20 @@ p5_1<- (full.data.p5$eco.int*full.data.p5$weights)[which(full.data.p5$p5==1)]
 lines(ecdf(p5_1), col = 'blue')
 
 ks.test(p5_0, p5_1)
-# Look! One piece of evidence that they are different!
+# 
 
 # Density plots
 ggplot(full.data.p5, aes(x=(eco.int*weights), colour=p5)) + geom_density()
 
 # Means pre & post
-full.data.p5%>% group_by(p5)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
+p5_mu<- full.data.p5%>% group_by(p5)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
+# Median pre & post
+p5_med<- full.data.p5%>% group_by(p5)%>% summarise(pre= median(eco.int), post= median(eco.int*weights))
+x<- bind_cols(p5_mu, p5_med)
+p5<- gather(p5_med, "Trt", "Level", 1)
 ```
 
-# P6: Reserve Winter Pastures
+## P6: Reserve Winter Pastures
 ```{r}
 
 p6_0<- (full.data.p6$eco.int*full.data.p6$weights)[which(full.data.p6$p6==0)]
@@ -986,14 +933,63 @@ p6_1<- (full.data.p6$eco.int*full.data.p6$weights)[which(full.data.p6$p6==1)]
 lines(ecdf(p6_1), col = 'blue')
 
 ks.test(p6_0, p6_1)
-# Look! One piece of evidence that they are different!
-
 # Density plots
 ggplot(full.data.p6, aes(x=(eco.int*weights), colour=p6)) + geom_density()
 
 # Means pre & post
-full.data.p6%>% group_by(p6)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
+p6_mu<- full.data.p6%>% group_by(p6)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
+# Meedians pre & post
+p6_med<- full.data.p6%>% group_by(p6)%>% summarise(pre= median(eco.int), post= median(eco.int*weights))
+x<- bind_cols(p6_mu, p6_med)
+p6<- gather(p6_med, "Trt", "Level", 1)
 ```
+
+## p7: Reserve Springr Pastures
+```{r}
+
+p7_0<- (full.data.p7$eco.int*full.data.p7$weights)[which(full.data.p7$p7==0)]
+plot(ecdf(p7_0))
+
+p7_1<- (full.data.p7$eco.int*full.data.p7$weights)[which(full.data.p7$p7==1)]
+lines(ecdf(p7_1), col = 'blue')
+
+ks.test(p7_0, p7_1)
+# 
+
+# Density plots
+ggplot(full.data.p7, aes(x=(eco.int*weights), colour=p7)) + geom_density()
+
+# Means pre & post
+p7_mu<- full.data.p7%>% group_by(p7)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
+# Meedians pre & post
+p7_med<- full.data.p7%>% group_by(p7)%>% summarise(pre= median(eco.int), post= median(eco.int*weights))
+x<- bind_cols(p7_mu, p7_med)
+p7<- gather(p7_med, "Trt", "Level", 1)
+```
+
+
+## p8: Reserve Dzud Pastures
+```{r}
+
+p8_0<- (full.data.p8$eco.int*full.data.p8$weights)[which(full.data.p8$p8==0)]
+plot(ecdf(p8_0))
+
+p8_1<- (full.data.p8$eco.int*full.data.p8$weights)[which(full.data.p8$p8==1)]
+lines(ecdf(p8_1), col = 'blue')
+
+ks.test(p8_0, p8_1)
+
+# Density plots
+ggplot(full.data.p8, aes(x=(eco.int*weights), colour=p8)) + geom_density()
+
+# Means pre & post
+p8_mu<- full.data.p8%>% group_by(p8)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
+# Meedians pre & post
+p8_med<- full.data.p8%>% group_by(p8)%>% summarise(pre= median(eco.int), post= median(eco.int*weights))
+x<- bind_cols(p8_mu, p8_med)
+p8<- gather(p8_med, "Trt", "Level", 1)
+```
+
 
 ## P9: Grazed Winter-Sum/Fall
 ```{r}
@@ -1011,10 +1007,43 @@ ks.test(p9_0, p9_1)
 ggplot(full.data.p9, aes(x=(eco.int*weights), colour=p9)) + geom_density()
 
 # Means pre & post
-full.data.p9%>% group_by(p9)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
+p9_mu<- full.data.p9%>% group_by(p9)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
 
-full.data.p9%>% group_by(p9)%>% summarise(pre= median(eco.int), post= median(eco.int*weights))
+p9_med<- full.data.p9%>% group_by(p9)%>% summarise(pre= median(eco.int), post= median(eco.int*weights))
+x<- bind_cols(p9_mu, p9_med)
+p9<- gather(p9_med, "Trt", "Level", 1)
 ```
+
+## Summary of impact of Trt on Ecological Index after matching:
+```{r}
+tr$Level<- as.character(tr$Level)
+medians<- bind_rows(cb, tr, p4, p5, p6, p7, p8, p9)%>%
+  gather(MatchStatus, Index, 1:2) 
+trt.lv<- medians[,1:2]
+medians %<>%
+  unite(Trt_Level, 1:2, sep = "_")%>%
+  bind_cols(trt.lv)%>%
+  mutate_at(5, funs(factor(.)))%>%
+  mutate(MatchStatus= factor(MatchStatus, levels = c("pre", "post")))
+
+# rename the Levels so the LEgend labels make sense.
+levels(medians$Level)[levels(medians$Level)=="0"] <- "Control"
+levels(medians$Level)[levels(medians$Level)=="1"] <- "Treated"
+
+
+meds<- ggplot(medians, aes(x= MatchStatus, y = Index, group= Trt_Level ))+
+  geom_point(aes(color = Trt, shape = Level), size = 2)+
+  geom_line(aes(linetype = Level, color = Trt))+
+  scale_color_brewer(type= "div", palette = "BrBG" )+
+  labs(y= "Median Ecological Index", x = "Matching Status")+
+  theme_bw()
+meds
+
+
+
+```
+
+
 
 
 ### some useful links and references: 
@@ -1029,6 +1058,11 @@ Add Stuart & King cites here.
 
 [zelig commands](https://r.iq.harvard.edu/docs/zelig/3.4-8/Zelig_Commands.html)
 
+# Explanatory Models: 
+```{r Models}
+cbrm_mod <- lm(eco.int ~ CBRM + slope, data= full.data.m, weights = full.data.m$weights)
+summary(cbrm_mod)
+```
 
 
 
