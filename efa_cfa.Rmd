@@ -146,51 +146,25 @@ ecols<- dplyr :: select(test, 5:19)
 ecor <- hetcor(ecols)$cor
 corrplot(ecor)
 ```
-OK so it looks like we need to remove some vars that are really nighly correlated.
-
+OK so it looks like we need to remove some vars that are really highly correlated.
+This revised set looks better.
+(see commented out code in chunk w old subsets and vals for comparison)
 ```{r}
 # 9/21::
-ecol <- dplyr::select(test, c(5,8,11,12,14:19))
-
-# 9/20:
-eco1<- dplyr :: select(eco.params, c(5,8, 13, 14, 17:22))  # MSA = 0.81
-eco2<- dplyr :: select(eco.params, c(5,8, 14, 17:22)) # MSA = 0.84
-# put forb back in?
-eco3<- dplyr :: select(eco.params, c(5,8,10, 14, 17:22)) # MSA= 0.74
-# original set of vars:
-eco0<- dplyr :: select(eco.params, c(5,10, 17, 22))  # MSA = 0.59
+ecol <- dplyr::select(test, c(5,8,11,12,14:19)) 
 ecor <- hetcor(ecol)$cor
 corrplot(ecor)
 ```
 
 Let's check sampling adequacy w this subset:
+```{r}
+k<- KMO(ecor)
+kable(k$MSA, digits = 2, col.names = "Overall MSA")
+kable(k$MSAi, digits = 2, col.names = "Individual/MSA")
+
+```
+
 Overall = 0.83. This is good enough to move forward w the CFA.
-```{r}
-# Kaiser (1975) suggested that KMO > .9 were marvelous, in the .80s, mertitourious, in the .70s, middling, in the .60s, medicore, in the 50s, miserable, and less than .5, unacceptable.
-k<- KMO(ecor)   
-
-kable(k$MSA, digits = 2, col.names = "Overall MSA")
-kable(k$MSAi, digits = 2, col.names = "Individual/MSA")
-```
-
-```{r}
-
-
-# create correlation matrix using hetcor function for moving on...
-ecor <- hetcor(ecols)$cor
-
-# Assessing sampling adequacy:
-# Kaiser (1975) suggested that KMO > .9 were marvelous, in the .80s, mertitourious, in the .70s, middling, in the .60s, medicore, in the 50s, miserable, and less than .5, unacceptable.
-k<- KMO(ecor)   
-kable(k$MSA, digits = 2, col.names = "Overall MSA")
-kable(k$MSAi, digits = 2, col.names = "Individual/MSA")
-
-cortest.bartlett(ecor, n = 130)
-```
-So, with all the ecological parameters together, we get an MSA of 0.24 = Unacceptable.
-We can then assess each individual parameter to see which we might need to remove from consideration bc the sample size is too low.
-It looks like a lot shoudl be removed.  But we had much better MSA in earlier iterations where we were using smaller number of params. So, let's remove a few of the ones we've just added, to see how this affects the score.
-
 The test after the data were transformed/normalized retains the most number of variables and also has a good MSA. (Note, some vars were removed entirely bc not enough data, see notes in import)
 
 
@@ -198,30 +172,27 @@ The test after the data were transformed/normalized retains the most number of v
 
 So, now the the data are transformed, we can pretty much keep everythig except maybe Annual Forb, which has the worst MSA score...
 ```{r}
-#eco.vars<- eco.params[,c(5, 8, 13, 16:22)]
+# so now moving forward, the df to use is this one:
+eco.vars<- test[,c(1:5, 8,11, 12, 14:19)]
+# and the cor matrix is the one call above: ecor
 
-# with normalized data, removing Annual Forb:
-test2<- dplyr::select(test, -AnuForb)
-eco.vars<- test2[,5:18]  # pulling out just the eco dat to create corr matrix
-# create correlation matrix using hetcor function for moving on...
-ecor <- hetcor(eco.vars)$cor
 ```
 
-
-
-## with pos/neg indicators combined
 ### trying diff methods to compare outputs
 ```{r}
 fa.parallel(ecor, n.obs = nrow(eco.vars), fm = "ml")$fa.values
 ```
-This now suggests 3 factor....
+This now suggests 2 factors....
 
-with fa() from the psych pkg
+Trying with fa() from the psych pkg, varying the num of factors proposed...
+Get same result if vary teh number of proposed factors, all suggest one factor.
+But very low Prop of Variance explained (with this full set of vars.)
 ```{r}
+# with MaxLik:
 faml <- fa(ecor, factors = 4, rotation = "varimax", fm = "ml", n.iter = 500, n.obs= nrow(eco.vars))
-# get same result if vary teh number of proposed factors...
-faols <- fa(ecor, factors = 4, rotation = "varimax", fm = "ols")
-faminres <- fa(ecor, factors = 4, rotation = "varimax", fm = "minres")
+
+#faols <- fa(ecor, factors = 4, rotation = "varimax", fm = "ols")
+#faminres <- fa(ecor, factors = 4, rotation = "varimax", fm = "minres")
 faml
 faml$loadings
 faols$loadings 
@@ -239,248 +210,206 @@ Trying w another approach, varying the number of factors that it forces, and com
 usin gthe factanal() from the XXXX pkg: 
 So tried 3:
 ```{r}
-factanal(~PerrGrass+ TotGrassCover + PerrForb + Forb_bm+ Sedges +Bare.inv + LiiterCover + Protein + SpRich + RRC+ SRD, 
+fa3<-factanal(~PerrGrass+ PerrForb + Sedges + Shrubs +Bare.inv + LitterCover + Protein + SpRich + RRC+ SRD, 
          covmat = ecor, n.obs = nrow(eco.vars),
-         factors = 3, rotation = "varimax", fm = "ml")$loadings
+         factors = 3, rotation = "varimax", fm = "ml")
+fa3
 ```
-(OLD VERSION:Cum Var is 0.664. But the loadings across the factors isn't particularly informative.)
-New Version: Cum Var is 0.687on 3 factors... but a little hard to interpret...
+Cum Var is 0.63. But the loadings across the factors isn't particularly informative.)
 
+But 1 doesn't do a great job either.
 ```{r}
-f1<- factanal(~PerrGrass+ Grass_bm+ TotGrassCover + PerrForb + Forb_bm+ Sedges +Bare.inv + LitterCover + Protein + SpRich + RRC+ SRD, 
+f1<- factanal(~PerrGrass+ PerrForb + Sedges + Shrubs +Bare.inv + LitterCover + Protein + SpRich + RRC+ SRD, 
          covmat = ecor, n.obs = nrow(eco.vars),
          factors = 1, rotation = "varimax", fm = "ml")#
 f1
 ```
-Check out the difference in Uniquenesses between the runs w diff numb of factors. We want LOW uniqueness values (but not toooooo low--> Heywood)
+
+2 factors seems to make the most sense
 ```{r}
-f2<- factanal(~PerrGrass + Grass_bm + TotGrassCover + PerrForb +     Forb_bm + Sedges + Bare.inv + LitterCover + Protein + SpRich +     RRC + SRD,
+f2<- factanal(~PerrGrass+ PerrForb + Sedges + Shrubs +Bare.inv + LitterCover + Protein + SpRich + RRC+ SRD,
          covmat = ecor, n.obs = nrow(eco.vars),
          factors = 2, rotation = "varimax", fm = "ml")#$loadings
 f2
 ```
+Check out the difference in Uniquenesses between the runs w diff numb of factors. We want LOW uniqueness values (but not toooooo low--> Heywood). The values seem sort of midrange.... too high? 
 
+Let's try it one more time w/o Protein, since it is neg.
 
-
-```{r}
-f3<- factanal(~PerrGrass + Grass_bm + TotGrassCover + PerrForb +     Forb_bm + Sedges + Bare.inv + LitterCover + Protein + SpRich +     RRC + SRD,
-         covmat = ecor, n.obs = nrow(eco.vars),
-         factors = 3, rotation = "varimax", fm = "ml")#$loadings
-f4<- factanal(~PerrGrass + Grass_bm + TotGrassCover + PerrForb +     Forb_bm + Sedges + Bare.inv + LitterCover + Protein + SpRich +     RRC + SRD,
-         covmat = ecor, n.obs = nrow(eco.vars),
-         factors = 4, rotation = "varimax", fm = "ml")#$loadings
-```
-OK, there's just too much overlap in some of these vars. Let's cut it down again:
+Same 2 factor, but w/o protein.
+F1 captures: Grass, Litter, RRC SRC Bare.inv
+F2 captures: Forb, Sedge & SpRich
+Shrubs is shared pretty much equally between the two-- kind of makes sense. May be representing two diff “kinds” of shrubs/two diff processes. lso has highest "uniqueness" value
 
 ```{r}
-corrplot(ecor)
-trim<- test[, c(1:5,8,9,  11, 12,  14:19 )]
-
-tcor<- hetcor(trim[,5:15])$cor
-corrplot(tcor)
-
-```
-```{r}
-ft<- factanal(~PerrGrass + PerrForb +   AnuForb + Sedges + Bare.inv + LitterCover + Protein + SpRich +     RRC + SRD,
+eco.vars.noP <- eco.vars %>% dplyr::select(-Protein)
+tcor<- hetcor(eco.vars.noP[,5:13])$cor
+tf2<- factanal(~PerrGrass+ PerrForb + Sedges + Shrubs +Bare.inv + LitterCover + SpRich + RRC+ SRD,
          covmat = tcor, n.obs = nrow(eco.vars),
          factors = 2, rotation = "varimax", fm = "ml")#$loadings
-ft
+tf2
+
+#  overwrite eco.vars to remove Protein
+eco.vars <- eco.vars.noP
 ```
 
 
 
-OK, need to figure out what is going on with Protein and Bare Ground..................
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## POSITIVE INDICATORS 
-```{r}
-#  have to resubset to just get the indicators of integrity
-ecols.pos<- dplyr :: select(rpesoil, g.stand, l.stand, bare.inv, RRC, ndvi)
-
-# create correlation matrix using hetcor function for moving on...
-ecor.pos <- hetcor(ecols.pos)$cor
-```
-Now factor analysis from this:
-```{r}
-fa2 <- fa(ecor.pos, factors = 4, rotation = "varimax", fm = "ml")
-summary(fa2)
-fa2$loadings
-#fa2$residual
-```
-This method suggests that just one factor is sufficient. GOOD!
-And with alternate version:
-
-```{r}
-factanal(~g.stand+ f.stand+ bare.inv+ l.stand+ RRC+ SRD+ ndvi, 
-         covmat = ecor.pos, n.obs = nrow(ecols),
-         factors = 1, rotation = "varimax", fm = "ml")$loadings
-```
-trying with specifying 2 factors, just to see:
-```{r}
-factanal(~g.stand+ f.stand+ bare.inv+ l.stand+ RRC+ SRD+ ndvi, 
-         covmat = ecor, n.obs = nrow(ecols),
-         factors = 2, rotation = "varimax", fm = "ml")$loadings
-```
-Only get slightly higher cummulative variance and loadings are hard to decipher.
-
-### EFA W NEGATIVE INDICATORS...
-
-```{r}
-#  have to resubset to just get the indicators of integrity
-ecols.neg<- dplyr :: select(rpesoil, f.stand, SRD)
-
-# create correlation matrix using hetcor function for moving on...
-ecor.neg <- hetcor(ecols.neg)$cor
-```
-Now factor analysis from this:
-```{r}
-fa2n <- fa(ecor.neg, factors = 4, rotation = "varimax", fm = "ml")
-summary(fa2n)
-fa2n$loadings
-#fa2$residual
-```
 
 ## summary so far
-All of this is suggesting we just go with a single latent Ecological Condition construct.
-Looks like we will just keep RRC and SRD together.
-But even still the prop of variance explained is pretty low?? 
-The forbs are messing everything up?
-
-*Just one more thing:*
-## Trying again with original data, not standaradized by ecol zone...
-Also removed forbs, bc they just aren't lining up.
-```{r}
-# first have to flip e3 (which is % bare ground) to match the directionality of the others
-
-rpesoil %<>% mutate(e3.inv = (100-e3))
-ecol.vars<- dplyr :: select(rpesoil,e1, e3.inv, e4, RRC, SRD, ndvi)
-
-# create correlation matrix using hetcor function for moving on...
-ecor.orig.vars <- hetcor(ecol.vars)$cor
-# and a quick factor analysis w these vars:
-fa.ov <- fa(ecor.orig.vars, factors = 4, rotation = "varimax", fm = "ml")
-summary(fa.ov)
-fa.ov$loadings
-
-```
- Still holding strong w one factor. 
- 62.8% of variance explained. Best yet?
- Eventually we'd want to flip the bare (e3) to fix the sign.
-
- 
-Let's compare that to the standardized vars, and remove forbs also.
-I'm just calling this the same thing and writing over it
-```{r}
-# subset the full df to just get the ecol related vars:
-ecols<- dplyr :: select(rpesoil, g.stand, bare.inv, l.stand, RRC, SRD, ndvi)
-
-# create correlation matrix using hetcor function for moving on...
-ecor <- hetcor(ecols)$cor
-# and EFA it:
-fa <- fa(ecor, factors = 2, rotation = "varimax", fm = "ml")
-summary(fa)
-fa$loadings
-
-```
-Poorer fit with these...................................
-???? SO, use orig vars? Those are normalized but not standardized to ez.
+All of this is suggesting we just go with two latent Ecological Conditions.
+[[Reminder -- original EFA to CFA analyses found similar fit w ecol data just normalized, not standardized by ecol zone, compared to standardized data. But, we could go back and do that again for these new vars if want to see how that affects this braoder list of vars]]
 
 ## CFA
-# or: ok, let's just go back to CFA w this new configuration....
 See cfa.R for code from the original cfa runs and tests of measurement invariance.
+See earlier versions in git for othe rpast analyses
+See below this section for previous analysis on a single latent var 
 holding here for reference.....modificationindices(fit.cfa3, sort. = TRUE)
+
+#### New Measurement Models on 2 Latent Factors:
+
+This one WITH shrubs:
 ```{r}
 # USE THIS BELOW FOR QUICKLY COMPARING FIT MEASURES BTWN RUNS
 fitmsrs <- c("df","chisq", "cfi", "rmsea", "rmsea.pvalue", "srmr")
-#but, these aren't based on the standardized
-
 # ecological indicator mesurement model:
-ecol.mod <- 'eco =~ g.stand+ bare.inv + l.stand + RRC+ SRD+ ndvi'
-fit.ecol.mod <- cfa(ecol.mod, data= rpesoil, std.lv = TRUE)
-eco.mod <- 'eco =~ e1 + e3 + e4 + RRC+ SRD+ ndvi'
-fit.eco.mod <- cfa(eco.mod, data= rpesoil, std.lv = TRUE)
+#   specify the hypothesized model:  
+#   this one WITH shrubs
+twofact.mod <- 'eco1 =~ PerrGrass + LitterCover +RRC + SRD + Bare.inv + Shrubs
+                eco2 =~ PerrForb +Sedges + SpRich + Shrubs'
+
+#   fit the model
+fit.ecol.mod <- cfa(twofact.mod, data= eco.vars, std.lv = TRUE)
+
 summary(fit.ecol.mod, 
   #      rsquare = T, 
         standardized = T, 
         fit.measures=T)
-summary(fit.eco.mod, 
-  #     rsquare = T, 
-        standardized = T, 
-        fit.measures=T)
 
 ```
-Let's check the modification indices too:
-```{r}
-modificationindices(fit.ecol.mod, sort. = TRUE) # with the standardized ecol vars
-modificationindices(fit.eco.mod, sort. = TRUE) # not standardized, orgi normalized msrmnts
-```
-Making edits to the model based on the modification indices:
 
+Check the Modificatin Indices:
+None of these seem particularly terrible. Could maybe link the soils params.
 ```{r}
+modificationindices(fit.ecol.mod, sort. = TRUE)[1:6,]
+```
+
+This one with a specifies correlation btwn eco1 and eco 2:
+Get the exact same values.
+```{r, eval= FALSE}
 # ecological indicator mesurement model:
-ecol.mod <- 'eco =~ g.stand+ bare.inv + l.stand + RRC+ SRD+ ndvi
-             l.stand ~~ RRC  
-            '
-fit.ecol.mod <- cfa(ecol.mod, data= rpesoil, std.lv = TRUE)
-eco.mod <- 'eco =~ e1 + e3.inv + e4 + RRC+ SRD+ ndvi
-       #     e3.inv ~~ ndvi
-            '
-fit.eco.mod <- cfa(eco.mod, data= rpesoil, std.lv = TRUE)
-summary(fit.ecol.mod, 
+#   specify the hypothesized model:  
+#   this one WITH shrubs
+twofactcor.mod <- 'eco1 =~ PerrGrass + LitterCover +RRC + SRD + Bare.inv + Shrubs
+                eco2 =~ PerrForb +Sedges + SpRich + Shrubs
+                eco1 ~~ eco2'
+
+#   fit the model
+fit.ecolcor.mod <- cfa(twofactcor.mod, data= eco.vars, std.lv = TRUE)
+
+summary(fit.ecolcor.mod, 
   #      rsquare = T, 
         standardized = T, 
         fit.measures=T)
-summary(fit.eco.mod, 
-  #     rsquare = T, 
-        standardized = T, 
-        fit.measures=T)
 ```
-### Ok, so.... how do we decide which is better???
-With or without the standardized??? 
-Or is the message that we are ok to go with either?
+This one without Shrubs in either of the latents:
+And the fit is poorer.
+It makes more sense to leave Shrubs in. Can explain that they may be doing diff things in the two latents.
+
+```{r, }
+# ecological indicator mesurement model:
+#   specify the hypothesized model:  
+#   this one WITHOUT shrubs
+twofactcorNoshrub.mod <- 'eco1 =~ PerrGrass + LitterCover +RRC + SRD + Bare.inv  
+                eco2 =~ PerrForb +Sedges + SpRich 
+                '
+
+#   fit the model
+fit.Noshrub.mod <- cfa(twofactcorNoshrub.mod, data= eco.vars, std.lv = TRUE)
+
+# summary(fit.Noshrub.mod, 
+#   #      rsquare = T, 
+#         standardized = T, 
+#         fit.measures=T)
+fitMeasures(fit.Noshrub.mod, fit.measures = fitmsrs)
+
+```
+
 
 ### Create a table with general summary of outputs.
 
 ## Check out the diagrams anyway:
 ```{r}
-semPaths(fit.ecol.mod, "std", edge.label.cex = 0.75, layout = "tree", residuals = FALSE)
-title("stnd_ez", line=1)
+semPaths(fit.ecol.mod, 
+         "std", 
+         edge.label.cex = 0.95, 
+         layout = "circle", 
+         residuals = FALSE)
+title("Two Factor Model Fit", line=1)
 ```
 
 ```{r}
-semPaths(fit.eco.mod, "std", 
+semPaths(fit.Noshrub.mod, "std", 
          edge.label.cex = 0.95, 
          layout = "circle", 
          residuals = FALSE,
          intercepts = TRUE)
-title("CFA of Latent Ecological Condition", line = 1)
+title("2 Factor CFA without Shrubs", line = 1)
 ```
 
 ## Eastimating predicted values:
 Notes from Kelly's email:
 Estimating predicted values – if I’m understanding your question correctly, I think you want the function `lavPredict()` (http://finzi.psych.upenn.edu/library/lavaan/html/lavPredict.html) with the default “type = “lv”. First you run a model with sem or cfa function, and then the fit of that model is what gets passed to this predict function. The output is a table with the predicted values for each of the rows in your original data. Then you can use those values to estimate the mean within each of the ecological zones or other categories. 
 
+### New two factor model:
+```{r}
+#type	= A character string. If "lv", estimated values for the latent variables in the model are computed. If "ov", model predicted values for the indicators of the latent variables in the model are computed.
+
+# predicting based on the model w two latent factors:
+eco2.pred <- lavPredict(fit.ecol.mod, type = "lv", label = TRUE)
+saveRDS(eco2.pred, file= "./data/eco.pred.TwoLatents.RDS")
+
+```
+Histograms of the two latent var outputs:
+This doesn't mean a whole lot right now, per se. 
+```{r}
+hist(eco2.pred[,1])
+hist(eco2.pred[,2])
+summary(eco2.pred)
+plot(ecdf(eco2.pred[,1]))
+lines(ecdf(eco2.pred[,2]), col = "blue")
+plot(density(eco2.pred[,1]), ylim = c(0,0.5))
+lines(density(eco2.pred[,2]), col = "blue")
+```
+
+Rescale each to be 0-1? or 0-100? 
+Should we base the rescaling of each on the max range of both vars, not within each one? 
+```{r}
+ecof1 <- eco2.pred[,1]
+ecof2 <- eco2.pred[,2]
+rescf1 <- scales::rescale(ecof1, to = c(0,1))
+rescf2 <- scales::rescale(ecof2, to = c(0,1))
+
+plot(ecdf(ecof1))
+lines(ecdf(ecof2), col = "blue")
+plot(density(ecof1), ylim = c(0, 0.5))
+lines(density(ecof2), col = "blue")
+```
+
+OK, these both look similar after rescaling so I think we're ok to move ahead.
+
+
+
+## THIS IS THE FIRST VERSION OF THIS, WITH A SMALLER SUBSET OF ECOL VARS AND JUST A SINGLE LATENT VAR:
+A lot of the analyses that led up to this were deleted above. To pull those back in will have to check out an earlier version from git.
+For now, this is saved also as an rds as "eco.pred.latent.RDS"
 ```{r}
 #type	= A character string. If "lv", estimated values for the latent variables in the model are computed. If "ov", model predicted values for the indicators of the latent variables in the model are computed.
 
 # predicting based on the unstandardized data:
 eco.pred <- lavPredict(fit.eco.mod, type = "lv", label = TRUE)
+saveRDS(eco.pred, file= "./data/eco.pred.latent.RDS")
 # predicting based on the data standardized by ez:
 ecol.pred <- lavPredict(fit.ecol.mod, type = "lv", label = TRUE) 
 ```
