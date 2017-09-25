@@ -24,7 +24,7 @@ output:
 [Matching][]
 
 [IV. Results][] 
-```{r preliminaries, message=FALSE, echo = FALSE}
+```{r preliminaries, message=FALSE, echo = FALSE, warning=FALSE}
 library(MatchIt)
 library(optmatch)
 library(foreign)
@@ -133,16 +133,13 @@ soum_stats<- readRDS("./soum_stats.rds")
 # load the latent means from the CFA
 #   these are the extracted latent means from the cfa of ecological variables
 #   this file was generated in the efa_cfa.Rmd doc.
+#   THIS IS THE SINGLE FACTOR PREDICTIONS:
 lvs<- readRDS("rpe_lv.R")
 lvs$RefNum <- as.factor(lvs$RefNum)
-
-for(level in unique(lvs$ez)){
-  lvs[paste("dummy", level, sep = "_")] <- ifelse(lvs$ez == level, 1, 0)
-}
-lvs %<>% rename(ez1_DS = dummy_1,
-                ez2_St = dummy_2,
-                ez3_ES = dummy_3,
-                ez4_FMS = dummy_4)
+#
+#   THIS IS THE TWO FACTOR PREDICTIONS: 
+eco.vars.pred <- readRDS("./data/eco.2latent.RDS")
+eco.vars.pred$RefNum <- as.factor(eco.vars.pred$RefNum)
 
 hhmatch <- mor2 %>%
   dplyr ::select(CBRM,
@@ -158,19 +155,39 @@ hhmatch$SoumName <- trimws(as.character(hhmatch$SoumName))
 hhmatch$AimagName <- trimws(as.character(hhmatch$AimagName))
 
 
-#tbl_df(lvs)
+#   Single factor Latent var
 hhmatch %<>% left_join(lvs[,c(2, # RefNum
                               6, # r1
                               11:17, # p4-p10
                               22:24, # p1-p3
                               44,  # slope of ndvi
-                              55,   # eco int latent mean 
-                              57:60 # ecological zone dummy vars
+                              55   # eco int latent mean
                               )], by= "RefNum")
 
 
 hhmatch %<>% left_join(soum_stats, by = c("AimagName", "SoumName"))
+
+
+for(level in unique(hhmatch$ez)){
+  hhmatch[paste("dummy", level, sep = "_")] <- ifelse(hhmatch$ez == level, 1, 0)
+}
+hhmatch %<>% rename(ez1_DS = dummy_1,
+                ez2_St = dummy_2,
+                ez3_ES = dummy_3,
+                ez4_FMS = dummy_4)
 # the "SoumID.x" that comes thru here is the Soum ID from Jay's jay, which do not match teh MOR2 codes, so i'm keeping them in for reference, just in case.
+
+# NOW BRINGING IN THE TWO ECO FACTORS DATA:
+#   this is the orig predicted values, NOT rescaled:
+
+#tbl_df(eco.vars.pred)
+matchy <- left_join(hhmatch,eco.vars.pred, by= "RefNum")
+
+raw.data<- matchy %>% 
+    na.omit() %>%
+    mutate(eco.int = scales::rescale(eco.lv, to=c(0, 1))) %>%    
+    mutate(eco1.rs = scales::rescale(eco1, to=c(0, 1))) %>%
+    mutate(eco2.rs = scales::rescale(eco2, to=c(0, 1)))
 ```
 
 ### Table of the variables used in the analysis:
@@ -185,9 +202,9 @@ But for the CBRM 'treatment', we want to be able to consider the context *at the
 5. slope of the trend up to the year it was formed.  
 However, these were all happening on different years, and the dzud impacts the calc of lt-trend if we end it around that time. So, how shoudl we handle this?
 
-**Table 1.** A full list of variables used in this analysis. (See Table 1 in the word & excell docs too). This will eventually also contain descriptios of the variables and the units and source. 
+**Table 1.** A full list of variables used in this analysis. (See Table 1 in the word & excell docs too). This will eventually also contain descriptios of the variables and the units and source. (hidden for now-- )
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, results= 'hide'}
 # list of the params in the df
 #str(hhmatch)
 hname<- names(hhmatch)
@@ -202,28 +219,21 @@ kable(hname, format= "markdown", col.names = c("Variables"))
 #### CBRM as Treatment
 I'm including these bits of code so that you can see which variables have been included in each matching procedure. But eventually this will be condensed in to one Table. Potentially combined w Table 1. 
 ```{r, message=FALSE, warning=FALSE}
-raw.data<- hhmatch %>% 
-  na.omit() %>%
-  mutate(eco.int = scales::rescale(eco.lv, to=c(0, 1)))   
+
 m.out1 <- matchit(CBRM ~ 
-                  # SoumCode+
-                  # Trsp+
                     ez1_DS +
                     ez2_St +
                     ez3_ES +
                     ez4_FMS +
-                  # pl +
-                   #p2s +
-                   #p3s +
-                     slope +  # slope of ndvi at HHS
-                     p4 +
-                     p5 +
-                     p6 +
-                     p7 ,
-                   #  p8 +
-                   #  p9 ,   # get error if try to include these in addlvars
-                    #p10, 
-                  data =raw.data, 
+                    # slope +  # slope of ndvi at HHS
+                     p4 +  # FAll Otor
+                     p5 +   # Winter Otor
+                     p6 +   # Res Pastures vars.
+                     p7 +  
+                     p8 +
+                     ppt99 +  # mean precip up to 2011
+                     sfu99,  # mean sfu up to 2011
+                  data = raw.data, 
                   method = "full", distance = "logit",
                   discard = "both"
                   )
@@ -285,7 +295,7 @@ a<- love.plot(bal.tab(m.out1),
           var.order = NULL,
          # colors = c("#998ec3","#f1a340"),
           var.names = v)
-
+a
 # try to figure out how to plot this so it looks nicer....
 d<-bal.tab(m.out1, # the matchit object
         un = TRUE,  # print stats for unadjusted and adjusted sample?
@@ -308,6 +318,12 @@ ggsave(e, filename = "./plots/cbrm_balance.png", width=2, height = 7)
 
 **hidden extra plotting info that i'm saving.....**
 ```{r, eval = FALSE, echo = FALSE}
+
+
+# ********* DON'T RUN THIS!!!!!!!!!!!!! *******************
+
+
+
 # generate pre and post matching Std. Mean. Diff. datasets
 # this is SUMMARY data
 full.sum.all <- m.full.summary$sum.all
@@ -431,7 +447,7 @@ tr.full.summary<- summary(tr.out1 <- matchit(Trsp ~
                                           pl +
                                           p2s +
                                           p3s ,
-                                        data =raw.data, 
+                                        data = raw.data, 
                                         method = "full", distance = "logit",
                                         discard = "both"
                                         ), standardize = TRUE 
@@ -819,9 +835,577 @@ b+ theme_bw()
 In a matched sampling design, the sample average treatment effect for the treated can be estimated by computing the difference between the observed dependent variable for the treated group and their expected or predicted values of the dependent variable under no treatment.
 SO compare the values of eco.int for P4=1 (in matched data or original raw??) vs. ev or pv of eco.int for p4=0
 
-### IV. Results
+# IV. Results
+### Figures and tables for comparing distributions of post-matched data:
 
-While mean values for ecological condition were not difference for the Trt and control across all comparisons, all except for Grazing Winter Pasture Out of Season resulted in significantly different distributions between the Treatment and Control groups, with significantly higher median values for Ecological Condition for the Treatment groups. 
+### Results for 2 Ecological Factors:
+### CBRM
+#### Ecol Factor 1
+```{r}
+cbrm_0<-(full.data.m$eco1.rs*full.data.m$weights)[which(full.data.m$CBRM==0)]
+cbrm_0pre<-(full.data.m$eco1.rs)[which(full.data.m$CBRM==0)]
+cbrm_1<-(full.data.m$eco1.rs*full.data.m$weights)[which(full.data.m$CBRM==1)]
+cbrm_1pre<-(full.data.m$eco1.rs)[which(full.data.m$CBRM==1)]
+plot(ecdf(cbrm_0))
+lines(ecdf(cbrm_1), col = 'blue')
+
+ks.test(cbrm_0, cbrm_1)
+t.test(cbrm_0, cbrm_1)
+ks.test(cbrm_0pre, cbrm_1pre)
+t.test(cbrm_0pre, cbrm_1pre)
+
+# Density plots
+ggplot(full.data.m, aes(x=(eco1.rs), colour=CBRM)) + geom_density()+ labs(title= "prematch")
+
+ggplot(full.data.m, aes(x=(eco1.rs *weights), colour=CBRM)) + geom_density()+ labs(title="postmatch")
+
+# Means pre & post  --- # CAN'T
+cbrm_mu<- full.data.m%>% group_by(CBRM)%>% summarise(pre= mean(eco1.rs), post= mean(eco1.rs*weights))
+# Medians
+cbrm_med<-full.data.m%>% group_by(CBRM)%>% summarise(pre= median(eco1.rs), post= median(eco1.rs*weights))
+
+#cb1<- gather(cbrm_med, "Trt", "Level", 1)
+
+
+xc1<- bind_cols(cbrm_mu, cbrm_med)%>% rename(Level = CBRM) %>% mutate(Trt = as.factor(c("CBRM", "CBRM")))
+
+```
+#### Ecol Factor 2
+```{r}
+cbrm_0<-(full.data.m$eco2.rs*full.data.m$weights)[which(full.data.m$CBRM==0)]
+cbrm_1<-(full.data.m$eco2.rs*full.data.m$weights)[which(full.data.m$CBRM==1)]
+plot(ecdf(cbrm_0))
+lines(ecdf(cbrm_1), col = 'blue')
+
+ks.test(cbrm_0, cbrm_1)
+t.test(cbrm_0, cbrm_1)
+# Density plots
+ggplot(full.data.m, aes(x=(eco2.rs *weights), colour=CBRM)) + geom_density()
+
+# Means pre & post   
+cbrm2_mu<- full.data.m%>% group_by(CBRM)%>% summarise(pre= mean(eco2.rs), post= mean(eco2.rs*weights))
+# Medians
+cbrm2_med<-full.data.m%>% group_by(CBRM)%>% summarise(pre= median(eco2.rs), post= median(eco2.rs*weights))
+xc2<- bind_cols(cbrm2_mu, cbrm2_med)%>% rename(Level = CBRM) %>% mutate(Trt = as.factor(c("CBRM", "CBRM")))
+
+#cb2<- gather(cbrm2_med, "Trt", "Level", 1)
+
+```
+
+## Trespassing:
+#### Ecol Factor 1:
+```{r}
+
+tr_0<- (full.data.tr$eco1.rs*full.data.tr$weights)[which(full.data.tr$Trsp==0)]
+plot(ecdf(tr_0))
+
+tr_1<- (full.data.tr$eco1.rs*full.data.tr$weights)[which(full.data.tr$Trsp==1)]
+lines(ecdf(tr_1), col = 'blue')
+abline(h = 0.5, lty = 2, col='black' )
+
+ks.test(tr_0, tr_1)
+t.test(tr_0, tr_1)
+# 
+
+# Density plots
+ggplot(full.data.tr, aes(x=(eco1.rs*weights), colour=as.factor(Trsp))) + geom_density()
+
+# Means pre & post
+trsp_mu<- full.data.tr%>% group_by(Trsp)%>% summarise(pre= mean(eco1.rs), post= mean(eco1.rs*weights))
+
+trsp_med<- full.data.tr%>% group_by(Trsp)%>% summarise(pre= median(eco1.rs), post= median(eco1.rs*weights))
+
+#tr1<- gather(trsp_med, "Trt", "Level", 1)
+
+xtr1<- bind_cols(trsp_mu, trsp_med)%>% rename(Level = Trsp) %>% mutate(Trt = as.factor(c("Trsp", "Trsp")))
+
+```
+
+#### Ecol Factor 2:
+```{r}
+
+tr_0<- (full.data.tr$eco2.rs*full.data.tr$weights)[which(full.data.tr$Trsp==0)]
+plot(ecdf(tr_0))
+
+tr_1<- (full.data.tr$eco2.rs*full.data.tr$weights)[which(full.data.tr$Trsp==1)]
+lines(ecdf(tr_1), col = 'blue')
+abline(h = 0.5, lty = 2, col='black' )
+
+ks.test(tr_0, tr_1)
+t.test(tr_0, tr_1)
+# 
+
+# Density plots
+ggplot(full.data.tr, aes(x=(eco2.rs*weights), colour=as.factor(Trsp))) + geom_density()
+
+# Means pre & post
+trsp2_mu<- full.data.tr%>% group_by(Trsp)%>% summarise(pre= mean(eco2.rs), post= mean(eco2.rs*weights))
+
+trsp2_med<- full.data.tr%>% group_by(Trsp)%>% summarise(pre= median(eco2.rs), post= median(eco2.rs*weights))
+
+#tr2<- gather(trsp2_med, "Trt", "Level", 1)
+
+xtr2<- bind_cols(trsp2_mu, trsp2_med)%>% rename(Level = Trsp) %>% mutate(Trt = as.factor(c("Trsp", "Trsp")))
+
+```
+** This!!** 
+
+## P4: Fall Otor
+#### EF1:
+```{r}
+
+p4_0<- (full.data.p4$eco1.rs*full.data.p4$weights)[which(full.data.p4$p4==0)]
+plot(ecdf(p4_0))
+
+p4_1<- (full.data.p4$eco1.rs*full.data.p4$weights)[which(full.data.p4$p4==1)]
+lines(ecdf(p4_1), col = 'blue')
+
+ks.test(p4_0, p4_1)
+t.test(p4_0, p4_1)
+# 
+
+# Density plots
+ggplot(full.data.p4, aes(x=(eco1.rs*weights), colour=p4)) + geom_density()
+# Means pre & post
+p4_mu<- full.data.p4%>% group_by(p4)%>% summarise(pre= mean(eco1.rs), post= mean(eco1.rs*weights))
+# Medians
+p4_med<- full.data.p4%>% group_by(p4)%>% summarise(pre= median(eco1.rs), post= median(eco1.rs*weights))
+
+#p41<- gather(p4_med, "Trt", "Level", 1)
+
+xp41<- bind_cols(p4_mu, p4_med)%>% rename(Level = p4) %>% mutate(Trt = as.factor(c("FallOtor", "FallOtor")))
+
+```
+#### EF2:
+```{r}
+
+p4_0<- (full.data.p4$eco2.rs*full.data.p4$weights)[which(full.data.p4$p4==0)]
+plot(ecdf(p4_0))
+
+p4_1<- (full.data.p4$eco2.rs*full.data.p4$weights)[which(full.data.p4$p4==1)]
+lines(ecdf(p4_1), col = 'blue')
+
+ks.test(p4_0, p4_1)
+t.test(p4_0, p4_1)
+# 
+
+# Density plots
+ggplot(full.data.p4, aes(x=(eco2.rs*weights), colour=p4)) + geom_density()
+# Means pre & post
+p42_mu<- full.data.p4%>% group_by(p4)%>% summarise(pre= mean(eco2.rs), post= mean(eco2.rs*weights))
+# Medians
+p42_med<- full.data.p4%>% group_by(p4)%>% summarise(pre= median(eco2.rs), post= median(eco2.rs*weights))
+
+#p42<- gather(p42_med, "Trt", "Level", 1)
+
+xp42<- bind_cols(p42_mu, p42_med)%>% rename(Level = p4) %>% mutate(Trt = as.factor(c("FallOtor", "FallOtor")))
+```
+## P5: Winter Otor
+#### EF1
+```{r}
+
+p5_0<- (full.data.p5$eco1.rs*full.data.p5$weights)[which(full.data.p5$p5==0)]
+plot(ecdf(p5_0))
+
+p5_1<- (full.data.p5$eco1.rs*full.data.p5$weights)[which(full.data.p5$p5==1)]
+lines(ecdf(p5_1), col = 'blue')
+
+ks.test(p5_0, p5_1)
+t.test(p5_0, p5_1)
+# 
+
+# Density plots
+ggplot(full.data.p5, aes(x=(eco1.rs*weights), colour=p5)) + geom_density()
+
+# Means pre & post
+p5_mu<- full.data.p5%>% group_by(p5)%>% summarise(pre= mean(eco1.rs), post= mean(eco1.rs*weights))
+# Median pre & post
+p5_med<- full.data.p5%>% group_by(p5)%>% summarise(pre= median(eco1.rs), post= median(eco1.rs*weights))
+
+#p51<- gather(p5_med, "Trt", "Level", 1)
+
+xp51<- bind_cols(p5_mu, p5_med)%>% rename(Level = p5) %>% mutate(Trt = as.factor(c("WinterOtor", "WinterOtor")))
+
+```
+
+#### EF2
+```{r}
+
+p5_0<- (full.data.p5$eco2.rs*full.data.p5$weights)[which(full.data.p5$p5==0)]
+plot(ecdf(p5_0))
+
+p5_1<- (full.data.p5$eco2.rs*full.data.p5$weights)[which(full.data.p5$p5==1)]
+lines(ecdf(p5_1), col = 'blue')
+
+ks.test(p5_0, p5_1)
+t.test(p5_0, p5_1)
+# 
+
+# Density plots
+ggplot(full.data.p5, aes(x=(eco2.rs*weights), colour=p5)) + geom_density()
+
+# Means pre & post
+p52_mu<- full.data.p5%>% group_by(p5)%>% summarise(pre= mean(eco2.rs), post= mean(eco2.rs*weights))
+# Median pre & post
+p52_med<- full.data.p5%>% group_by(p5)%>% summarise(pre= median(eco2.rs), post= median(eco2.rs*weights))
+
+#p52<- gather(p52_med, "Trt", "Level", 1)
+xp52<- bind_cols(p52_mu, p52_med)%>% rename(Level = p5) %>% mutate(Trt = as.factor(c("WinterOtor", "WinterOtor")))
+```
+
+## P6: Reserve Winter Pastures
+#### EF1
+```{r}
+
+p6_0<- (full.data.p6$eco1.rs*full.data.p6$weights)[which(full.data.p6$p6==0)]
+plot(ecdf(p6_0))
+
+p6_1<- (full.data.p6$eco1.rs*full.data.p6$weights)[which(full.data.p6$p6==1)]
+lines(ecdf(p6_1), col = 'blue')
+
+ks.test(p6_0, p6_1)
+t.test(p6_0, p6_1)
+# Density plots
+ggplot(full.data.p6, aes(x=(eco1.rs*weights), colour=p6)) + geom_density()
+
+# Means pre & post
+p6_mu<- full.data.p6%>% group_by(p6)%>% summarise(pre= mean(eco1.rs), post= mean(eco1.rs*weights))
+# Meedians pre & post
+p6_med<- full.data.p6%>% group_by(p6)%>% summarise(pre= median(eco1.rs), post= median(eco1.rs*weights))
+
+#p61<- gather(p6_med, "Trt", "Level", 1)
+
+xp61<- bind_cols(p6_mu, p6_med)%>% rename(Level = p6) %>% mutate(Trt = as.factor(c("ResWinterPasture", "ResWinterPasture")))
+
+```
+
+#### EFA2
+```{r}
+
+p6_0<- (full.data.p6$eco2.rs*full.data.p6$weights)[which(full.data.p6$p6==0)]
+plot(ecdf(p6_0))
+
+p6_1<- (full.data.p6$eco2.rs*full.data.p6$weights)[which(full.data.p6$p6==1)]
+lines(ecdf(p6_1), col = 'blue')
+
+ks.test(p6_0, p6_1)
+# Density plots
+ggplot(full.data.p6, aes(x=(eco2.rs*weights), colour=p6)) + geom_density()
+
+# Means pre & post
+p62_mu<- full.data.p6%>% group_by(p6)%>% summarise(pre= mean(eco2.rs), post= mean(eco2.rs*weights))
+# Meedians pre & post
+p62_med<- full.data.p6%>% group_by(p6)%>% summarise(pre= median(eco2.rs), post= median(eco2.rs*weights))
+#x62<- bind_cols(p6_mu, p6_med)
+#p62<- gather(p62_med, "Trt", "Level", 1)
+
+xp62<- bind_cols(p62_mu, p62_med)%>% rename(Level = p6) %>% mutate(Trt = as.factor(c("ResWinterPasture", "ResWinterPasture")))
+
+```
+
+
+## p7: Reserve Spring Pastures
+#### EF1
+```{r}
+
+p7_0<- (full.data.p7$eco1.rs*full.data.p7$weights)[which(full.data.p7$p7==0)]
+plot(ecdf(p7_0))
+
+p7_1<- (full.data.p7$eco1.rs*full.data.p7$weights)[which(full.data.p7$p7==1)]
+lines(ecdf(p7_1), col = 'blue')
+
+ks.test(p7_0, p7_1)
+# 
+
+# Density plots
+ggplot(full.data.p7, aes(x=(eco1.rs*weights), colour=p7)) + geom_density()
+
+# Means pre & post
+p7_mu<- full.data.p7%>% group_by(p7)%>% summarise(pre= mean(eco1.rs), post= mean(eco1.rs*weights))
+# Meedians pre & post
+p7_med<- full.data.p7%>% group_by(p7)%>% summarise(pre= median(eco1.rs), post= median(eco1.rs*weights))
+
+#p71<- gather(p7_med, "Trt", "Level", 1)
+xp71<- bind_cols(p7_mu, p7_med)%>% rename(Level = p7) %>% mutate(Trt = as.factor(c("ResSPringPasture", "ResSpringPasture")))
+
+```
+#### EF2
+```{r}
+
+p7_0<- (full.data.p7$eco2.rs*full.data.p7$weights)[which(full.data.p7$p7==0)]
+plot(ecdf(p7_0))
+
+p7_1<- (full.data.p7$eco2.rs*full.data.p7$weights)[which(full.data.p7$p7==1)]
+lines(ecdf(p7_1), col = 'blue')
+
+ks.test(p7_0, p7_1)
+# 
+
+# Density plots
+ggplot(full.data.p7, aes(x=(eco2.rs*weights), colour=p7)) + geom_density()
+
+# Means pre & post
+p72_mu<- full.data.p7%>% group_by(p7)%>% summarise(pre= mean(eco2.rs), post= mean(eco2.rs*weights))
+# Meedians pre & post
+p72_med<- full.data.p7%>% group_by(p7)%>% summarise(pre= median(eco2.rs), post= median(eco2.rs*weights))
+ 
+#p72<- gather(p72_med, "Trt", "Level", 1)
+
+xp72<- bind_cols(p72_mu, p72_med)%>% rename(Level = p7) %>% mutate(Trt = as.factor(c("ResSPringPasture", "ResSpringPasture")))
+
+
+```
+
+## p8: Reserve Dzud Pastures
+#### EF1
+```{r}
+
+p8_0<- (full.data.p8$eco1.rs*full.data.p8$weights)[which(full.data.p8$p8==0)]
+plot(ecdf(p8_0))
+
+p8_1<- (full.data.p8$eco1.rs*full.data.p8$weights)[which(full.data.p8$p8==1)]
+lines(ecdf(p8_1), col = 'blue')
+
+ks.test(p8_0, p8_1)
+
+# Density plots
+ggplot(full.data.p8, aes(x=(eco1.rs*weights), colour=p8)) + geom_density()
+
+# Means pre & post
+p8_mu<- full.data.p8%>% group_by(p8)%>% summarise(pre= mean(eco1.rs), post= mean(eco1.rs*weights))
+# Meedians pre & post
+p8_med<- full.data.p8%>% group_by(p8)%>% summarise(pre= median(eco1.rs), post= median(eco1.rs*weights))
+
+#p81<- gather(p8_med, "Trt", "Level", 1)
+
+xp81<- bind_cols(p8_mu, p8_med)%>% rename(Level = p8) %>% mutate(Trt = as.factor(c("ResDzudPasture", "ResDzudPasture")))
+
+
+```
+
+#### EF2
+```{r}
+
+p8_0<- (full.data.p8$eco2.rs*full.data.p8$weights)[which(full.data.p8$p8==0)]
+plot(ecdf(p8_0))
+
+p8_1<- (full.data.p8$eco2.rs*full.data.p8$weights)[which(full.data.p8$p8==1)]
+lines(ecdf(p8_1), col = 'blue')
+
+ks.test(p8_0, p8_1)
+
+# Density plots
+ggplot(full.data.p8, aes(x=(eco2.rs*weights), colour=p8)) + geom_density()
+
+# Means pre & post
+p82_mu<- full.data.p8%>% group_by(p8)%>% summarise(pre= mean(eco2.rs), post= mean(eco2.rs*weights))
+# Meedians pre & post
+p82_med<- full.data.p8%>% group_by(p8)%>% summarise(pre= median(eco2.rs), post= median(eco2.rs*weights))
+
+#p82<- gather(p82_med, "Trt", "Level", 1)
+
+xp82<- bind_cols(p82_mu, p82_med)%>% rename(Level = p8) %>% mutate(Trt = as.factor(c("ResDzudPasture", "ResDzudPasture")))
+
+```
+
+## P9: Grazed Winter-Sum/Fall
+#### EF1
+```{r}
+
+p9_0<- (full.data.p9$eco1.rs*full.data.p9$weights)[which(full.data.p9$p9==0)]
+plot(ecdf(p9_0))
+
+p9_1<- (full.data.p9$eco1.rs*full.data.p9$weights)[which(full.data.p9$p9==1)]
+lines(ecdf(p9_1), col = 'blue')
+
+ks.test(p9_0, p9_1)
+t.test(p9_0, p9_1)
+# 
+
+# Density plots
+ggplot(full.data.p9, aes(x=(eco1.rs*weights), colour=p9)) + geom_density()
+
+# Means pre & post
+p9_mu<- full.data.p9%>% group_by(p9)%>% summarise(pre= mean(eco1.rs), post= mean(eco1.rs*weights))
+
+p9_med<- full.data.p9%>% group_by(p9)%>% summarise(pre= median(eco1.rs), post= median(eco1.rs*weights))
+
+#p91<- gather(p9_med, "Trt", "Level", 1)
+
+xp91<- bind_cols(p9_mu, p9_med)%>% rename(Level = p9) %>% mutate(Trt = as.factor(c("GrzOutSeason", "GrzOutSeason")))
+
+```
+
+#### EF2
+```{r}
+
+p9_0<- (full.data.p9$eco2.rs*full.data.p9$weights)[which(full.data.p9$p9==0)]
+plot(ecdf(p9_0))
+
+p9_1<- (full.data.p9$eco2.rs*full.data.p9$weights)[which(full.data.p9$p9==1)]
+lines(ecdf(p9_1), col = 'blue')
+
+ks.test(p9_0, p9_1)
+# 
+
+# Density plots
+
+ggplot(full.data.p9, aes(x=(eco2.rs*weights), colour=p9)) + geom_density()
+# Means pre & post
+p92_mu<- full.data.p9%>% group_by(p9)%>% summarise(pre= mean(eco2.rs), post= mean(eco2.rs*weights))
+
+p92_med<- full.data.p9%>% group_by(p9)%>% summarise(pre= median(eco2.rs), post= median(eco2.rs*weights))
+
+#p92<- gather(p92_med, "Trt", "Level", 1)
+
+xp92<- bind_cols(p92_mu, p92_med)%>% rename(Level = p9) %>% mutate(Trt = as.factor(c("GrzOutSeason", "GrzOutSeason")))
+
+```
+
+
+
+
+## Summary of impact of Trt on Ecological Factors after matching:
+```{r}
+tr1$Level<- as.character(tr1$Level)
+tr2$Level<- as.character(tr2$Level)
+
+# SINGLE FACTOR VERSION
+# medians<- bind_rows(cb, tr, p4, p5, p6, p7, p8, p9)%>%
+#   gather(MatchStatus, Index, 1:2) 
+# trt.lv<- medians[,1:2]
+# medians %<>%
+#   unite(Trt_Level, 1:2, sep = "_")%>%
+#   bind_cols(trt.lv)%>%
+#   mutate_at(5, funs(factor(.)))%>%
+#   mutate(MatchStatus= factor(MatchStatus, levels = c("pre", "post")))
+# 
+# # rename the Levels so the LEgend labels make sense.
+# levels( medians$Level)[levels( medians$Level)=="0"] <- "Control"
+# levels( medians$Level)[levels( medians$Level)=="1"] <- "Treated"
+# 
+# meds<- ggplot(medians, aes(x= MatchStatus, y = Index, group= Trt_Level ))+
+#   geom_point(aes(color = Trt, shape = Level), size = 2)+
+#   geom_line(aes(linetype = Level, color = Trt))+
+#   scale_color_brewer(type= "div", palette = "BrBG" )+
+#   labs(y= "Median Ecological Index", x = "Matching Status", title = "Single Ecological Index")+
+#   theme_bw()
+# meds
+
+#************************ TWO FACTOR VERSION:*******************
+
+# First Factor:
+tr1$Level<- as.character(tr1$Level)
+
+F1medians<- bind_rows(cb1, tr1, p41, p51, p61, p71, p81, p91)%>%
+  gather(MatchStatus, Index, 1:2) 
+trt.lv<- F1medians[,1:2]
+F1medians %<>%
+  unite(Trt_Level, 1:2, sep = "_")%>%
+  bind_cols(trt.lv)%>%
+  mutate_at(5, funs(factor(.)))%>%
+  mutate(MatchStatus= factor(MatchStatus, levels = c("pre", "post")))%>%
+  mutate(Trt = factor(Trt))
+
+# rename the Levels so the LEgend labels make sense.
+levels(F1medians$Level)[levels(F1medians$Level)=="0"] <- "Control"
+levels(F1medians$Level)[levels(F1medians$Level)=="1"] <- "Treated"
+# rename the Treatments so labels make sense.
+levels(F1medians$Trt) <- list(CBRM = "CBRM", 
+                          FallOtor = "p4",   
+                          WinterOtor = "p5",   
+                          ResWntrPastures = "p6",
+                          ResSprPastures = "p7",
+                          ResDzudPastures = "p8",
+                          GrazeOutSeasn = "p9",   
+                          Trespassing = "Trsp")
+
+F1meds<- ggplot(F1medians, aes(x= MatchStatus, y = Index, group= Trt_Level ))+
+  geom_point(aes(color = Trt, shape = Level), size = 2)+
+  geom_line(aes(linetype = Level, color = Trt))+
+  scale_color_brewer(type= "div", palette = "Spectral" )+
+  labs(y= "Median Ecological Index", x = "Matching Status", title = "First Ecol Factor Index")+
+  theme_light()
+F1meds
+
+# Second Factor:
+tr2$Level<- as.character(tr2$Level)
+F2medians<- bind_rows(cb2, tr2, p42, p52, p62, p72, p82, p92)%>%
+  gather(MatchStatus, Index, 1:2) 
+trt.lv<- F2medians[,1:2]
+F2medians %<>%
+  unite(Trt_Level, 1:2, sep = "_")%>%
+  bind_cols(trt.lv)%>%
+  mutate_at(5, funs(factor(.)))%>%
+  mutate(MatchStatus= factor(MatchStatus, levels = c("pre", "post")))%>%
+  mutate(Trt = factor(Trt))
+
+# rename the Treatments so labels make sense.
+levels(F2medians$Trt) <- list(CBRM = "CBRM", 
+                          FallOtor = "p4",   
+                          WinterOtor = "p5",   
+                          ResWntrPastures = "p6",
+                          ResSprPastures = "p7",
+                          ResDzudPastures = "p8",
+                          GrazeOutSeasn = "p9",   
+                          Trespassing = "Trsp")
+
+F2meds<- ggplot(F2medians, aes(x= MatchStatus, y = Index, group= Trt_Level ))+
+  geom_point(aes(color = Trt, shape = Level), size = 2)+
+  geom_line(aes(linetype = Level, color = Trt))+
+  scale_color_brewer(type= "div", palette = "Spectral" )+
+  labs(y= "Median Ecological Index", x = "Matching Status", title = "Second Ecol Factor Index")+
+  theme_light()
+F2meds
+
+```
+
+## Summary Table
+Create a table of means and medians
+
+Factor 1
+```{r}
+xtr1$Trsp1<- as.factor(xtr1$Trsp1)
+xtr1$Level<- as.factor(xtr1$Level)
+EF1_Summary<- bind_rows(xc1, xtr1, xp41, xp51, xp61, xp71, xp81, xp91) %>%
+  dplyr::select(Level:Trt) %>% dplyr::select(-CBRM1) %>%
+  rename(Mean_Pre = pre,
+         Mean_post = post,
+         Median_Pre = pre1,
+         Median_Post = post1)  
+ 
+#write.csv(EF1_Summary, file= "./plots/EF1_Summary.csv")   
+#kable(EF1_Summary, digits = 2, caption = "Ecological Factor 1")
+```
+Factor 2
+```{r}
+xtr2$Trsp1<- as.factor(xtr2$Trsp1)
+xtr2$Level<- as.factor(xtr2$Level)
+EF2_Summary<- bind_rows(xc2, xtr2, xp42, xp52, xp62, xp72, xp82, xp92) %>%
+  dplyr::select(Level:Trt) %>% dplyr::select(-CBRM1) %>%
+  rename(Mean_Pre = pre,
+         Mean_post = post,
+         Median_Pre = pre1,
+         Median_Post = post1)  
+ 
+write.csv(EF2_Summary, file= "./EF2_Summary.csv")   
+#kable(EF2_Summary, digits = 2, caption = "Ecological Factor 2")
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+## RESULT FOR SINGLE ECOLOGICAL FACTOR 
+While mean values for ecological condition were not different for the Trt and control across all comparisons, all except for Grazing Winter Pasture Out of Season resulted in significantly different distributions between the Treatment and Control groups, with significantly higher median values for Ecological Condition for the Treatment groups. 
 
 
 ### Figures and tables for comparing distributions of post-matched data:
@@ -832,6 +1416,7 @@ cbrm_0<-(full.data.m$eco.int*full.data.m$weights)[which(full.data.m$CBRM==0)]
 cbrm_1<-(full.data.m$eco.int*full.data.m$weights)[which(full.data.m$CBRM==1)]
 plot(ecdf(cbrm_0))
 lines(ecdf(cbrm_1), col = 'blue')
+abline(h=0.5, col = 'grey30', lty = 2)
 
 ks.test(cbrm_0, cbrm_1)
 t.test(cbrm_0, cbrm_1)
@@ -842,7 +1427,7 @@ ggplot(full.data.m, aes(x=(eco.int*weights), colour=CBRM)) + geom_density()
 cbrm_mu<- full.data.m%>% group_by(CBRM)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
 # Medians
 cbrm_med<-full.data.m%>% group_by(CBRM)%>% summarise(pre= median(eco.int), post= median(eco.int*weights))
-x<- bind_cols(cbrm_mu, cbrm_med)%>% rename(Trt = CBRM)
+x<- bind_cols(cbrm_mu, cbrm_med)%>% rename(Level = CBRM) %>% mutate(Trt = as.factor(c("CBRM", "CBRM")))
 
 cb<- gather(cbrm_med, "Trt", "Level", 1)
 
@@ -874,9 +1459,13 @@ trsp_mu<- full.data.tr%>% group_by(Trsp)%>% summarise(pre= mean(eco.int), post= 
 trsp_med<- full.data.tr%>% group_by(Trsp)%>% summarise(pre= median(eco.int), post= median(eco.int*weights))
 
 tr<- gather(trsp_med, "Trt", "Level", 1)
+
+xtr<- bind_cols(trsp_mu, trsp_med)%>% rename(Level = Trsp) %>% mutate(Trt = as.factor(c("Trsp", "Trsp")))
 ```
 
-## P4: Fall Otor
+
+
+#### P4
 ```{r}
 
 p4_0<- (full.data.p4$eco.int*full.data.p4$weights)[which(full.data.p4$p4==0)]
@@ -895,10 +1484,13 @@ ggplot(full.data.p4, aes(x=(eco.int*weights), colour=p4)) + geom_density()
 p4_mu<- full.data.p4%>% group_by(p4)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
 # Medians
 p4_med<- full.data.p4%>% group_by(p4)%>% summarise(pre= median(eco.int), post= median(eco.int*weights))
-x<- bind_cols(p4_mu, p4_med)
+xp4<- bind_cols(p4_mu, p4_med)%>% rename(Level = p4) %>% mutate(Trt = as.factor(c("FallOtor", "FallOtor")))
 
 p4<- gather(p4_med, "Trt", "Level", 1)
 ```
+
+
+
 
 ## P5: Winter Otor
 ```{r}
@@ -919,8 +1511,10 @@ ggplot(full.data.p5, aes(x=(eco.int*weights), colour=p5)) + geom_density()
 p5_mu<- full.data.p5%>% group_by(p5)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
 # Median pre & post
 p5_med<- full.data.p5%>% group_by(p5)%>% summarise(pre= median(eco.int), post= median(eco.int*weights))
-x<- bind_cols(p5_mu, p5_med)
+
 p5<- gather(p5_med, "Trt", "Level", 1)
+
+xp5<- bind_cols(p5_mu, p5_med)%>% rename(Level = p5) %>% mutate(Trt = as.factor(c("WinterOtor", "WinterOtor")))
 ```
 
 ## P6: Reserve Winter Pastures
@@ -940,7 +1534,7 @@ ggplot(full.data.p6, aes(x=(eco.int*weights), colour=p6)) + geom_density()
 p6_mu<- full.data.p6%>% group_by(p6)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
 # Meedians pre & post
 p6_med<- full.data.p6%>% group_by(p6)%>% summarise(pre= median(eco.int), post= median(eco.int*weights))
-x<- bind_cols(p6_mu, p6_med)
+xp6<- bind_cols(p6_mu, p6_med)%>% rename(Level = p6) %>% mutate(Trt = as.factor(c("ResWinterPasture", "ResWinterPasture")))
 p6<- gather(p6_med, "Trt", "Level", 1)
 ```
 
@@ -963,8 +1557,10 @@ ggplot(full.data.p7, aes(x=(eco.int*weights), colour=p7)) + geom_density()
 p7_mu<- full.data.p7%>% group_by(p7)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
 # Meedians pre & post
 p7_med<- full.data.p7%>% group_by(p7)%>% summarise(pre= median(eco.int), post= median(eco.int*weights))
-x<- bind_cols(p7_mu, p7_med)
+ 
 p7<- gather(p7_med, "Trt", "Level", 1)
+
+xp7<- bind_cols(p7_mu, p7_med)%>% rename(Level = p7) %>% mutate(Trt = as.factor(c("ResSPringPasture", "ResSpringPasture")))
 ```
 
 
@@ -986,8 +1582,10 @@ ggplot(full.data.p8, aes(x=(eco.int*weights), colour=p8)) + geom_density()
 p8_mu<- full.data.p8%>% group_by(p8)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
 # Meedians pre & post
 p8_med<- full.data.p8%>% group_by(p8)%>% summarise(pre= median(eco.int), post= median(eco.int*weights))
-x<- bind_cols(p8_mu, p8_med)
+
 p8<- gather(p8_med, "Trt", "Level", 1)
+
+xp8<- bind_cols(p8_mu, p8_med)%>% rename(Level = p8) %>% mutate(Trt = as.factor(c("ResDzudPasture", "ResDzudPasture")))
 ```
 
 
@@ -1010,8 +1608,10 @@ ggplot(full.data.p9, aes(x=(eco.int*weights), colour=p9)) + geom_density()
 p9_mu<- full.data.p9%>% group_by(p9)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
 
 p9_med<- full.data.p9%>% group_by(p9)%>% summarise(pre= median(eco.int), post= median(eco.int*weights))
-x<- bind_cols(p9_mu, p9_med)
+
 p9<- gather(p9_med, "Trt", "Level", 1)
+
+xp9<- bind_cols(p9_mu, p9_med)%>% rename(Level = p9) %>% mutate(Trt = as.factor(c("GrzOutSeason", "GrzOutSeason")))
 ```
 
 ## Summary of impact of Trt on Ecological Index after matching:
