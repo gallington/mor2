@@ -5,7 +5,7 @@ output:
   html_notebook: default
   html_document: default
 ---
-```{r echo = FALSE, messages = FALSE}
+```{r setup, echo = FALSE, message = FALSE, include = FALSE, warning= FALSE}
 library(foreign)
 library(corrplot)
 library(car)
@@ -20,8 +20,8 @@ library(dplyr)
 library(ggplot2)
 library(rgdal)
 library(sp)
-library(MatchIt)
-
+library(readxl)
+library(knitr)
 ```
 Note: On 9/20 I removed all the extra code that is pulling variables from mor2 that aren't being used in the EFA process.  
 All we really need here are the ecological parameters and the Ref Number IDs so we can link it back with the other data on practices, etc. later.
@@ -30,17 +30,14 @@ All we really need here are the ecological parameters and the Ref Number IDs so 
 The main applications of factor analytic techniques are: (1) to reduce the number of variables and (2) to detect structure in the relationships between variables, that is to classify variables. Therefore, factor analysis is applied as a data reduction or structure detection method 
 
 
-
-
 #### Info on the DATA: 
 
 In order to execute this file you need to have already run the following:
-1. hh_trends.R
-2. soil_params.R
+1. soil_params.R
 
 ### Data screening:
 
-```{r echo=FALSE}
+```{r echo=FALSE, chache = TRUE, results = 'hide' }
 mor2<- foreign::read.spss("./data/ALL_EcolHHOrgMerged_byUvuljaa_03_15_17_Simplified.sav" , 
                  to.data.frame=TRUE,
                  use.value.labels=FALSE) #
@@ -139,7 +136,7 @@ test<- eco.params %>% mutate_at(c(5:12, 14:15), funs(log(1+.)))
 results are essentially correlations between the variables and the factors (or "new" variables), as they are extracted by default; these correlations are also called factor loadings.
 #### Checking the correlation matrix and sampling adequacy for different combinations of variables
 First with the full set of vars
-```{r}
+```{r, echo= FALSE, fig.height=3, fig.width = 3}
 # subset the full df to just get the ecol related vars:
 ecols<- dplyr :: select(test, 5:19)
 # create correlation matrix using hetcor function for moving on...
@@ -149,7 +146,7 @@ corrplot(ecor)
 OK so it looks like we need to remove some vars that are really highly correlated.
 This revised set looks better.
 (see commented out code in chunk w old subsets and vals for comparison)
-```{r}
+```{r echo= FALSE, fig.height= 3, fig.width = 3}
 # 9/21::
 ecol <- dplyr::select(test, c(5,8,11,12,14:19)) 
 ecor <- hetcor(ecol)$cor
@@ -157,7 +154,7 @@ corrplot(ecor)
 ```
 
 Let's check sampling adequacy w this subset:
-```{r}
+```{r, echo= FALSE}
 k<- KMO(ecor)
 kable(k$MSA, digits = 2, col.names = "Overall MSA")
 kable(k$MSAi, digits = 2, col.names = "Individual/MSA")
@@ -171,7 +168,7 @@ The test after the data were transformed/normalized retains the most number of v
 ### (draft)final list of paramaters to use going forward...
 
 So, now the the data are transformed, we can pretty much keep everythig except maybe Annual Forb, which has the worst MSA score...
-```{r}
+```{r echo= FALSE}
 # so now moving forward, the df to use is this one:
 eco.vars<- test[,c(1:5, 8,11, 12, 14:19)]
 # and the cor matrix is the one call above: ecor
@@ -179,7 +176,7 @@ eco.vars<- test[,c(1:5, 8,11, 12, 14:19)]
 ```
 
 ### trying diff methods to compare outputs
-```{r}
+```{r echo= FALSE, fig.height= 2, fig.width = 3}
 fa.parallel(ecor, n.obs = nrow(eco.vars), fm = "ml")$fa.values
 ```
 This now suggests 2 factors....
@@ -187,16 +184,16 @@ This now suggests 2 factors....
 Trying with fa() from the psych pkg, varying the num of factors proposed...
 Get same result if vary teh number of proposed factors, all suggest one factor.
 But very low Prop of Variance explained (with this full set of vars.)
-```{r}
+```{r, echo = FALSE, message = FALSE}
 # with MaxLik:
 faml <- fa(ecor, factors = 4, rotation = "varimax", fm = "ml", n.iter = 500, n.obs= nrow(eco.vars))
 
 #faols <- fa(ecor, factors = 4, rotation = "varimax", fm = "ols")
 #faminres <- fa(ecor, factors = 4, rotation = "varimax", fm = "minres")
-faml
+#faml
 faml$loadings
-faols$loadings 
-faminres$loadings
+# faols$loadings 
+# faminres$loadings
 #faminres$Structure
 #fa1$residual
 ```
@@ -209,7 +206,7 @@ What is going on with protein and bare.inv???
 Trying w another approach, varying the number of factors that it forces, and comparing the variance explained...
 usin gthe factanal() from the XXXX pkg: 
 So tried 3:
-```{r}
+```{r, echo = FALSE}
 fa3<-factanal(~PerrGrass+ PerrForb + Sedges + Shrubs +Bare.inv + LitterCover + Protein + SpRich + RRC+ SRD, 
          covmat = ecor, n.obs = nrow(eco.vars),
          factors = 3, rotation = "varimax", fm = "ml")
@@ -218,7 +215,7 @@ fa3
 Cum Var is 0.63. But the loadings across the factors isn't particularly informative.)
 
 But 1 doesn't do a great job either.
-```{r}
+```{r, echo = FALSE}
 f1<- factanal(~PerrGrass+ PerrForb + Sedges + Shrubs +Bare.inv + LitterCover + Protein + SpRich + RRC+ SRD, 
          covmat = ecor, n.obs = nrow(eco.vars),
          factors = 1, rotation = "varimax", fm = "ml")#
@@ -226,7 +223,7 @@ f1
 ```
 
 2 factors seems to make the most sense
-```{r}
+```{r, echo = FALSE}
 f2<- factanal(~PerrGrass+ PerrForb + Sedges + Shrubs +Bare.inv + LitterCover + Protein + SpRich + RRC+ SRD,
          covmat = ecor, n.obs = nrow(eco.vars),
          factors = 2, rotation = "varimax", fm = "ml")#$loadings
@@ -241,7 +238,7 @@ F1 captures: Grass, Litter, RRC SRC Bare.inv
 F2 captures: Forb, Sedge & SpRich
 Shrubs is shared pretty much equally between the two-- kind of makes sense. May be representing two diff “kinds” of shrubs/two diff processes. lso has highest "uniqueness" value
 
-```{r}
+```{r, echo = FALSE}
 eco.vars.noP <- eco.vars %>% dplyr::select(-Protein)
 tcor<- hetcor(eco.vars.noP[,5:13])$cor
 tf2<- factanal(~PerrGrass+ PerrForb + Sedges + Shrubs +Bare.inv + LitterCover + SpRich + RRC+ SRD,
@@ -253,8 +250,7 @@ tf2
 eco.vars <- eco.vars.noP
 ```
 
-
-
+Go with removing Protein from subsequent analyses.
 
 
 ## summary so far
@@ -267,10 +263,10 @@ See earlier versions in git for othe rpast analyses
 See below this section for previous analysis on a single latent var 
 holding here for reference.....modificationindices(fit.cfa3, sort. = TRUE)
 
-#### New Measurement Models on 2 Latent Factors:
+### New Measurement Models on 2 Latent Factors:
 
 This one WITH shrubs:
-```{r}
+```{r, echo = FALSE, message = FALSE}
 # USE THIS BELOW FOR QUICKLY COMPARING FIT MEASURES BTWN RUNS
 fitmsrs <- c("df","chisq", "cfi", "rmsea", "rmsea.pvalue", "srmr")
 # ecological indicator mesurement model:
@@ -291,7 +287,7 @@ summary(fit.ecol.mod,
 
 Check the Modificatin Indices:
 None of these seem particularly terrible. Could maybe link the soils params.
-```{r}
+```{r, echo = FALSE, message=FALSE}
 modificationindices(fit.ecol.mod, sort. = TRUE)[1:6,]
 ```
 
@@ -317,7 +313,7 @@ This one without Shrubs in either of the latents:
 And the fit is poorer.
 It makes more sense to leave Shrubs in. Can explain that they may be doing diff things in the two latents.
 
-```{r, }
+```{r, echo = FALSE }
 # ecological indicator mesurement model:
 #   specify the hypothesized model:  
 #   this one WITHOUT shrubs
@@ -340,16 +336,19 @@ fitMeasures(fit.Noshrub.mod, fit.measures = fitmsrs)
 ### Create a table with general summary of outputs.
 
 ## Check out the diagrams anyway:
-```{r}
-semPaths(fit.ecol.mod, 
-         "std", 
-         edge.label.cex = 0.95, 
-         layout = "circle", 
-         residuals = FALSE)
+```{r, echo = FALSE, fig.height= 3, fig.width=5}
+semPaths(fit.ecolcor.mod, 
+        what = "path",
+         whatLabels ="std", 
+         edge.label.cex = 0.75, 
+         layout = "tree", 
+         residuals = FALSE,
+         esize = 2
+         )
 title("Two Factor Model Fit", line=1)
 ```
 
-```{r}
+```{r, echo = FALSE}
 semPaths(fit.Noshrub.mod, "std", 
          edge.label.cex = 0.95, 
          layout = "circle", 
@@ -358,22 +357,22 @@ semPaths(fit.Noshrub.mod, "std",
 title("2 Factor CFA without Shrubs", line = 1)
 ```
 
-## Eastimating predicted values:
-Notes from Kelly's email:
-Estimating predicted values – if I’m understanding your question correctly, I think you want the function `lavPredict()` (http://finzi.psych.upenn.edu/library/lavaan/html/lavPredict.html) with the default “type = “lv”. First you run a model with sem or cfa function, and then the fit of that model is what gets passed to this predict function. The output is a table with the predicted values for each of the rows in your original data. Then you can use those values to estimate the mean within each of the ecological zones or other categories. 
+## Eastimating predicted values:  now w new 2 factor model:
+Predict values of the latent factors.
+The output is a table with the predicted values for each of the rows in your original data. Then you can use those values to estimate the mean within each of the ecological zones or other categories. 
 
-### New two factor model:
-```{r}
+```{r, echo = FALSE}
 #type	= A character string. If "lv", estimated values for the latent variables in the model are computed. If "ov", model predicted values for the indicators of the latent variables in the model are computed.
 
 # predicting based on the model w two latent factors:
 eco2.pred <- lavPredict(fit.ecol.mod, type = "lv", label = TRUE)
 saveRDS(eco2.pred, file= "./data/eco.pred.TwoLatents.RDS")
 
+
 ```
 Histograms of the two latent var outputs:
-This doesn't mean a whole lot right now, per se. 
-```{r}
+
+```{r, echo = FALSE, fig.height= 2.5, fig.width= 3.5}
 hist(eco2.pred[,1])
 hist(eco2.pred[,2])
 summary(eco2.pred)
@@ -385,37 +384,51 @@ lines(density(eco2.pred[,2]), col = "blue")
 
 Rescale each to be 0-1? or 0-100? 
 Should we base the rescaling of each on the max range of both vars, not within each one? 
-```{r}
+### Rescaled latent factors
+```{r, echo = FALSE, fig.height= 2.5, fig.width= 3.5}
 ecof1 <- eco2.pred[,1]
 ecof2 <- eco2.pred[,2]
-rescf1 <- scales::rescale(ecof1, to = c(0,1))
-rescf2 <- scales::rescale(ecof2, to = c(0,1))
+rescf1 <- scales::rescale(ecof1, to = c(0,1), from = c(min(eco2.pred), max(eco2.pred)))
+rescf2 <- scales::rescale(ecof2, to = c(0,1), from = c(min(eco2.pred), max(eco2.pred)))
 
-plot(ecdf(ecof1))
-lines(ecdf(ecof2), col = "blue")
-plot(density(ecof1), ylim = c(0, 0.5))
-lines(density(ecof2), col = "blue")
+plot(ecdf(rescf1))
+lines(ecdf(rescf2), col = "blue")
+plot(density(rescf1), ylim = c(0, 1))
+lines(density(rescf2), col = "blue")
 ```
 
 OK, these both look similar after rescaling so I think we're ok to move ahead.
+Export these values for use in next analysis. 
+```{r}
+saveRDS(eco2.pred, "./data/eco2.pred.RDS")
+
+
+# and merge it w the df:
+eco.vars.pred <- cbind(test[,1:2], as.data.frame(eco2.pred))
+
+saveRDS(eco.vars.pred, "./data/eco.2latent.RDS")
+```
 
 
 
 ## THIS IS THE FIRST VERSION OF THIS, WITH A SMALLER SUBSET OF ECOL VARS AND JUST A SINGLE LATENT VAR:
 A lot of the analyses that led up to this were deleted above. To pull those back in will have to check out an earlier version from git.
-For now, this is saved also as an rds as "eco.pred.latent.RDS"
-```{r}
+For now, these predicted vars are also saved as an rds as "eco.pred.latent.RDS"
+And as a .csv
+For now the remainder of this section is turned off:::
+```{r, eval = FALSE, echo = FALSE}
 #type	= A character string. If "lv", estimated values for the latent variables in the model are computed. If "ov", model predicted values for the indicators of the latent variables in the model are computed.
 
 # predicting based on the unstandardized data:
 eco.pred <- lavPredict(fit.eco.mod, type = "lv", label = TRUE)
 saveRDS(eco.pred, file= "./data/eco.pred.latent.RDS")
+write.csv(eco.pred, file = "./data/eco.pred.latent.csv")
 # predicting based on the data standardized by ez:
 ecol.pred <- lavPredict(fit.ecol.mod, type = "lv", label = TRUE) 
 ```
 How much do these values differ?
 Range is same but the distributions are maybe different?
-```{r}
+```{r, eval = FALSE, echo = FALSE}
 hist(eco.pred[,1])
 title("Predicted Latent Ecological Condition for Each Household")
 
@@ -430,46 +443,31 @@ ggplot(data=eco.pred.df, aes(x=pred.eco))+
 hist(ecol.pred[,1])
 ```
 Let's test them:
-```{r}
+```{r, eval = FALSE, echo = FALSE}
 ks.test(eco.pred[,1], ecol.pred[,1])
-```
-OK, so we can probably reasonably conclude that these latent vals are drawn from the same distribution??
+
+# OK, so we can probably reasonably conclude that these latent vals are drawn from the same distribution??
+# 
+# 
+# Can we just assume that these values will map in the same order to the original df? how can we compare averages across groups, etc. if we can't be sure which HH they belong to?
+# ### how to asign these back to the df w RefNums?
+# Will try just adding it to it for now....
 
 
-Can we just assume that these values will map in the same order to the original df? how can we compare averages across groups, etc. if we can't be sure which HH they belong to?
-### how to asign these back to the df w RefNums?
-Will try just adding it to it for now....
-
-```{r}
 eco.lv <- as.data.frame(eco.pred[,1])
 ecol.lv <- as.data.frame(ecol.pred[,1])
 rpe.lv<- cbind(rpesoil, eco.lv, ecol.lv)
 names(rpe.lv)[55:56] <- c("eco.lv", "eco.s.lv")
 ```
 
-## let's play with plotting it just to see....
-unstandardized:
-```{r}
-gez<- ggplot(rpe.lv, aes(CBRM_type, eco.lv))
-gez + geom_boxplot()
-gez + geom_violin()
-gez + geom_violin()+
-  facet_wrap(~ ez, labeller = label_both)
 
-```
-standardized:
-```{r}
-gez<- ggplot(rpe.lv, aes(ez, eco.s.lv))
-gez + geom_violin()
-
-```
 
 ## final notes::
 These predicteed latent vals for ecological indicator will be used as a response variable in subsequent modelling, including BHM and the matching stuff.... 
 so maybe we should play around with it a bit first to see if anything interesting shakes out...
 
 # lm w the latent var
-```{r, echo = FALSE}
+```{r, echo = FALSE, eval = FALSE}
 # scatterplotMatrix(
 #   formula = ~  pl + p2s + p3s + eco.lv |r1,
 #   data = rpe.lv,

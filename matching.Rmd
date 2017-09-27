@@ -225,6 +225,8 @@ m.out1 <- matchit(CBRM ~
                     ez2_St +
                     ez3_ES +
                     ez4_FMS +
+                    #AimagName +
+                    #SoumName+
                     # slope +  # slope of ndvi at HHS
                      p4 +  # FAll Otor
                      p5 +   # Winter Otor
@@ -240,7 +242,7 @@ m.out1 <- matchit(CBRM ~
 m.full.summary<- summary(m.out1, 
                          standardize = TRUE,  
                          addlvariables = raw.data[,c("p4")]) 
-                                     
+m.full.summary                                     
 ```
 #### Retrieve summary of matched data and generate dataset
 If matching is done well, the treatment and control groups will have (near) identical means of each covariate at each value of the propensity score.
@@ -310,10 +312,12 @@ kable(d$Balance)
 b<- bal.plot(m.out1, "distance", which = "unadjusted")+theme_bw()
 c<- bal.plot(m.out1, "distance", which = "adjusted")+theme_bw() 
 # this returns a ggplot object
-b+ theme_bw() # so just need to adjust the aesthetics.
+#b+ theme_bw() # so just need to adjust the aesthetics.
 c
 #e<- grid.arrange(a,b,c, ncol=1, widths = 2)
-ggsave(e, filename = "./plots/cbrm_balance.png", width=2, height = 7)
+ggsave(a, filename = "./plots/cbrm_balance.png") #, width=2, height = 7)
+ggsave(b, filename = "./plots/cbrm_PSpre.png", width=5, height = 4)
+ggsave(c, filename = "./plots/cbrm_PSpost.png", width=5, height = 4)
 ```
 
 **hidden extra plotting info that i'm saving.....**
@@ -436,8 +440,9 @@ Also the variance ratios for long-term mean sfu var
 ```{r data, message=FALSE}
 
 tr.full.summary<- summary(tr.out1 <- matchit(Trsp ~
-                                          ppt11 +
-                                          sfu11 +
+                                          ltmeanppt +
+                                          ltsdppt +
+                                          ltmeansfu +  # NEED TO ADD HH LSK HERD SIZE TOO SOMEHOW - PROXY?
                                           avail.forage +
                                           CBRM + 
                                           ez1_DS +
@@ -503,8 +508,9 @@ p4.full.summary<- summary(p4.out1 <- matchit(p4 ~
                                           p6 +
                                           p7 +
                                           p8 +
-                                          ppt11 +
-                                          sfu11+
+                                          ltmeanppt +
+                                          ltsdppt +
+                                          ltmeansfu +  # NEED TO ADD HH LSK HERD SIZE TOO SOMEHOW - PROXY?
                                           avail.forage,
                                         data = raw.data, 
                                         method = "full", distance = "logit",
@@ -540,7 +546,9 @@ bal.tab(p4.out1, # the matchit object
 b<- bal.plot(p4.out1, "distance", which = "both")
 # this returns a ggplot object
 b+ theme_bw() # so just need to adjust the aesthetics.
-
+# ggsave(a, filename = "./plots/p4_balance.png") #, width=2, height = 7)
+# ggsave(b, filename = "./plots/p4_PSpre.png", width=5, height = 4)
+# ggsave(c, filename = "./plots/p4_PSpost.png", width=5, height = 4)
 ```
 
 ## p5: Winter Otor:
@@ -776,6 +784,9 @@ bal.tab(p9.out1, # the matchit object
 b<- bal.plot(p9.out1, "distance", which = "both")
 
 b+ theme_bw() 
+ggsave(a, filename = "./plots/p9_balance.png") #, width=2, height = 7)
+ggsave(b, filename = "./plots/p9_PSprepot.png", width=5, height = 4)
+#ggsave(c, filename = "./plots/p9_PSpost.png", width=5, height = 4)
 
 ```
 ## p10: Grazing dzud pastures in non-emergency
@@ -837,6 +848,14 @@ SO compare the values of eco.int for P4=1 (in matched data or original raw??) vs
 
 # IV. Results
 ### Figures and tables for comparing distributions of post-matched data:
+```{r}
+# set plotting params:
+height = 3
+width =3
+pal1 = "Dark2" # palette for density plots
+line1 = "grey35"  # color for Trt ab line
+line2 = "grey55"  # color for Ctrl abline
+```
 
 ### Results for 2 Ecological Factors:
 ### CBRM
@@ -855,9 +874,34 @@ ks.test(cbrm_0pre, cbrm_1pre)
 t.test(cbrm_0pre, cbrm_1pre)
 
 # Density plots
-ggplot(full.data.m, aes(x=(eco1.rs), colour=CBRM)) + geom_density()+ labs(title= "prematch")
+ggplot(full.data.m, aes(x=(eco1.rs), colour=CBRM)) + 
+  geom_density()+ 
+    scale_color_brewer(type = 'div', palette = pal1)+
+  theme(legend.position="none") +
+  geom_vline(aes(xintercept = 0.63), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.69), color = line2, linetype = 3)+
+  labs(title= "CBRM Treatment Effect\npre-matching data", x= "Ecological Index for Factor 1")
+ggsave("./plots/cb1pre.png", height = height, width = width)
+ggplot(full.data.m, aes(x=(eco1.rs *weights), colour=CBRM)) + 
+  geom_density()+ 
+  xlim(0, 3)+
+  scale_color_brewer(type = 'div', palette = pal1)+
+  theme(legend.position="none") +
+  geom_vline(aes(xintercept = 0.66), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.43), color = line2, linetype = 3)+
+  labs(title="CBRM Treatment Effect\npost-matched data", x= "Ecological Index for Factor 1")
+ggsave("./plots/cb1post.png", height = height, width = width)
 
-ggplot(full.data.m, aes(x=(eco1.rs *weights), colour=CBRM)) + geom_density()+ labs(title="postmatch")
+ggplot(full.data.m) + 
+  geom_density(aes(x=(eco1.rs), colour=CBRM), linetype = 3)+ 
+  geom_density(aes(x=(eco1.rs *weights), colour=CBRM))+
+  xlim(0, 3)+
+  scale_color_brewer(type = 'div', palette = pal1)+
+  geom_vline(aes(xintercept = 0.63), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.69), color = line2, linetype = 3)+
+  labs(title= "CBRM Treatment Effect\npre-matching data", x= "Ecological Index for Factor 1")
+
+
 
 # Means pre & post  --- # CAN'T
 cbrm_mu<- full.data.m%>% group_by(CBRM)%>% summarise(pre= mean(eco1.rs), post= mean(eco1.rs*weights))
@@ -880,7 +924,23 @@ lines(ecdf(cbrm_1), col = 'blue')
 ks.test(cbrm_0, cbrm_1)
 t.test(cbrm_0, cbrm_1)
 # Density plots
-ggplot(full.data.m, aes(x=(eco2.rs *weights), colour=CBRM)) + geom_density()
+ggplot(full.data.m, aes(x=(eco2.rs), colour=CBRM)) + 
+  geom_density()+ 
+    scale_color_brewer(type = 'div', palette = "Dark2")+
+  theme(legend.position="none") +
+  geom_vline(aes(xintercept = 0.47), color = 'grey35', linetype = 2)+
+  geom_vline(aes(xintercept = 0.44), color = 'grey45', linetype = 3)+
+  labs(title= "CBRM Treatment Effect\npre-matching data", x= "Ecological Index for Factor 2")
+ggsave("./plots/cb2pre.png", height = height, width = width)
+ggplot(full.data.m, aes(x=(eco2.rs *weights), colour=CBRM)) + 
+  geom_density()+ 
+  xlim(0, 3)+
+  scale_color_brewer(type = 'div', palette = "Dark2")+
+  theme(legend.position="none") +
+  geom_vline(aes(xintercept = 0.38), color = 'grey35', linetype = 2)+
+  geom_vline(aes(xintercept = 0.23), color = 'grey45', linetype = 3)+
+  labs(title="CBRM Treatment Effect\npost-matched data", x= "Ecological Index for Factor 2")
+ggsave("./plots/cb2post.png", height = height, width = width)
 
 # Means pre & post   
 cbrm2_mu<- full.data.m%>% group_by(CBRM)%>% summarise(pre= mean(eco2.rs), post= mean(eco2.rs*weights))
@@ -908,7 +968,24 @@ t.test(tr_0, tr_1)
 # 
 
 # Density plots
-ggplot(full.data.tr, aes(x=(eco1.rs*weights), colour=as.factor(Trsp))) + geom_density()
+
+ggplot(full.data.tr, aes(x=(eco1.rs), colour=as.factor(Trsp))) + 
+  geom_density()+ 
+  xlim(0, 3)+
+  scale_color_brewer(type = 'div', palette = pal1)+
+  geom_vline(aes(xintercept = 0.64), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.68), color = line2, linetype = 3)+
+  labs(title="Trespassing 'Effect'\npre-matched data", x= "Ecological Index for Factor 1")
+ggsave("./plots/tr1pre.png", height = height, width = width)
+
+ggplot(full.data.tr, aes(x=(eco1.rs *weights), colour=as.factor(Trsp))) + 
+  geom_density()+ 
+  xlim(0, 3)+
+  scale_color_brewer(type = 'div', palette = pal1)+
+  geom_vline(aes(xintercept = 0.64), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.28), color = line2, linetype = 3)+
+  labs(title="Trespassing 'Effect'\npost-matched data", x= "Ecological Index for Factor 1")
+ggsave("./plots/tr1post.png", height = height, width = width)
 
 # Means pre & post
 trsp_mu<- full.data.tr%>% group_by(Trsp)%>% summarise(pre= mean(eco1.rs), post= mean(eco1.rs*weights))
@@ -936,8 +1013,23 @@ t.test(tr_0, tr_1)
 # 
 
 # Density plots
-ggplot(full.data.tr, aes(x=(eco2.rs*weights), colour=as.factor(Trsp))) + geom_density()
+ggplot(full.data.tr, aes(x=(eco2.rs), colour=as.factor(Trsp))) + 
+  geom_density()+ 
+  xlim(0, 3)+
+  scale_color_brewer(type = 'div', palette = pal1)+
+  geom_vline(aes(xintercept = 0.64), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.68), color = line2, linetype = 3)+
+  labs(title="Trespassing 'Effect'\npre-matched data", x= "Ecological Index for Factor 2")
+ggsave("./plots/tr2pre.png", height = height, width = width)
 
+ggplot(full.data.tr, aes(x=(eco2.rs *weights), colour=as.factor(Trsp))) + 
+  geom_density()+ 
+  xlim(0, 3)+
+  scale_color_brewer(type = 'div', palette = pal1)+
+  geom_vline(aes(xintercept = 0.64), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.28), color = line2, linetype = 3)+
+  labs(title="Trespassing 'Effect'\npost-matched data", x= "Ecological Index for Factor 2")
+ggsave("./plots/tr2post.png", height = height, width = width)
 # Means pre & post
 trsp2_mu<- full.data.tr%>% group_by(Trsp)%>% summarise(pre= mean(eco2.rs), post= mean(eco2.rs*weights))
 
@@ -955,9 +1047,10 @@ xtr2<- bind_cols(trsp2_mu, trsp2_med)%>% rename(Level = Trsp) %>% mutate(Trt = a
 ```{r}
 
 p4_0<- (full.data.p4$eco1.rs*full.data.p4$weights)[which(full.data.p4$p4==0)]
-plot(ecdf(p4_0))
+
 
 p4_1<- (full.data.p4$eco1.rs*full.data.p4$weights)[which(full.data.p4$p4==1)]
+plot(ecdf(p4_0))
 lines(ecdf(p4_1), col = 'blue')
 
 ks.test(p4_0, p4_1)
@@ -966,6 +1059,27 @@ t.test(p4_0, p4_1)
 
 # Density plots
 ggplot(full.data.p4, aes(x=(eco1.rs*weights), colour=p4)) + geom_density()
+
+ggplot(full.data.p4, aes(x=(eco1.rs), colour=as.factor(p4))) + 
+  geom_density()+ 
+  xlim(0, 2)+
+  scale_color_brewer(type = 'div', palette = pal1)+
+  theme(legend.position="none") +
+  geom_vline(aes(xintercept = 0.64), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.69), color = line2, linetype = 3)+
+  labs(title="Effect of Fall Otor\npre-matched data", x= "Ecological Index for Factor 1")
+ggsave("./plots/p41pre.png", height = height, width = width)
+
+ggplot(full.data.p4, aes(x=(eco1.rs *weights), colour=as.factor(p4))) + 
+  geom_density()+ 
+  xlim(0, 3)+
+  theme(legend.position="none") +
+  scale_color_brewer(type = 'div', palette = pal1)+
+  geom_vline(aes(xintercept = 0.64), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.23), color = line2, linetype = 3)+
+  labs(title="Effect of Fall Otor\npost-matched data", x= "Ecological Index for Factor 1")
+ggsave("./plots/p41post.png", height = height, width = width)
+
 # Means pre & post
 p4_mu<- full.data.p4%>% group_by(p4)%>% summarise(pre= mean(eco1.rs), post= mean(eco1.rs*weights))
 # Medians
@@ -990,7 +1104,27 @@ t.test(p4_0, p4_1)
 # 
 
 # Density plots
-ggplot(full.data.p4, aes(x=(eco2.rs*weights), colour=p4)) + geom_density()
+#ggplot(full.data.p4, aes(x=(eco2.rs*weights), colour=p4)) + geom_density()
+
+ggplot(full.data.p4, aes(x=(eco2.rs), colour=as.factor(p4))) + 
+  geom_density()+ 
+  xlim(0, 3)+
+  scale_color_brewer(type = 'div', palette = pal1)+
+  geom_vline(aes(xintercept = 0.64), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.69), color = line2, linetype = 3)+
+  labs(title="Effect of Fall Otor\npre-matched data", x= "Ecological Index for Factor 2")
+ggsave("./plots/p42pre.png", height = height, width = width)
+
+ggplot(full.data.p4, aes(x=(eco2.rs *weights), colour=as.factor(p4))) + 
+  geom_density()+ 
+  xlim(0, 3)+
+  theme(legend.position="none") +
+  scale_color_brewer(type = 'div', palette = pal1)+
+  geom_vline(aes(xintercept = 0.38), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.16), color = line2, linetype = 3)+
+  labs(title="Effect of Fall Otor\npost-matched data", x= "Ecological Index for Factor 2")
+ggsave("./plots/p42post.png", height = height, width = width)
+
 # Means pre & post
 p42_mu<- full.data.p4%>% group_by(p4)%>% summarise(pre= mean(eco2.rs), post= mean(eco2.rs*weights))
 # Medians
@@ -1015,7 +1149,15 @@ t.test(p5_0, p5_1)
 # 
 
 # Density plots
-ggplot(full.data.p5, aes(x=(eco1.rs*weights), colour=p5)) + geom_density()
+ggplot(full.data.p5, aes(x=(eco1.rs *weights), colour=as.factor(p5))) + 
+  geom_density()+ 
+  xlim(0, 3)+
+  theme(legend.position="none") +
+  scale_color_brewer(type = 'div', palette = pal1)+
+  geom_vline(aes(xintercept = 0.66), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.35), color = line2, linetype = 3)+
+  labs(title="Effect of Winter Otor\npost-matched data", x= "Ecological Index for Factor 1")
+ggsave("./plots/p51post.png", height = height, width = width)
 
 # Means pre & post
 p5_mu<- full.data.p5%>% group_by(p5)%>% summarise(pre= mean(eco1.rs), post= mean(eco1.rs*weights))
@@ -1042,7 +1184,15 @@ t.test(p5_0, p5_1)
 # 
 
 # Density plots
-ggplot(full.data.p5, aes(x=(eco2.rs*weights), colour=p5)) + geom_density()
+ggplot(full.data.p5, aes(x=(eco2.rs *weights), colour=as.factor(p5))) + 
+  geom_density()+ 
+  xlim(0, 3)+
+  theme(legend.position="none") +
+  scale_color_brewer(type = 'div', palette = pal1)+
+  geom_vline(aes(xintercept = 0.38), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.24), color = line2, linetype = 3)+
+  labs(title="Effect of Winter Otor\npost-matched data", x= "Ecological Index for Factor 2")
+ggsave("./plots/p52post.png", height = height, width = width)
 
 # Means pre & post
 p52_mu<- full.data.p5%>% group_by(p5)%>% summarise(pre= mean(eco2.rs), post= mean(eco2.rs*weights))
@@ -1065,8 +1215,18 @@ lines(ecdf(p6_1), col = 'blue')
 
 ks.test(p6_0, p6_1)
 t.test(p6_0, p6_1)
+
 # Density plots
-ggplot(full.data.p6, aes(x=(eco1.rs*weights), colour=p6)) + geom_density()
+ggplot(full.data.p6, aes(x=(eco1.rs *weights), colour=as.factor(p6))) + 
+  geom_density()+ 
+  xlim(0, 3)+
+  theme(legend.position="none") +
+  scale_color_brewer(type = 'div', palette = pal1)+
+  geom_vline(aes(xintercept = 0.66), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.19), color = line2, linetype = 3)+
+  labs(title="Effect of Reserving Winter Pastures\npost-matched data", x= "Ecological Index for Factor 1")
+ggsave("./plots/p61post.png", height = height, width = width)
+
 
 # Means pre & post
 p6_mu<- full.data.p6%>% group_by(p6)%>% summarise(pre= mean(eco1.rs), post= mean(eco1.rs*weights))
@@ -1090,7 +1250,15 @@ lines(ecdf(p6_1), col = 'blue')
 
 ks.test(p6_0, p6_1)
 # Density plots
-ggplot(full.data.p6, aes(x=(eco2.rs*weights), colour=p6)) + geom_density()
+ggplot(full.data.p6, aes(x=(eco2.rs *weights), colour=as.factor(p6))) + 
+  geom_density()+ 
+  xlim(0, 3)+
+  theme(legend.position="none") +
+  scale_color_brewer(type = 'div', palette = pal1)+
+  geom_vline(aes(xintercept = 0.40), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.13), color = line2, linetype = 3)+
+  labs(title="Effect of Reserving Winter Pastures\npost-matched data", x= "Ecological Index for Factor 2")
+ggsave("./plots/p62post.png", height = height, width = width)
 
 # Means pre & post
 p62_mu<- full.data.p6%>% group_by(p6)%>% summarise(pre= mean(eco2.rs), post= mean(eco2.rs*weights))
@@ -1118,7 +1286,15 @@ ks.test(p7_0, p7_1)
 # 
 
 # Density plots
-ggplot(full.data.p7, aes(x=(eco1.rs*weights), colour=p7)) + geom_density()
+ggplot(full.data.p7, aes(x=(eco1.rs *weights), colour=as.factor(p7))) + 
+  geom_density()+ 
+  xlim(0, 3)+
+  theme(legend.position="none") +
+  scale_color_brewer(type = 'div', palette = pal1)+
+  geom_vline(aes(xintercept = 0.52), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.28), color = line2, linetype = 3)+
+  labs(title="Effect of Reserving Spring Pastures\npost-matched data", x= "Ecological Index for Factor 1")
+ggsave("./plots/p71post.png", height = height, width = width)
 
 # Means pre & post
 p7_mu<- full.data.p7%>% group_by(p7)%>% summarise(pre= mean(eco1.rs), post= mean(eco1.rs*weights))
@@ -1142,7 +1318,16 @@ ks.test(p7_0, p7_1)
 # 
 
 # Density plots
-ggplot(full.data.p7, aes(x=(eco2.rs*weights), colour=p7)) + geom_density()
+ggplot(full.data.p7, aes(x=(eco2.rs *weights), colour=as.factor(p7))) + 
+  geom_density()+ 
+  xlim(0, 3)+
+  theme(legend.position="none") +
+  scale_color_brewer(type = 'div', palette = pal1)+
+  geom_vline(aes(xintercept = 0.34), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.18), color = line2, linetype = 3)+
+  labs(title="Effect of Reserving Spring Pastures\npost-matched data", x= "Ecological Index for Factor 2")
+ggsave("./plots/p72post.png", height = height, width = width)
+
 
 # Means pre & post
 p72_mu<- full.data.p7%>% group_by(p7)%>% summarise(pre= mean(eco2.rs), post= mean(eco2.rs*weights))
@@ -1169,7 +1354,15 @@ lines(ecdf(p8_1), col = 'blue')
 ks.test(p8_0, p8_1)
 
 # Density plots
-ggplot(full.data.p8, aes(x=(eco1.rs*weights), colour=p8)) + geom_density()
+ggplot(full.data.p8, aes(x=(eco1.rs *weights), colour=as.factor(p8))) + 
+  geom_density()+ 
+  xlim(0, 3)+
+  theme(legend.position="none") +
+  scale_color_brewer(type = 'div', palette = pal1)+
+  geom_vline(aes(xintercept = 0.67), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.28), color = line2, linetype = 3)+
+  labs(title="Effect of Reserving Dzud Pastures\npost-matched data", x= "Ecological Index for Factor 1")
+ggsave("./plots/p81post.png", height = height, width = width)
 
 # Means pre & post
 p8_mu<- full.data.p8%>% group_by(p8)%>% summarise(pre= mean(eco1.rs), post= mean(eco1.rs*weights))
@@ -1195,7 +1388,15 @@ lines(ecdf(p8_1), col = 'blue')
 ks.test(p8_0, p8_1)
 
 # Density plots
-ggplot(full.data.p8, aes(x=(eco2.rs*weights), colour=p8)) + geom_density()
+ggplot(full.data.p8, aes(x=(eco2.rs *weights), colour=as.factor(p8))) + 
+  geom_density()+ 
+  xlim(0, 3)+
+  theme(legend.position="none") +
+  scale_color_brewer(type = 'div', palette = pal1)+
+  geom_vline(aes(xintercept = 0.44), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.18), color = line2, linetype = 3)+
+  labs(title="Effect of Reserving Dzud Pastures\npost-matched data", x= "Ecological Index for Factor 2")
+ggsave("./plots/p82post.png", height = height, width = width)
 
 # Means pre & post
 p82_mu<- full.data.p8%>% group_by(p8)%>% summarise(pre= mean(eco2.rs), post= mean(eco2.rs*weights))
@@ -1223,7 +1424,15 @@ t.test(p9_0, p9_1)
 # 
 
 # Density plots
-ggplot(full.data.p9, aes(x=(eco1.rs*weights), colour=p9)) + geom_density()
+ggplot(full.data.p9, aes(x=(eco1.rs *weights), colour=as.factor(p9))) + 
+  geom_density()+ 
+  xlim(0, 3)+
+  theme(legend.position="none") +
+  scale_color_brewer(type = 'div', palette = pal1)+
+  geom_vline(aes(xintercept = 0.67), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.49), color = line2, linetype = 3)+
+  labs(title="Effect of Grazing Out of Season\npost-matched data", x= "Ecological Index for Factor 1")
+ggsave("./plots/p91post.png", height = height, width = width)
 
 # Means pre & post
 p9_mu<- full.data.p9%>% group_by(p9)%>% summarise(pre= mean(eco1.rs), post= mean(eco1.rs*weights))
@@ -1250,7 +1459,16 @@ ks.test(p9_0, p9_1)
 
 # Density plots
 
-ggplot(full.data.p9, aes(x=(eco2.rs*weights), colour=p9)) + geom_density()
+ggplot(full.data.p9, aes(x=(eco2.rs *weights), colour=as.factor(p9))) + 
+  geom_density()+ 
+  xlim(0, 3)+
+  theme(legend.position="none") +
+  scale_color_brewer(type = 'div', palette = pal1)+
+  geom_vline(aes(xintercept = 0.39), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.33), color = line2, linetype = 3)+
+  labs(title="Effect of Grazing Out of Season\npost-matched data", x= "Ecological Index for Factor 2")
+ggsave("./plots/p92post.png", height = height, width = width)
+
 # Means pre & post
 p92_mu<- full.data.p9%>% group_by(p9)%>% summarise(pre= mean(eco2.rs), post= mean(eco2.rs*weights))
 
@@ -1322,12 +1540,12 @@ levels(F1medians$Trt) <- list(CBRM = "CBRM",
 
 F1meds<- ggplot(F1medians, aes(x= MatchStatus, y = Index, group= Trt_Level ))+
   geom_point(aes(color = Trt, shape = Level), size = 2)+
-  geom_line(aes(linetype = Level, color = Trt))+
+  geom_line(aes(linetype = Level, color = Trt), size = 1)+
   scale_color_brewer(type= "div", palette = "Spectral" )+
   labs(y= "Median Ecological Index", x = "Matching Status", title = "First Ecol Factor Index")+
   theme_light()
 F1meds
-
+ggsave(F1meds,  filename = "./plots/F1medians.png", width = 5, height = 6)
 # Second Factor:
 tr2$Level<- as.character(tr2$Level)
 F2medians<- bind_rows(cb2, tr2, p42, p52, p62, p72, p82, p92)%>%
@@ -1451,7 +1669,9 @@ t.test(tr_0, tr_1)
 # 
 
 # Density plots
-ggplot(full.data.tr, aes(x=(eco.int*weights), colour=as.factor(Trsp))) + geom_density()
+ggplot(full.data.tr, aes(x=(eco.int*weights), colour=as.factor(Trsp))) + 
+  geom_density()+
+  geom_vline(xintercept = median(eco.int*weights), color= as.factor(Trsp))
 
 # Means pre & post
 trsp_mu<- full.data.tr%>% group_by(Trsp)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
@@ -1551,7 +1771,9 @@ ks.test(p7_0, p7_1)
 # 
 
 # Density plots
-ggplot(full.data.p7, aes(x=(eco.int*weights), colour=p7)) + geom_density()
+
+
+#ggplot(full.data.p7, aes(x=(eco.int*weights), colour=p7)) + geom_density()
 
 # Means pre & post
 p7_mu<- full.data.p7%>% group_by(p7)%>% summarise(pre= mean(eco.int), post= mean(eco.int*weights))
@@ -1660,12 +1882,21 @@ Add Stuart & King cites here.
 
 # Explanatory Models: 
 ```{r Models}
-cbrm_mod <- lm(eco.int ~ CBRM + slope, data= full.data.m, weights = full.data.m$weights)
+#cbrm_mod <- lm(eco.int ~ CBRM , data= full.data.m, weights = full.data.m$weights)
+cbrm_mod <- lm(eco1.rs ~ CBRM , data= full.data.m, weights = full.data.m$weights)
 summary(cbrm_mod)
 ```
 
 
+```{r}
+cbrm_modw <- lm((eco1.rs*weights) ~ CBRM , data= full.data.m, weights = full.data.m$weights)
+summary(cbrm_modw)
+```
 
+```{r}
+zelig(eco1.rs ~ CBRM + ez + p4 +p5, data = full.data.m, weights = "weights", model = "ls")
+
+```
 
 
 
