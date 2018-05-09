@@ -171,7 +171,7 @@ hhmatch %<>% left_join(soum_stats, by = c("AimagName", "SoumName"))
 for(level in unique(hhmatch$ez)){
   hhmatch[paste("dummy", level, sep = "_")] <- ifelse(hhmatch$ez == level, 1, 0)
 }
-hhmatch %<>% rename(ez1_DS = dummy_1,
+hhmatch %<>% dplyr::rename(ez1_DS = dummy_1,
                 ez2_St = dummy_2,
                 ez3_ES = dummy_3,
                 ez4_FMS = dummy_4)
@@ -207,8 +207,8 @@ However, these were all happening on different years, and the dzud impacts the c
 ```{r, echo = FALSE, results= 'hide'}
 # list of the params in the df
 #str(hhmatch)
-hname<- names(hhmatch)
-kable(hname, format= "markdown", col.names = c("Variables"))
+#hname<- names(hhmatch)
+#kable(hname, format= "markdown", col.names = c("Variables"))
 
 ```
 
@@ -228,20 +228,21 @@ m.out1 <- matchit(CBRM ~
                     #AimagName +
                     #SoumName+
                     # slope +  # slope of ndvi at HHS
-                     p4 +  # FAll Otor
-                     p5 +   # Winter Otor
-                     p6 +   # Res Pastures vars.
-                     p7 +  
-                     p8 +
-                     ppt99 +  # mean precip up to 2011
-                     sfu99,  # mean sfu up to 2011
+                     # p4 +  # FAll Otor
+                     # p5 +   # Winter Otor
+                     # p6 +   # Res Pastures vars.
+                     # p7 +  
+                     # p8 +
+                     ppt99 +  # mean precip up to 1999
+                     sfu99,  # mean sfu up to 1999
                   data = raw.data, 
-                  method = "full", distance = "logit",
+                  #method = "full", distance = "logit",
+                  method = "full", distance = "probit",
                   discard = "both"
                   )
 m.full.summary<- summary(m.out1, 
-                         standardize = TRUE,  
-                         addlvariables = raw.data[,c("p4")]) 
+                         standardize = TRUE  
+                       ) 
 m.full.summary                                     
 ```
 #### Retrieve summary of matched data and generate dataset
@@ -315,9 +316,9 @@ c<- bal.plot(m.out1, "distance", which = "adjusted")+theme_bw()
 #b+ theme_bw() # so just need to adjust the aesthetics.
 c
 #e<- grid.arrange(a,b,c, ncol=1, widths = 2)
-ggsave(a, filename = "./plots/cbrm_balance.png") #, width=2, height = 7)
-ggsave(b, filename = "./plots/cbrm_PSpre.png", width=5, height = 4)
-ggsave(c, filename = "./plots/cbrm_PSpost.png", width=5, height = 4)
+#ggsave(a, filename = "./plots/cbrm_balance.png") #, width=2, height = 7)
+#ggsave(b, filename = "./plots/cbrm_PSpre.png", width=5, height = 4)
+#ggsave(c, filename = "./plots/cbrm_PSpost.png", width=5, height = 4)
 ```
 
 **hidden extra plotting info that i'm saving.....**
@@ -498,18 +499,19 @@ So it might be more important to include?  This is an example of one where I wan
 talk some more w Kelly about what this really means/how it will influence our interpretation of results.
 
 ```{r P4, }
-
+# where remove NAs get 121 obs for this analysis:
 p4.full.summary<- summary(p4.out1 <- matchit(p4 ~
                                           CBRM + 
                                           ez1_DS +
                                           ez2_St +
                                           ez3_ES +
-                                          ez4_FMS + 
+                                          ez4_FMS +
+                                            pl+
                                           p6 +
                                           p7 +
                                           p8 +
                                           ltmeanppt +
-                                          ltsdppt +
+                                          #ltsdppt +
                                           ltmeansfu +  # NEED TO ADD HH LSK HERD SIZE TOO SOMEHOW - PROXY?
                                           avail.forage,
                                         data = raw.data, 
@@ -533,7 +535,7 @@ love.plot(bal.tab(p4.out1),
           no.missing = TRUE,
           var.order = NULL)
 
-bal.tab(p4.out1, # the matchit object
+a<- bal.tab(p4.out1, # the matchit object
         un = TRUE,  # print stats for unadjusted and adjusted sample?
         m.threshold = 0.2, #.1, # threshold for mean diffs. they suggest .1 which is more conservative than our 0.25 that we were using before
         int = FALSE, #include interactions?
@@ -541,13 +543,13 @@ bal.tab(p4.out1, # the matchit object
         disp.v.ratio = TRUE,
         disp.ks =TRUE
         )
-
+a<- (a$Balance)
 # 
-b<- bal.plot(p4.out1, "distance", which = "both")
+b<- bal.plot(p4.out1, "distance", which = "both")+ theme_bw()+ggtitle("Fall Otor") 
 # this returns a ggplot object
-b+ theme_bw() # so just need to adjust the aesthetics.
-# ggsave(a, filename = "./plots/p4_balance.png") #, width=2, height = 7)
-# ggsave(b, filename = "./plots/p4_PSpre.png", width=5, height = 4)
+b# so just need to adjust the aesthetics.
+#write.csv(a, file = "./exports_tables/FOtor_balance.csv")
+ggsave(b, filename = "./plots/FOtor_balance.png")
 # ggsave(c, filename = "./plots/p4_PSpost.png", width=5, height = 4)
 ```
 
@@ -558,11 +560,17 @@ b+ theme_bw() # so just need to adjust the aesthetics.
 p5.full.summary<- summary(p5.out1 <- matchit(p5 ~
                                           CBRM + 
                                           ez + 
+                                          # ez1_DS +
+                                          # ez2_St +
+                                          # ez3_ES +
+                                          # ez4_FMS +
                                           p6 +
                                           p7 +
                                           p8 +
-                                          ppt11 +
-                                          sfu11+
+                                            pl+
+                                          ltmeanppt +
+                                          ltsdppt+
+                                          ltmeansfu+
                                           avail.forage, 
                                         data = raw.data, 
                                         method = "full", distance = "logit",
@@ -585,7 +593,7 @@ love.plot(bal.tab(p5.out1),
           no.missing = TRUE,
           var.order = NULL)
 
-bal.tab(p5.out1, # the matchit object
+a<- bal.tab(p5.out1, # the matchit object
         un = TRUE,  # print stats for unadjusted and adjusted sample?
         m.threshold = 0.2, #.1, # threshold for mean diffs. they suggest .1 which is more conservative than our 0.25 that we were using before
         int = FALSE, #include interactions?
@@ -594,11 +602,11 @@ bal.tab(p5.out1, # the matchit object
         disp.ks =TRUE
         )
 # 
-b<- bal.plot(p5.out1, "distance", which = "both")
+b<- bal.plot(p5.out1, "distance", which = "both")+ theme_bw()+ggtitle("Winter Otor")
 # this returns a ggplot object
-b+ theme_bw() # so just need to adjust the aesthetics.
-
-
+b # so just need to adjust the aesthetics.
+ggsave(b, filename = "./plots/WOtor_balance.png")
+#write.csv(a$Balance, file= "./exports_tables/WOtor_balance.csv")
 ```
 
 # p6: Reserve Winter Pastures:
@@ -609,8 +617,11 @@ p6.full.summary<- summary(p6.out1 <- matchit(p6 ~
                                           CBRM + 
                                           ez + 
                                           p4 +
-                                          p5 + 
-                                          ltmeanppt, 
+                                          p5 +
+                                          r1 +
+                                         # ltmeanppt+
+                                         # ltsdppt, 
+                                           avail.forage,
                                         data = raw.data, 
                                         method = "full", distance = "logit",
                                         discard = "both"
@@ -629,7 +640,7 @@ love.plot(bal.tab(p6.out1),
           no.missing = TRUE,
           var.order = NULL)
 
-bal.tab(p6.out1, # the matchit object
+a<- bal.tab(p6.out1, # the matchit object
         un = TRUE,  # print stats for unadjusted and adjusted sample?
         m.threshold = 0.2, #.1, # threshold for mean diffs. they suggest .1 which is more conservative than our 0.25 that we were using before
         int = FALSE, #include interactions?
@@ -638,10 +649,11 @@ bal.tab(p6.out1, # the matchit object
         disp.ks =TRUE
         )
 # 
-b<- bal.plot(p6.out1, "distance", which = "both")
-b+ theme_bw() 
+b<- bal.plot(p6.out1, "distance", which = "both")+ theme_bw() + ggtitle("Reserve Winter Pastures")
+b
 
-
+ggsave(b, filename = "./plots/ResWPast_balance.png")
+write.csv(a$Balance, file= "./exports_tables/ResWPast_balance.csv")
 ```
 
 ## p7: Reserve Spring Pastures
@@ -650,11 +662,11 @@ b+ theme_bw()
 p7.full.summary<- summary(p7.out1 <- matchit(p7 ~
                                           CBRM + 
                                           ez + 
-                                          p4 +
-                                          p5 + #+
+                                        #  p4 +
+                                        #  p5 +  
                                           p6 +
                                           p8 +
-                                          ltmeanppt,  
+                                          avail.forage,  
                                         data = raw.data, 
                                         method = "full", distance = "logit",
                                         discard = "both"
@@ -673,7 +685,7 @@ love.plot(bal.tab(p7.out1),
           no.missing = TRUE,
           var.order = NULL)
 
-bal.tab(p7.out1, # the matchit object
+a<- bal.tab(p7.out1, # the matchit object
         un = TRUE,  # print stats for unadjusted and adjusted sample?
         m.threshold = 0.2, #.1, # threshold for mean diffs. they suggest .1 which is more conservative than our 0.25 that we were using before
         int = FALSE, #include interactions?
@@ -681,10 +693,12 @@ bal.tab(p7.out1, # the matchit object
         disp.v.ratio = TRUE,
         disp.ks =TRUE
         )
+a
 # 
-b<- bal.plot(p7.out1, "distance", which = "both")
-b+ theme_bw() 
-
+b<- bal.plot(p7.out1, "distance", which = "both")+ theme_bw()+ggtitle("Reserve Spring Pastures")
+b
+ggsave(b, filename = "./plots/ResSpPast_balance.png")
+#write.csv(a$Balance, file= "./exports_tables/ResSpPast_balance.csv")
 
 ```
 
@@ -693,12 +707,12 @@ b+ theme_bw()
 
 p8.full.summary<- summary(p8.out1 <- matchit(p8 ~
                                           CBRM + 
-                                          ez + 
+                                          ez +
                                           p4 +
                                           p5 + #+
                                           p6 +
                                           p7 +
-                                          ltmeanppt, 
+                                          avail.forage, 
                                         data = raw.data, 
                                         method = "full", distance = "logit",
                                         discard = "both"
@@ -720,7 +734,7 @@ love.plot(bal.tab(p8.out1),
           no.missing = TRUE,
           var.order = NULL)
 
-bal.tab(p8.out1, # the matchit object
+a<-bal.tab(p8.out1, # the matchit object
         un = TRUE,  # print stats for unadjusted and adjusted sample?
         m.threshold = 0.2, #.1, # threshold for mean diffs. they suggest .1 which is more conservative than our 0.25 that we were using before
         int = FALSE, #include interactions?
@@ -728,10 +742,12 @@ bal.tab(p8.out1, # the matchit object
         disp.v.ratio = TRUE,
         disp.ks =TRUE
         )
+a
 # 
-b<- bal.plot(p8.out1, "distance", which = "both")
-b+ theme_bw() 
-
+b<- bal.plot(p8.out1, "distance", which = "both")+ theme_bw() +ggtitle("Reserve Dzud Pastures")
+b
+ggsave(b, filename = "./plots/ResDzPast_balance.png")
+#write.csv(a$Balance, file= "./exports_tables/ResDzPast_balance.csv")
 
 ```
 
@@ -741,8 +757,8 @@ b+ theme_bw()
 ```{r P9,}
 
 p9.full.summary<- summary(p9.out1 <- matchit(p9 ~
-                                          avail.forage+
-                                          ltmeansfu+ 
+                                         # avail.forage+
+                                         # ltmeansfu+ 
                                           CBRM + 
                                           ez + 
                                           Trsp+
@@ -772,7 +788,7 @@ love.plot(bal.tab(p9.out1),
           no.missing = TRUE,
           var.order = NULL)
 
-bal.tab(p9.out1, # the matchit object
+a<- bal.tab(p9.out1, # the matchit object
         un = TRUE,  # print stats for unadjusted and adjusted sample?
         m.threshold = 0.2, #.1, # threshold for mean diffs. they suggest .1 which is more conservative than our 0.25 that we were using before
         int = FALSE, #include interactions?
@@ -780,12 +796,13 @@ bal.tab(p9.out1, # the matchit object
         disp.v.ratio = TRUE,
         disp.ks =TRUE
         )
+a
 # 
-b<- bal.plot(p9.out1, "distance", which = "both")
+b<- bal.plot(p9.out1, "distance", which = "both")+ theme_bw() + ggtitle("Grazed Reserve Pastures Out-of-Season")
 
-b+ theme_bw() 
-ggsave(a, filename = "./plots/p9_balance.png") #, width=2, height = 7)
-ggsave(b, filename = "./plots/p9_PSprepot.png", width=5, height = 4)
+b
+ggsave(b, filename = "./plots/GzResPast_balance.png") #, width=2, height = 7)
+write.csv(a$Balance, file = "./exports_tables/GzResPast.csv")
 #ggsave(c, filename = "./plots/p9_PSpost.png", width=5, height = 4)
 
 ```
@@ -842,6 +859,90 @@ b+ theme_bw()
 
 ```
 
+## RULES :::
+```{r Rules, eval = FALSE, echo = FALSE}
+
+raw.data<- mutate(raw.data, r1_No = ifelse(r1 == 0, 1, 0))
+raw.data<- mutate(raw.data, r1_Inf = ifelse(r1 == 1, 1, 0))
+raw.data<- mutate(raw.data, r1_Form = ifelse(r1 == 2, 1, 0))
+raw.data %<>% na.omit()
+# No Rules
+Norules.full.summary<- summary(No.out <- matchit(r1_No ~
+                                          # which covar       
+                                          CBRM + 
+                                          ez + 
+                                          ltmeanppt+
+                                          ltsdppt,
+                                        data = raw.data, 
+                                        method = "full", 
+                                        distance = "logit",
+                                        discard = "both"
+                                        ), standardize = TRUE 
+                                        )
+# get summary and generate dataset
+Norules.full.summary
+full.data.Norules <- match.data(No.out) # pulls matched data out of matchit object. can do group = "treat"
+
+# Inf Rules
+Infrules.full.summary<- summary(Inf.out <- matchit(r1_Inf ~
+                                     # which covar       
+                                       CBRM + 
+                                        ez + 
+                                        ltmeanppt+
+                                        ltsdppt,
+                                    data = raw.data, 
+                                    method = "full", 
+                                    distance = "logit",
+                                    discard = "both"
+                                    ), standardize = TRUE 
+                                    )
+# get summary and generate dataset
+Infrules.full.summary
+full.data.Infrules <- match.data(Inf.out) # pulls matched data
+
+# Formal
+Formrules.full.summary<- summary(Form.out <- matchit(r1_Form ~
+                                     # which covar       
+                                       CBRM + 
+                                        ez + 
+                                        ltmeanppt+
+                                        ltsdppt,
+                                    data = raw.data, 
+                                    method = "full", 
+                                    distance = "logit",
+                                    discard = "both"
+                                    ), standardize = TRUE 
+                                    )
+# get summary and generate dataset
+Formrules.full.summary
+full.data.Formrules <- match.data(Form.out) # pulls matched data
+
+
+
+# balanace.plot
+
+love.plot(bal.tab(No.out), 
+          stat =  "mean.diffs",   #c("mean.diffs", "variance.ratios", "ks.statistics"), 
+          # cant' get var ratios for binary vars... can't get this to work unless select one stat msr at a time.
+          threshold = .2,  #c(.2, 2), 
+          no.missing = TRUE,
+          var.order = NULL)
+
+bal.tab(No.out, # the matchit object
+        un = TRUE,  # print stats for unadjusted and adjusted sample?
+        m.threshold = 0.2, #.1, # threshold for mean diffs. they suggest .1 which is more conservative than our 0.25 that we were using before
+        int = FALSE, #include interactions?
+        disp.means = TRUE,
+        disp.v.ratio = TRUE,
+        disp.ks =TRUE
+        )
+# 
+b<- bal.plot(No.out, "distance", which = "both")
+
+b+ theme_bw() 
+
+
+```
 
 In a matched sampling design, the sample average treatment effect for the treated can be estimated by computing the difference between the observed dependent variable for the treated group and their expected or predicted values of the dependent variable under no treatment.
 SO compare the values of eco.int for P4=1 (in matched data or original raw??) vs. ev or pv of eco.int for p4=0
@@ -951,6 +1052,67 @@ xc2<- bind_cols(cbrm2_mu, cbrm2_med)%>% rename(Level = CBRM) %>% mutate(Trt = as
 #cb2<- gather(cbrm2_med, "Trt", "Level", 1)
 
 ```
+## Rules:
+#### EF 1:
+```{r}
+# No Rules:
+No_0<-(full.data.Norules$eco1.rs*full.data.Norules$weights)[which(full.data.Norules$r1_No==0)]
+No_0pre<-(full.data.Norules$eco1.rs)[which(full.data.Norules$r1_No==0)]
+No_1<-(full.data.Norules$eco1.rs*full.data.Norules$weights)[which(full.data.Norules$r1_No==1)]
+No_1pre<-(full.data.Norules$eco1.rs)[which(full.data.Norules$r1_No==1)]
+plot(ecdf(No_0))
+lines(ecdf(No_1), col = 'blue')
+
+ks.test(No_0, No_1)
+t.test(No_0, No_1)
+ks.test(No_0pre, No_1pre)
+t.test(No_0pre, No_1pre)
+
+# Informal Rules
+Inf_0<-(full.data.Infrules$eco1.rs*full.data.Infrules$weights)[which(full.data.Infrules$r1_Inf==0)]
+Inf_0pre<-(full.data.Infrules$eco1.rs)[which(full.data.Infrules$r1_Inf==0)]
+Inf_1<-(full.data.Infrules$eco1.rs*full.data.Infrules$weights)[which(full.data.Infrules$r1_Inf==1)]
+Inf_1pre<-(full.data.Infrules$eco1.rs)[which(full.data.Infrules$r1_Inf==1)]
+
+# Formal Rules
+Form_0<-(full.data.Formrules$eco1.rs*full.data.Formrules$weights)[which(full.data.Formrules$r1_Form==0)]
+Form_0pre<-(full.data.Formrules$eco1.rs)[which(full.data.Formrules$r1_Form==0)]
+Form_1<-(full.data.Formrules$eco1.rs*full.data.Formrules$weights)[which(full.data.Formrules$r1_Form==1)]
+Form_1pre<-(full.data.Formrules$eco1.rs)[which(full.data.Formrules$r1_Form==1)]
+
+# plotting a few:
+ggplot(full.data.Norules, aes(x=(eco1.rs*weights), colour=r1_No)) +  geom_density() 
+
+
+```
+#### EF 2:
+```{r}
+ef2No_0<-(full.data.Norules$eco2.rs*full.data.Norules$weights)[which(full.data.Norules$r1_No==0)]
+ef2No_0pre<-(full.data.Norules$eco2.rs)[which(full.data.Norules$r1_No==0)]
+ef2No_1<-(full.data.Norules$eco2.rs*full.data.Norules$weights)[which(full.data.Norules$r1_No==1)]
+ef2No_1pre<-(full.data.Norules$eco2.rs)[which(full.data.Norules$r1_No==1)]
+plot(ecdf(ef2No_0))
+lines(ecdf(ef2No_1), col = 'blue')
+
+ks.test(ef2No_0, ef2No_1)
+
+
+# Informal Rules
+ef2Inf_0<-(full.data.Infrules$eco2.rs*full.data.Infrules$weights)[which(full.data.Infrules$r1_Inf==0)]
+ef2Inf_0pre<-(full.data.Infrules$eco2.rs)[which(full.data.Infrules$r1_Inf==0)]
+ef2Inf_1<-(full.data.Infrules$eco2.rs*full.data.Infrules$weights)[which(full.data.Infrules$r1_Inf==1)]
+ef2Inf_1pre<-(full.data.Infrules$eco2.rs)[which(full.data.Infrules$r1_Info==1)]
+
+# Formal Rules
+ef2Form_0<-(full.data.Formrules$eco2.rs*full.data.Formrules$weights)[which(full.data.Formrules$r1_Form==0)]
+ef2Form_0pre<-(full.data.Formrules$eco2.rs)[which(full.data.Formrules$r1_Inf==0)]
+ef2Form_1<-(full.data.Formrules$eco2.rs*full.data.Formrules$weights)[which(full.data.Formrules$r1_Form==1)]
+ef2Form_1pre<-(full.data.Formrules$eco2.rs)[which(full.data.Formrules$r1_Inf==1)]
+
+```
+
+
+
 
 ## Trespassing:
 #### Ecol Factor 1:
@@ -1064,20 +1226,22 @@ ggplot(full.data.p4, aes(x=(eco1.rs), colour=as.factor(p4))) +
   geom_density()+ 
   xlim(0, 2)+
   scale_color_brewer(type = 'div', palette = pal1)+
+  theme_bw()+
   theme(legend.position="none") +
   geom_vline(aes(xintercept = 0.64), color = line1, linetype = 2)+
   geom_vline(aes(xintercept = 0.69), color = line2, linetype = 3)+
-  labs(title="Effect of Fall Otor\npre-matched data", x= "Ecological Index for Factor 1")
+  labs(title="Effect of Fall Otor\npre-matched data", x= "Ecological Factor 1")
 ggsave("./plots/p41pre.png", height = height, width = width)
 
 ggplot(full.data.p4, aes(x=(eco1.rs *weights), colour=as.factor(p4))) + 
   geom_density()+ 
   xlim(0, 3)+
+  theme_bw()+
   theme(legend.position="none") +
   scale_color_brewer(type = 'div', palette = pal1)+
   geom_vline(aes(xintercept = 0.64), color = line1, linetype = 2)+
-  geom_vline(aes(xintercept = 0.23), color = line2, linetype = 3)+
-  labs(title="Effect of Fall Otor\npost-matched data", x= "Ecological Index for Factor 1")
+  geom_vline(aes(xintercept = 0.17), color = line2, linetype = 3)+
+  labs(title="Effect of Fall Otor\npost-matched data", x= "Ecological Factor 1")
 ggsave("./plots/p41post.png", height = height, width = width)
 
 # Means pre & post
@@ -1109,20 +1273,23 @@ t.test(p4_0, p4_1)
 ggplot(full.data.p4, aes(x=(eco2.rs), colour=as.factor(p4))) + 
   geom_density()+ 
   xlim(0, 3)+
+  theme_bw()+
+  theme(legend.position="none") +
   scale_color_brewer(type = 'div', palette = pal1)+
   geom_vline(aes(xintercept = 0.64), color = line1, linetype = 2)+
   geom_vline(aes(xintercept = 0.69), color = line2, linetype = 3)+
-  labs(title="Effect of Fall Otor\npre-matched data", x= "Ecological Index for Factor 2")
+  labs(title="Effect of Fall Otor\npre-matched data", x= "Ecological Factor 2")
 ggsave("./plots/p42pre.png", height = height, width = width)
 
 ggplot(full.data.p4, aes(x=(eco2.rs *weights), colour=as.factor(p4))) + 
   geom_density()+ 
   xlim(0, 3)+
+  theme_bw()+
   theme(legend.position="none") +
   scale_color_brewer(type = 'div', palette = pal1)+
   geom_vline(aes(xintercept = 0.38), color = line1, linetype = 2)+
-  geom_vline(aes(xintercept = 0.16), color = line2, linetype = 3)+
-  labs(title="Effect of Fall Otor\npost-matched data", x= "Ecological Index for Factor 2")
+  geom_vline(aes(xintercept = 0.13), color = line2, linetype = 3)+
+  labs(title="Effect of Fall Otor\npost-matched data", x= "Ecological Factor 2")
 ggsave("./plots/p42post.png", height = height, width = width)
 
 # Means pre & post
@@ -1152,11 +1319,12 @@ t.test(p5_0, p5_1)
 ggplot(full.data.p5, aes(x=(eco1.rs *weights), colour=as.factor(p5))) + 
   geom_density()+ 
   xlim(0, 3)+
+  theme_bw()+
   theme(legend.position="none") +
   scale_color_brewer(type = 'div', palette = pal1)+
-  geom_vline(aes(xintercept = 0.66), color = line1, linetype = 2)+
-  geom_vline(aes(xintercept = 0.35), color = line2, linetype = 3)+
-  labs(title="Effect of Winter Otor\npost-matched data", x= "Ecological Index for Factor 1")
+  geom_vline(aes(xintercept = 0.60), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.295), color = line2, linetype = 3)+
+  labs(title="Effect of Winter Otor\npost-matched data", x= "Ecological Factor 1")
 ggsave("./plots/p51post.png", height = height, width = width)
 
 # Means pre & post
@@ -1187,11 +1355,12 @@ t.test(p5_0, p5_1)
 ggplot(full.data.p5, aes(x=(eco2.rs *weights), colour=as.factor(p5))) + 
   geom_density()+ 
   xlim(0, 3)+
+  theme_bw()+
   theme(legend.position="none") +
   scale_color_brewer(type = 'div', palette = pal1)+
-  geom_vline(aes(xintercept = 0.38), color = line1, linetype = 2)+
-  geom_vline(aes(xintercept = 0.24), color = line2, linetype = 3)+
-  labs(title="Effect of Winter Otor\npost-matched data", x= "Ecological Index for Factor 2")
+  geom_vline(aes(xintercept = 0.37), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.21), color = line2, linetype = 3)+
+  labs(title="Effect of Winter Otor\npost-matched data", x= "Ecological  2")
 ggsave("./plots/p52post.png", height = height, width = width)
 
 # Means pre & post
@@ -1220,11 +1389,12 @@ t.test(p6_0, p6_1)
 ggplot(full.data.p6, aes(x=(eco1.rs *weights), colour=as.factor(p6))) + 
   geom_density()+ 
   xlim(0, 3)+
+  theme_bw()+
   theme(legend.position="none") +
   scale_color_brewer(type = 'div', palette = pal1)+
-  geom_vline(aes(xintercept = 0.66), color = line1, linetype = 2)+
-  geom_vline(aes(xintercept = 0.19), color = line2, linetype = 3)+
-  labs(title="Effect of Reserving Winter Pastures\npost-matched data", x= "Ecological Index for Factor 1")
+  geom_vline(aes(xintercept = 0.64), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.31), color = line2, linetype = 3)+
+  labs(title="Effect of Reserving Winter Pastures\npost-matched data", x= "Ecological Factor 1")
 ggsave("./plots/p61post.png", height = height, width = width)
 
 
@@ -1253,11 +1423,12 @@ ks.test(p6_0, p6_1)
 ggplot(full.data.p6, aes(x=(eco2.rs *weights), colour=as.factor(p6))) + 
   geom_density()+ 
   xlim(0, 3)+
+  theme_bw()+
   theme(legend.position="none") +
   scale_color_brewer(type = 'div', palette = pal1)+
-  geom_vline(aes(xintercept = 0.40), color = line1, linetype = 2)+
-  geom_vline(aes(xintercept = 0.13), color = line2, linetype = 3)+
-  labs(title="Effect of Reserving Winter Pastures\npost-matched data", x= "Ecological Index for Factor 2")
+  geom_vline(aes(xintercept = 0.47), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.17), color = line2, linetype = 3)+
+  labs(title="Effect of Reserving Winter Pastures\npost-matched data", x= "Ecological Factor 2")
 ggsave("./plots/p62post.png", height = height, width = width)
 
 # Means pre & post
@@ -1289,11 +1460,12 @@ ks.test(p7_0, p7_1)
 ggplot(full.data.p7, aes(x=(eco1.rs *weights), colour=as.factor(p7))) + 
   geom_density()+ 
   xlim(0, 3)+
+  theme_bw()+
   theme(legend.position="none") +
   scale_color_brewer(type = 'div', palette = pal1)+
   geom_vline(aes(xintercept = 0.52), color = line1, linetype = 2)+
-  geom_vline(aes(xintercept = 0.28), color = line2, linetype = 3)+
-  labs(title="Effect of Reserving Spring Pastures\npost-matched data", x= "Ecological Index for Factor 1")
+  geom_vline(aes(xintercept = 0.32), color = line2, linetype = 3)+
+  labs(title="Effect of Reserving Spring Pastures\npost-matched data", x= "Ecological 1")
 ggsave("./plots/p71post.png", height = height, width = width)
 
 # Means pre & post
@@ -1321,11 +1493,12 @@ ks.test(p7_0, p7_1)
 ggplot(full.data.p7, aes(x=(eco2.rs *weights), colour=as.factor(p7))) + 
   geom_density()+ 
   xlim(0, 3)+
+  theme_bw()+
   theme(legend.position="none") +
   scale_color_brewer(type = 'div', palette = pal1)+
-  geom_vline(aes(xintercept = 0.34), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.36), color = line1, linetype = 2)+
   geom_vline(aes(xintercept = 0.18), color = line2, linetype = 3)+
-  labs(title="Effect of Reserving Spring Pastures\npost-matched data", x= "Ecological Index for Factor 2")
+  labs(title="Effect of Reserving Spring Pastures\npost-matched data", x= "Ecological Factor 2")
 ggsave("./plots/p72post.png", height = height, width = width)
 
 
@@ -1357,11 +1530,12 @@ ks.test(p8_0, p8_1)
 ggplot(full.data.p8, aes(x=(eco1.rs *weights), colour=as.factor(p8))) + 
   geom_density()+ 
   xlim(0, 3)+
+  theme_bw()+
   theme(legend.position="none") +
   scale_color_brewer(type = 'div', palette = pal1)+
   geom_vline(aes(xintercept = 0.67), color = line1, linetype = 2)+
-  geom_vline(aes(xintercept = 0.28), color = line2, linetype = 3)+
-  labs(title="Effect of Reserving Dzud Pastures\npost-matched data", x= "Ecological Index for Factor 1")
+  geom_vline(aes(xintercept = 0.32), color = line2, linetype = 3)+
+  labs(title="Effect of Reserving Dzud Pastures\npost-matched data", x= "Ecological Factor 1")
 ggsave("./plots/p81post.png", height = height, width = width)
 
 # Means pre & post
@@ -1391,11 +1565,12 @@ ks.test(p8_0, p8_1)
 ggplot(full.data.p8, aes(x=(eco2.rs *weights), colour=as.factor(p8))) + 
   geom_density()+ 
   xlim(0, 3)+
+  theme_bw()+
   theme(legend.position="none") +
   scale_color_brewer(type = 'div', palette = pal1)+
   geom_vline(aes(xintercept = 0.44), color = line1, linetype = 2)+
-  geom_vline(aes(xintercept = 0.18), color = line2, linetype = 3)+
-  labs(title="Effect of Reserving Dzud Pastures\npost-matched data", x= "Ecological Index for Factor 2")
+  geom_vline(aes(xintercept = 0.25), color = line2, linetype = 3)+
+  labs(title="Effect of Reserving Dzud Pastures\npost-matched data", x= "Ecological Factor 2")
 ggsave("./plots/p82post.png", height = height, width = width)
 
 # Means pre & post
@@ -1427,11 +1602,12 @@ t.test(p9_0, p9_1)
 ggplot(full.data.p9, aes(x=(eco1.rs *weights), colour=as.factor(p9))) + 
   geom_density()+ 
   xlim(0, 3)+
+  theme_bw()+
   theme(legend.position="none") +
   scale_color_brewer(type = 'div', palette = pal1)+
-  geom_vline(aes(xintercept = 0.67), color = line1, linetype = 2)+
-  geom_vline(aes(xintercept = 0.49), color = line2, linetype = 3)+
-  labs(title="Effect of Grazing Out of Season\npost-matched data", x= "Ecological Index for Factor 1")
+  geom_vline(aes(xintercept = 0.66), color = line1, linetype = 2)+
+  geom_vline(aes(xintercept = 0.46), color = line2, linetype = 3)+
+  labs(title="Effect of Grazing Out of Season\npost-matched data", x= "Ecological Factor 1")
 ggsave("./plots/p91post.png", height = height, width = width)
 
 # Means pre & post
@@ -1462,11 +1638,12 @@ ks.test(p9_0, p9_1)
 ggplot(full.data.p9, aes(x=(eco2.rs *weights), colour=as.factor(p9))) + 
   geom_density()+ 
   xlim(0, 3)+
+  theme_bw()+
   theme(legend.position="none") +
   scale_color_brewer(type = 'div', palette = pal1)+
   geom_vline(aes(xintercept = 0.39), color = line1, linetype = 2)+
-  geom_vline(aes(xintercept = 0.33), color = line2, linetype = 3)+
-  labs(title="Effect of Grazing Out of Season\npost-matched data", x= "Ecological Index for Factor 2")
+  geom_vline(aes(xintercept = 0.28), color = line2, linetype = 3)+
+  labs(title="Effect of Grazing Out of Season\npost-matched data", x= "Ecological Factor 2")
 ggsave("./plots/p92post.png", height = height, width = width)
 
 # Means pre & post
@@ -1881,23 +2058,116 @@ Add Stuart & King cites here.
 [zelig commands](https://r.iq.harvard.edu/docs/zelig/3.4-8/Zelig_Commands.html)
 
 # Explanatory Models: 
+
+Before matching:
+```{r}
+cbrm_mod <- lm(eco1.rs ~ CBRM + ppt99 +sfu99 + as.factor(ez) - 1, data= raw.data ) # force no intercept
+summary(cbrm_mod) # No difference
+```
+
+
 ```{r Models}
 #cbrm_mod <- lm(eco.int ~ CBRM , data= full.data.m, weights = full.data.m$weights)
-cbrm_mod <- lm(eco1.rs ~ CBRM , data= full.data.m, weights = full.data.m$weights)
+cbrm_mod <- lm(eco1.rs ~ CBRM + ppt99 +sfu99 + as.factor(ez), data= full.data.m, weights = full.data.m$weights) # force 
 summary(cbrm_mod)
+
+# why is this coefficient for CBRM1 negative?
 ```
+
+#subset the control : 
+
+```{r}
+full.data.sub<- full.data.m[which((full.data.sub$eco1.rs*full.data.sub$weights) <= "2"), ]
+cbrm_mod_sub <- lm(eco1.rs ~ CBRM+ ppt99 +sfu99 + as.factor(ez), 
+                 data= full.data.sub, 
+                 weights = full.data.sub$weights,
+                 family = gaussian)
+summary(cbrm_mod_sub)
+```
+
+
+
+
+
 
 
 ```{r}
-cbrm_modw <- lm((eco1.rs*weights) ~ CBRM , data= full.data.m, weights = full.data.m$weights)
-summary(cbrm_modw)
+zelig(eco1.rs ~ CBRM + ppt99 +sfu99 + as.factor(ez), data = full.data.m, weights = "weights", model = "ls")
+
 ```
 
 ```{r}
-zelig(eco1.rs ~ CBRM + ez + p4 +p5, data = full.data.m, weights = "weights", model = "ls")
-
+zelig(eco1.rs ~ CBRM * ppt99 +sfu99 + as.factor(ez), data = full.data.m, weights = "weights", model = "ls")
 ```
 
+```{r}
+zelig(eco1.rs ~ CBRM + ppt99 +sfu99 + as.factor(ez)+ ltmeanppt, data = full.data.m, weights = "weights", model = "ls")
+```
+
+#### Boxplot of post-matched Ecological Index Value by Practice
+```{r}
+p4ew<- (full.data.p4$eco1.rs*full.data.p4$weights)
+
+p5ew<- (full.data.p5$eco1.rs* full.data.p5$weights)
+
+p6ew<- (full.data.p6$eco1.rs *full.data.p6$weights)
+p7ew<- (full.data.p7$eco1.rs  * full.data.p7$weights)
+p8ew<-  (full.data.p8$eco1.rs * full.data.p8$weights)
+p9ew <- (full.data.p9$eco1.rs * full.data.p9$weights)
+
+
+ecopr<- list(p4ew, p5ew, p6ew, p7ew, p8ew, p9ew)
+ep<-lapply(ecopr, `length<-`, 116)
+ecopr<- as.data.frame(ep[[1]], ep[[2]], ep[[3]])
+
+
+# names(ecopr)<- c("p4", "p5", "p6", "p7", "p8", "p9")
+# tbl_df(ep)%>%
+# ecopr<- gather(ecopr, Trt, Index, )
+
+width <- 4
+height <- 4
+ggplot(full.data.p4)+
+  geom_boxplot(aes(y= (eco1.rs *weights), x = p4))+
+  ylim(c(0,2))+
+  labs(main = "Fall Otor") +
+  theme_bw()
+ggsave(file = "./plots/p4box.png", width = width, height = height)                                  
+ggplot(full.data.p5)+
+  geom_boxplot(aes(y= (eco1.rs *weights), x = p5))+
+  ylim(c(0,2))+
+   labs(main = "Winter Otor") +
+  theme_bw()
+ggsave(file = "./plots/p5box.png", width = width, height = height)   
+
+ggplot(full.data.p6)+
+  geom_boxplot(aes(y= (eco1.rs *weights), x = p6))+
+  ylim(c(0,2))+
+   labs(main = "Res Winter Past") +
+  theme_bw()
+ggsave(file = "./plots/p6box.png", width = width, height = height)   
+
+ggplot(full.data.p7)+
+  geom_boxplot(aes(y= (eco1.rs *weights), x = p7))+
+  ylim(c(0,2))+
+   labs(main = "Res Spring") +
+  theme_bw()
+ggsave(file = "./plots/p7box.png", width = width, height = height)   
+
+ggplot(full.data.p8)+
+  geom_boxplot(aes(y= (eco1.rs *weights), x = p8))+
+  ylim(c(0,2))+
+   labs(main = "Res Dzud") +
+  theme_bw()
+ggsave(file = "./plots/p8box.png", width = width, height = height)   
+
+ggplot(full.data.p9)+
+  geom_boxplot(aes(y= (eco1.rs *weights), x = p9))+
+  ylim(c(0,2))+
+  labs(main = "Graze Out-of\n Season") +
+  theme_bw()
+ggsave(file = "./plots/p9box.png", width = width, height = height)   
+```
 
 
 

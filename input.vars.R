@@ -16,10 +16,27 @@ mor2<- read.spss("./data/ALL_EcolHHOrgMerged_byUvuljaa_03_15_17_Simplified.sav" 
 # tidy format
 tbl_df(mor2)
 
+# lat long for jay:
+mor2loc <- dplyr::select(mor2, 
+                  lat = Latitude500,
+                  long = Longitude500,
+                  RefNum = SocialSurveyReferenceNumber,
+                  AimagName,
+                  SoumName)
+mor2loc$AimagName<- trimws(mor2loc$AimagName)
+mor2loc$SoumName<- trimws(mor2loc$SoumName)
+#write.table(mor2loc, file= "./data/mor2locations.csv")
+ 
+
+
 ###################
 # Ecological Zone #
 # 1 = "DS", # desert steppeRef nos.
-ez <- select(mor2, ez = EcologicalZone_4Code, RefNum = SocialSurveyReferenceNumber, CBRM= CBRM, CBRM_type = CBRM_type) 
+ez <- select(mor2, ez = EcologicalZone_4Code, 
+             RefNum = SocialSurveyReferenceNumber, 
+             CBRM= CBRM, 
+             CBRM_type = CBRM_type,
+             PlotID = UniquePlotID500)  #this one incorps the Uvuulja and site
 #rpe%<>%mutate_at(4:6, funs(ordered(.))) 
 #ez$ez <- ordered(ez$ez, ez$CBRM_type)
 
@@ -57,12 +74,18 @@ practices$p5[practices$p5<0]=NA
 # e2 <-  "PerForbCover_percent"  # [1529]
 # e3 <-  "BareSoil_percent"      # [1536]
 # e4 <-  "LitterCover_percent"   # [1538]
+# sr <- "SpeciesRichnessMean500_1000
+TotalSedgeCover_percent_Mean500_1000
+TotalShrubCover_percent_Mean500_1000
+AnGrassCover_percent_Mean500_1000
+Acnath_gm2_Mean500_1000
+BasalCover_percent
 
 e.cols <- c(1528, 1529, 1536, 1538)
 ecol.ind<- mor2[, e.cols]
 
 # rename columns
-names(ecol.ind) <- c("e1","e2", "e3", "e4")
+names(ecol.ind) <- c("e1","e2", "e3", "e4", "sr")
 
 
 
@@ -75,21 +98,21 @@ names(ecol.ind) <- c("e1","e2", "e3", "e4")
 r.cols <- c(826, 828)   # specifying the columns in the mor2 df
 rules<- mor2[, r.cols]
 names(rules) <- c("r1", "r2")  # timing, sfu
-factor(rules$r1)
-factor(rules$r2)
+#factor(rules$r1)
+#factor(rules$r2)
 
 ################################
 # all cols pulled together
-r.cols <- c(826, 828)
-p.cols <- c(605, 125,126,129:132, 134, 136, 138)
-e.cols <- c(1528, 1529, 1536, 1538)
+#r.cols <- c(826, 828)
+#p.cols <- c(605, 125,126,129:132, 134, 136, 138)
+#e.cols <- c(1528, 1529, 1536, 1538)
 
 #####################
 #  final dataframe  #
 #
 rpe <- cbind(ez, rules, practices,  ecol.ind)
-rpe%<>%mutate_at(c(3,10:16), funs(factor(.)))
-rpe%<>%mutate_at(4:6, funs(ordered(.)))
+rpe%<>%mutate_at(c(1,3:4,11:17), funs(factor(.)))  
+rpe%<>%mutate_at(6:7, funs(ordered(.)))
 #
 
 
@@ -109,14 +132,21 @@ rpe$litter<- as.numeric(log(rpe$e4+1))
 
 # see standardizing.R for normalizing standardized vars
 
-# tenure rights 
+
+
+##########################
+#  TENURE --- org level
+# tenure rights:
+
+# USE: 
 hhrts <- mor2 %>%
   select(A_UsWtrCamp,
          A_UsWtrPast,
          A_UsSepSprCS,
          A_UsSepSprPas,
          A_SepDzud,
-         A_HayCutFld)%>%
+         A_HayCutFld,
+         RefNum = SocialSurveyReferenceNumber)%>%
   rename(Wcmp = A_UsWtrCamp,
          Wpast = A_UsWtrPast,
          Sprcmp = A_UsSepSprCS,
@@ -124,13 +154,15 @@ hhrts <- mor2 %>%
          DzPast= A_SepDzud,
          HayFld = A_HayCutFld)
 hhrts%<>%mutate_at(1:6, funs(factor(.)))
+# contracts
 hhcont<- mor2 %>%
   select(B_ContractWtrCamp,
          B_ContractWtrPast,
          B_ContractSprCamp,
          B_ContractSprPast,
          B_ContractDzud,
-         B_ContractHayCut)%>%
+         B_ContractHayCut,
+         RefNum = SocialSurveyReferenceNumber)%>%
   rename(ContractWtrCamp = B_ContractWtrCamp,
          ContractWtrPast = B_ContractWtrPast,
          ContractSprCamp = B_ContractSprCamp,
@@ -140,8 +172,12 @@ hhcont<- mor2 %>%
 hhcont%<>%mutate_at(1:6, funs(ordered(.)))
 
 # trespassing 
-olu<- as.factor(mor2$q24_OtherLandUsers)   # from org level survey
-oail<- as.factor(mor2$AnotherAilLSOnPast)  # from HH survey
+trsp   
+olu<- mor2 %>% dplyr::select(otherusers = as.factor(mor2$q24_OtherLandUsers),  RefNum = SocialSurveyReferenceNumber)   # from org level survey
+# this does something weird and pulls in other data from the meta or annot if you call it as factor 
+# oail<-mor2 %>% dplyr::select(anotherail = as.factor(mor2$AnotherAilLSOnPast),  RefNum = SocialSurveyReferenceNumber)  # from HH survey
+oail<-mor2 %>% dplyr::select(anotherail = AnotherAilLSOnPast,  RefNum = SocialSurveyReferenceNumber)  # from HH survey
+
 rpetr<- cbind(rpe.new, olu, oail, hhcont)  # add to rpe.new
 
 # getting errors bc of "empty categories"
@@ -153,7 +189,5 @@ tp.mod<- 'tenure=~ 1*ContractWtrCamp+ContractWtrPast+ContractSprCamp+ContractSpr
 tp.fit<- sem(tp.mod, data= rpetr, ordered = contord)
 
 
-
-
-
 ######
+# 

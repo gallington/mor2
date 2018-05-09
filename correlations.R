@@ -1,7 +1,13 @@
+#  NOTES:
+# This script contains some original code from Kelly on 
+# creating correlation matrices with heterogenous data types.
+
+
 library(corrplot)
 library(car)
 library(ltm)
 library(lavaan)
+library(psych)
 library(semTools)
 # correlations for herder practices data
 

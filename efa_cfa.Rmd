@@ -23,8 +23,9 @@ library(sp)
 library(readxl)
 library(knitr)
 ```
-Note: On 9/20 I removed all the extra code that is pulling variables from mor2 that aren't being used in the EFA process.  
-All we really need here are the ecological parameters and the Ref Number IDs so we can link it back with the other data on practices, etc. later.
+Note: on 12/11 I removed all extra code that wasn't used in the final analysis used in the ms submission. 
+
+Note: On 9/20 I removed all the extra code that is pulling variables from mor2 that aren't being used in the EFA process.  All we really need here are the ecological parameters and the Ref Number IDs so we can link it back with the other data on practices, etc. later.
 
 ### Factor Analysis:
 The main applications of factor analytic techniques are: (1) to reduce the number of variables and (2) to detect structure in the relationships between variables, that is to classify variables. Therefore, factor analysis is applied as a data reduction or structure detection method 
@@ -32,8 +33,9 @@ The main applications of factor analytic techniques are: (1) to reduce the numbe
 
 #### Info on the DATA: 
 
-In order to execute this file you need to have already run the following:
-1. soil_params.R
+In order to execute this file you need to have the following additional files:
+1. ALL_EcolHHOrgMerged_byUvuljaa_03_15_17_Simplified.sav
+2. Soil surface data_Ginger.xlsx
 
 ### Data screening:
 
@@ -46,62 +48,34 @@ tbl_df(mor2)
 
 
 eco.params <- dplyr :: select(mor2, 
-            # identifiers for linking w other datasets:
+          # identifiers for linking w other datasets:
              RefNum = SocialSurveyReferenceNumber, 
              PlotID = UniquePlotID500,  #this one incorps the Uvuulja and site
              Lat = Latitude500, # bc need to match later at 500
              Long= Longitude500,
-            # grasses:
+          # grasses:
              PerrGrass = PerGrassCover_percent_Mean500_1000,
              Grass_bm = Grass_gm2_Mean500_1000,
             # AnuGrass = AnGrassCover_percent_Mean500_1000,  #  not enough of this to use it. Mostly zeros....
              TotGrassCover = TotalGrassCover_percent_Mean500_1000,
             # Acnath = Acnath_gm2_Mean500_1000,  # almost allll zeros
-            # forbs:
+          # forbs:
              PerrForb = PerForbCover_percent_Mean500_1000,
              AnuForb = AnForbCover_percent_Mean500_1000,
              Forb_bm = Forb_gm2_Mean500_1000,
-            # sedges:
+          # sedges:
              Sedges = TotalSedgeCover_percent_Mean500_1000,
-            # shrubs:
+          # shrubs:
              Shrubs = TotalShrubCover_percent_Mean500_1000,
              TotFoliar = TotalFoliarCover_percent_Mean500_1000,
-            # BasalCover = BasalCover_percent_Mean500_1000,   # something is wrong w this variable. values are huge and tiny.
-            # abiotic params:
+          # BasalCover = BasalCover_percent_Mean500_1000,   # something is wrong w this variable. values are huge and tiny.
+          # abiotic params:
              BareSoil = BareSoil_percent_Mean500_1000,
              LitterCover = LitterCover_percent_Mean500_1000,
              Protein = CrudeProtein_percent_Mean500_1000,
-            # species richness:
+          # species richness:
              SpRich = SpeciesRichnessMean500_1000
              )
-
-
-#NO. BC we end up useing these ppt and ndvi vars later when matching, so we cannot also use them to decribe this as well.
-
-# ndvi values exported from GEE:
-# replace these w Jay's values when we get them:
-# pttrends <- read.csv("./data/pttrends.csv", stringsAsFactors = FALSE)
-# #pttrends <- readOGR(dsn = "./data", layer = "pttrends.csv")
-# pttrends<- pttrends[1:130, 1:5]
-# 
-# geo<- pttrends$.geo
-# 
-# var<- sapply(pttrends$.geo, function(x) strsplit(x, split="[", fixed = TRUE))
-# coord<- sapply(var, function(x) x[2])
-# names(coord)<- NULL
-# 
-# coord<- sapply(coord, function(x) substr(x, 1, nchar(x)-2))
-# split<- sapply(coord, function(x) strsplit(x, split = ","))
-# pttrends$long <- sapply(split, function(x) x[1])
-# pttrends$lat <- sapply(split, function(x) x[2])
-# 
-# preciptrend <- dplyr::select(pttrends, -.geo)
-# preciptrend %<>% mutate_at(5:6, funs(as.numeric(.))) %>%
-#   rename(long2 = long, lat2 = lat)
-
-# WHY ARE THERE ALL THESE NEGATIVE VALUES???????????
-# DO NOT USE MEAN OR SLOPE.
-
 
 # add in the soils parameters
 
@@ -117,10 +91,11 @@ retention.levels <- c("isolated", "fragmented", "connected")
 soils$`SRD_3classes_with name` <- ordered(soils$`SRD_3classes_with name`, levels = erosion.levels)
 soils$`RRC_3classes_with name` <- ordered(soils$`RRC_3classes_with name`, levels = retention.levels)
 # can't average bc they are categorical so chose to use 500 m 
+# checked data and there were no many diffs between category at 500m and 1000m. biggest diff btwn 100m and 500/1000m
 soils500<- soils %>% filter(DistanceClass_m == 500) %>%
   dplyr::select(PlotID ='UniquePlotID', RRC=`RRC_3classes_with name`, SRD=`SRD_3classes_with name`)
 
-# now add the soils and ndvi 
+# now add the soils  
 
 eco.params %<>% left_join(soils500, by = "PlotID")
 eco.params <- mutate(eco.params, Bare.inv = (sqrt(100 - BareSoil))) %>% dplyr::select(-BareSoil)
@@ -148,7 +123,7 @@ This revised set looks better.
 (see commented out code in chunk w old subsets and vals for comparison)
 ```{r echo= FALSE, fig.height= 3, fig.width = 3}
 # 9/21::
-ecol <- dplyr::select(test, c(5,8,11,12,14:19)) 
+ecol <- dplyr::select(test, c(5,8,11,12,14:19)) #subset of ecol vars
 ecor <- hetcor(ecol)$cor
 corrplot(ecor)
 ```
@@ -171,7 +146,7 @@ So, now the the data are transformed, we can pretty much keep everythig except m
 ```{r echo= FALSE}
 # so now moving forward, the df to use is this one:
 eco.vars<- test[,c(1:5, 8,11, 12, 14:19)]
-# and the cor matrix is the one call above: ecor
+# and the cor matrix is the one called above: ecor
 
 ```
 
@@ -233,11 +208,14 @@ Check out the difference in Uniquenesses between the runs w diff numb of factors
 
 Let's try it one more time w/o Protein, since it is neg.
 
-Same 2 factor, but w/o protein.
+## FINAL SET OF VARS:
+
+Same 2 factor structure, but w/o protein.
 F1 captures: Grass, Litter, RRC SRC Bare.inv
 F2 captures: Forb, Sedge & SpRich
-Shrubs is shared pretty much equally between the two-- kind of makes sense. May be representing two diff “kinds” of shrubs/two diff processes. lso has highest "uniqueness" value
-
+Shrubs is shared pretty much equally between the two-- kind of makes sense. May be representing two diff “kinds” of shrubs/two diff processes. 
+Also has highest "uniqueness" value
+Not code chunk below writes over eco.vars to remove protein 
 ```{r, echo = FALSE}
 eco.vars.noP <- eco.vars %>% dplyr::select(-Protein)
 tcor<- hetcor(eco.vars.noP[,5:13])$cor
@@ -245,13 +223,13 @@ tf2<- factanal(~PerrGrass+ PerrForb + Sedges + Shrubs +Bare.inv + LitterCover + 
          covmat = tcor, n.obs = nrow(eco.vars),
          factors = 2, rotation = "varimax", fm = "ml")#$loadings
 tf2
-
-#  overwrite eco.vars to remove Protein
+xtable(tf2)
+#  overwrite eco.vars to remove Protein from all future analyses.
 eco.vars <- eco.vars.noP
 ```
 
 Go with removing Protein from subsequent analyses.
-
+eco.vars is the object to use going forward.
 
 ## summary so far
 All of this is suggesting we just go with two latent Ecological Conditions.
@@ -259,13 +237,13 @@ All of this is suggesting we just go with two latent Ecological Conditions.
 
 ## CFA
 See cfa.R for code from the original cfa runs and tests of measurement invariance.
-See earlier versions in git for othe rpast analyses
+See earlier versions in git for other past analyses
 See below this section for previous analysis on a single latent var 
 holding here for reference.....modificationindices(fit.cfa3, sort. = TRUE)
 
 ### New Measurement Models on 2 Latent Factors:
 
-This one WITH shrubs:
+This one WITH shrubs is the better one, see past version for model w/o shrubs on both (poorer fit), and a version with specified covar btwn eco1&2, (which yields same results so dropped):
 ```{r, echo = FALSE, message = FALSE}
 # USE THIS BELOW FOR QUICKLY COMPARING FIT MEASURES BTWN RUNS
 fitmsrs <- c("df","chisq", "cfi", "rmsea", "rmsea.pvalue", "srmr")
@@ -273,13 +251,14 @@ fitmsrs <- c("df","chisq", "cfi", "rmsea", "rmsea.pvalue", "srmr")
 #   specify the hypothesized model:  
 #   this one WITH shrubs
 twofact.mod <- 'eco1 =~ PerrGrass + LitterCover +RRC + SRD + Bare.inv + Shrubs
-                eco2 =~ PerrForb +Sedges + SpRich + Shrubs'
+                eco2 =~ PerrForb +Sedges + SpRich + Shrubs
+                '
 
 #   fit the model
 fit.ecol.mod <- cfa(twofact.mod, data= eco.vars, std.lv = TRUE)
 
 summary(fit.ecol.mod, 
-  #      rsquare = T, 
+        rsquare = T, 
         standardized = T, 
         fit.measures=T)
 
@@ -291,74 +270,25 @@ None of these seem particularly terrible. Could maybe link the soils params.
 modificationindices(fit.ecol.mod, sort. = TRUE)[1:6,]
 ```
 
-This one with a specifies correlation btwn eco1 and eco 2:
-Get the exact same values.
-```{r, eval= FALSE}
-# ecological indicator mesurement model:
-#   specify the hypothesized model:  
-#   this one WITH shrubs
-twofactcor.mod <- 'eco1 =~ PerrGrass + LitterCover +RRC + SRD + Bare.inv + Shrubs
-                eco2 =~ PerrForb +Sedges + SpRich + Shrubs
-                eco1 ~~ eco2'
-
-#   fit the model
-fit.ecolcor.mod <- cfa(twofactcor.mod, data= eco.vars, std.lv = TRUE)
-
-summary(fit.ecolcor.mod, 
-  #      rsquare = T, 
-        standardized = T, 
-        fit.measures=T)
-```
-This one without Shrubs in either of the latents:
-And the fit is poorer.
-It makes more sense to leave Shrubs in. Can explain that they may be doing diff things in the two latents.
-
-```{r, echo = FALSE }
-# ecological indicator mesurement model:
-#   specify the hypothesized model:  
-#   this one WITHOUT shrubs
-twofactcorNoshrub.mod <- 'eco1 =~ PerrGrass + LitterCover +RRC + SRD + Bare.inv  
-                eco2 =~ PerrForb +Sedges + SpRich 
-                '
-
-#   fit the model
-fit.Noshrub.mod <- cfa(twofactcorNoshrub.mod, data= eco.vars, std.lv = TRUE)
-
-# summary(fit.Noshrub.mod, 
-#   #      rsquare = T, 
-#         standardized = T, 
-#         fit.measures=T)
-fitMeasures(fit.Noshrub.mod, fit.measures = fitmsrs)
-
-```
-
 
 ### Create a table with general summary of outputs.
+(this never happened i guess)
 
 ## Check out the diagrams anyway:
 ```{r, echo = FALSE, fig.height= 3, fig.width=5}
-semPaths(fit.ecolcor.mod, 
+semPaths(fit.ecol.mod, 
         what = "path",
          whatLabels ="std", 
          edge.label.cex = 0.75, 
          layout = "tree", 
-         residuals = FALSE,
+         residuals = TRUE,
          esize = 2
          )
 title("Two Factor Model Fit", line=1)
 ```
 
-```{r, echo = FALSE}
-semPaths(fit.Noshrub.mod, "std", 
-         edge.label.cex = 0.95, 
-         layout = "circle", 
-         residuals = FALSE,
-         intercepts = TRUE)
-title("2 Factor CFA without Shrubs", line = 1)
-```
-
-## Eastimating predicted values:  now w new 2 factor model:
-Predict values of the latent factors.
+## Estimating predicted values:
+Predicting values of the latent factors at each sampling site.
 The output is a table with the predicted values for each of the rows in your original data. Then you can use those values to estimate the mean within each of the ecological zones or other categories. 
 
 ```{r, echo = FALSE}
@@ -411,70 +341,65 @@ saveRDS(eco.vars.pred, "./data/eco.2latent.RDS")
 
 
 
-## THIS IS THE FIRST VERSION OF THIS, WITH A SMALLER SUBSET OF ECOL VARS AND JUST A SINGLE LATENT VAR:
-A lot of the analyses that led up to this were deleted above. To pull those back in will have to check out an earlier version from git.
-For now, these predicted vars are also saved as an rds as "eco.pred.latent.RDS"
-And as a .csv
-For now the remainder of this section is turned off:::
-```{r, eval = FALSE, echo = FALSE}
-#type	= A character string. If "lv", estimated values for the latent variables in the model are computed. If "ov", model predicted values for the indicators of the latent variables in the model are computed.
-
-# predicting based on the unstandardized data:
-eco.pred <- lavPredict(fit.eco.mod, type = "lv", label = TRUE)
-saveRDS(eco.pred, file= "./data/eco.pred.latent.RDS")
-write.csv(eco.pred, file = "./data/eco.pred.latent.csv")
-# predicting based on the data standardized by ez:
-ecol.pred <- lavPredict(fit.ecol.mod, type = "lv", label = TRUE) 
-```
-How much do these values differ?
-Range is same but the distributions are maybe different?
-```{r, eval = FALSE, echo = FALSE}
-hist(eco.pred[,1])
-title("Predicted Latent Ecological Condition for Each Household")
-
-ggplot(data=eco.pred.df, aes(x=pred.eco))+
- # geom_histogram(fill = "#2b83ba", binwidth = 0.2)+
- # geom_density(fill = "#2b83ba")+
-  geom_dotplot(fill = "#2b83ba")+
-  geom_vline(xintercept = -0.4, linetype = 2)+
-  labs(title = "Predicted Latent Ecological Condition for Each Household")+
-  theme_bw()
-
-hist(ecol.pred[,1])
-```
-Let's test them:
-```{r, eval = FALSE, echo = FALSE}
-ks.test(eco.pred[,1], ecol.pred[,1])
-
-# OK, so we can probably reasonably conclude that these latent vals are drawn from the same distribution??
-# 
-# 
-# Can we just assume that these values will map in the same order to the original df? how can we compare averages across groups, etc. if we can't be sure which HH they belong to?
-# ### how to asign these back to the df w RefNums?
-# Will try just adding it to it for now....
-
-
-eco.lv <- as.data.frame(eco.pred[,1])
-ecol.lv <- as.data.frame(ecol.pred[,1])
-rpe.lv<- cbind(rpesoil, eco.lv, ecol.lv)
-names(rpe.lv)[55:56] <- c("eco.lv", "eco.s.lv")
-```
 
 
 
-## final notes::
-These predicteed latent vals for ecological indicator will be used as a response variable in subsequent modelling, including BHM and the matching stuff.... 
-so maybe we should play around with it a bit first to see if anything interesting shakes out...
 
-# lm w the latent var
-```{r, echo = FALSE, eval = FALSE}
-# scatterplotMatrix(
-#   formula = ~  pl + p2s + p3s + eco.lv |r1,
-#   data = rpe.lv,
-#   diagonal = "density",
-#   by.groups = TRUE)
+
+
+
+TO BE CUT ALSO ON 12/11: keeping for a minute just to look at it.
+# SEM
+Developing a structural model based on hypothesized relationships between practices, ecological factors
+For now, borrowing code from cfa.R, which is the first iteration of these analyses. Using the results from that work that suggested a 3-factor model of practices was the best fit to the data.
+See earlier work on EFA of practices to get info on how we arrived on these groupings.
+```{r}
+prac.3fmod <- ' seas.migr =~ 1*p3s + p2s + p10
+          otor =~ 1*p4 + p5 + p9
+          resv.past =~ 1*p7 + p6 + p8 + pl'
+
+fit.prac3f<- cfa(prac.3fmod, data = raw.data, std.all = TRUE)
+summary(fit.prac3f, 
+        rsquare = T, 
+        standardized = T, 
+        fit.measures=T)
+
+semPaths(fit.prac3f, nCharNodes= 0, whatLabels = "std", layout= "tree", residuals = FALSE)
 
 
 ```
+DEveloping a structural model from here:
+```{r}
+# merge the datasets:
+test$RefNum<- as.factor(test$RefNum)
+sem.df<- left_join(raw.data, test, by= "RefNum")
+sem.df<- sem.df[, c(1,5,9:18,42,45,48,49,51,53:56)]
+prac.ef.mod <- ' 
+        # measurement models :
+          seas.migr =~ 1*p3s + p2s + pl
+          otor =~ 1*p4 + p5 + p9
+          resv.past =~ 1*p7 + p6 + p8 + p10
+          ef1 =~ PerrGrass + LitterCover +RRC + SRD + Bare.inv + Shrubs
+          ef2 =~ PerrForb +Sedges + SpRich + Shrubs
+        # regressions
+          ef1 ~ seas.migr + otor + resv.past
+          ef2 ~ seas.migr + otor + resv.past
+        # correlations
+          ef1 ~~ ef2
+          p2s ~~ 1*p2s
+         # seas.migr~~otor
+        #  seas.migr~~resv.past
+         # resv.past ~~ otor
+          '
+ord2 <- c("p4" , "p5", "p6" ,"p7" , "p8", "p9", "p10")
+sem.df.ez<- dplyr::filter(sem.df, ez != 3)%>%mutate(ez, funs(factor(.)))
+fit.mod <- sem(prac.ef.mod,  data= sem.df, std.lv = TRUE, ordered = ord2)#, group = "CBRM")
+summary(fit.mod, rsquare = T, standardized = T, fit.measures=T)
+semPaths(fit.mod,  nCharNodes= 0, "std",
+         whatLabels = "std", layout= "tree", 
+         residuals = FALSE, intercepts = FALSE, edge.label.cex=1)
+
+```
+
 
 

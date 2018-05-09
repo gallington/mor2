@@ -1,4 +1,6 @@
+# first stab at trying to estimate the 
 # effect of trespassing
+# within the sem
 
 # add two Q re: others grazing
 olu<- as.factor(mor2$q24_OtherLandUsers)   # from org level survey
@@ -7,6 +9,7 @@ oail<- as.factor(mor2$AnotherAilLSOnPast)  # from HH survey
 trsp<- select(mor2, RefNum= SocialSurveyReferenceNumber, olu = q24_OtherLandUsers, oail = AnotherAilLSOnPast)
 #rpetr<- cbind(rpejoin, olu, oail) # add to rpe.new
 rpetrsp<- left_join(rpejoin, trsp, by= "RefNum")
+
 
 
 # two things to do: 

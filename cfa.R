@@ -41,8 +41,8 @@ fit.prac.ez<- cfa(prac.mod, data=rpe.ezs, std.all = TRUE, group = "ez")
 
 ###################
 # THIS IS THE BEST ONE:
-prac.3fmod <- ' seas.migr =~ 1*p3s + p2s + p10
-          otor =~ 1*p4 + p5 + p9
+prac.3fmod <- ' seas.migr =~ p3s + p2s# + p10
+          otor =~ p4 + p5 + p9
           resv.past =~ 1*p7 + p6 + p8 + pl'
 
 fit.prac3f<- cfa(prac.3fmod, data = rpe.new, std.all = TRUE)
