@@ -1,0 +1,211 @@
+---
+title: "Tenure, Rules and Practices..."
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+```{r setup, echo = FALSE, message = FALSE, include = FALSE, warning= FALSE}
+library(foreign)
+#library(corrplot)
+
+library(magrittr)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+#library(rgdal)
+#library(sp)
+library(readxl)
+library(knitr)
+library(summarytools)
+library(lme4)
+```
+
+## SO WHAT DO WE HAVE SO FAR?
+1. Not a super strong relationship between Rules (on timing of grazing) and Cognitive Social Capital, but need to spend some more time on this. But there is a diff in this relationship across diff ecological zones (as we predicted). This is just prelim, need to look at this some more.
+2. Probability of Reserving Winter Pastures is explained more by Tenure (Rights to the Pasture) than Rule Formality (regarding Timing of Grazing)
+
+## NOTES ON THINGS I STILL NEED TO INVESTIGATE:
+1. Tenure on Winter Campsite
+2. Compare results for a diff response variable: Practice of Reserving Spring Pastures
+3. Other potential practices: Hay Cutting, Well Use
+4. Random/varying intercept vs. slope models... what covariates may impact slope vs. grouping vars that impact intercept
+
+```{r, warning= FALSE, message = FALSE, echo = FALSE, results = "hide"}
+# THIS IS THE FULL DATASET WITH ALL 700 
+mor2FULL<- foreign::read.spss("./data/Org_HHS_May2016_5_28_16.sav" , 
+                 to.data.frame=TRUE,
+                 use.value.labels=FALSE) #
+# tidy format
+tbl_df(mor2FULL)
+sc<- foreign::read.spss("./data/HHSAnal_April23.sav" , 
+                 to.data.frame=TRUE,
+                 use.value.labels=FALSE) 
+tbl_df(sc)
+#testdata
+td<- mor2FULL%>% dplyr::select(ResWint = a_ResWint,  # Practice
+                  Tenure = q02a_RightNatWintPast,  # Tenure
+                  Rule = q03_TimingRules3.3,       # Rule formality 
+                  ez = Ecologicalzone_4,           # ez 
+                  Trsp = AnotherAilLSOnPast,
+                  cbrmType = CBRM_type,
+                  cbrmYN = CBRM_Y_N,
+                  cogSC1 = CognSC,                 # mean of scores for items included, scaled 0-2 
+                  cogSC2 = CognSC2,                # sum of scores, 0-12
+                  #cogSCAgg = CognSC_Agg           # NOT SURE HOW THIS WAS CALC'D, range is 0.41 - 2
+                  RefNum = SurveyRefNumber,
+                  )
+td %<>% mutate_at(2:7, funs(factor(.)))
+td$Rule<- ordered(td$Rule)
+
+```
+
+Subset data for this analysis:
+```{r}
+sumdf<- dfSummary(td)
+sumdf
+```
+
+First some data exploration plots:
+Plot 1: ResWint Pasture ~ Tenure & CBRM_YN
+Plot 2: cog soc cap ~ Rules & ez
+Is this second plot indicating the highest Cogn Social capital in Desert Steppe w/ No Rules? 
+```{r, echo = FALSE, message = FALSE, warning= FALSE}
+#library(ggplot2)
+dens<- ggplot(td, aes(x = ResWint)) + geom_density() + facet_wrap(Tenure ~ cbrmYN)
+dens  # 0/1 = cbrm no/yes and 1/2 = Right to Wint Pasture no/yes
+
+ezlabels <- c("1"= "Desert Steppe", "2" = "Steppe", "3" = "Eastern Steppe", "4" = "Forest Mtn Steppe")
+rulelabels <-c("0" = "None", "1"= "Informal", "2" = "Formal")
+rsc<- ggplot(td, aes(x= cogSC1)) + 
+        geom_density() + 
+        facet_grid(Rule ~ ez, labeller=labeller(ez = ezlabels, Rule = rulelabels)) 
+rsc
+```
+Rules vary by ecological zone 
+```{r}
+scaov<- kruskal.test(Rule ~ ez, data = td)
+scaov
+
+```
+
+
+```{r, echo = FALSE, message = FALSE, include = FALSE, warning= FALSE}
+# tmod1<- glm(ResWint ~ Tenure, family = binomial("logit"), data = td)
+# tmod1
+# tmod2<- glm(ResWint ~ Tenure  + Rule, family = binomial("logit"), data = td)
+# tmod2
+# tmod3<- glm(ResWint ~ Tenure  * Rule, family = binomial("logit"), data = td)
+# tmod3
+# anova(tmod1, tmod2, tmod3)
+```
+## TENURE + RULE FORMALITY
+### varying INTERCEPT models:
+As of now ez & cbrm not nested 
+```{r, message = FALSE, warning= FALSE}
+#Better to use lmer() for mixed effects ...
+tm1 <- glmer(ResWint ~ Tenure + (1|ez), family = binomial,data = td)
+tm2 <- glmer(ResWint ~ Tenure + (1|ez) + (1|cbrmType), family = binomial,data = td)
+tm3 <- glmer(ResWint ~ Tenure + Rule + (1|ez), family = binomial,data = td)
+tm4 <- glmer(ResWint ~ Tenure + Rule + (1|ez) + (1|cbrmType), family = binomial,data = td)
+tm5 <- glmer(ResWint ~ Tenure + Rule + (ez|Rule), family = binomial,data = td)
+
+```
+
+Compare models: (looking at changes in loglikelihoods and deviance as add more complexity to model)
+```{r,message = FALSE, warning= FALSE}
+anova(tm1, tm2, tm3, tm4, tm5)
+```
+
+##Adding Rules does seem to improve a little, but not huge:
+```{r}
+summary(tm2)
+summary(tm3)
+```
+
+
+
+##But do we really get much from adding cbrm in here?
+```{r}
+summary(tm3)
+summary(tm4)
+```
+
+##Also: If look at coefficients, the intercepts vary only across cbrm type, not ez?
+See coeffs for tm1,tm3 vs. tm2,4
+```{r}
+coefficients(tm1)
+coefficients(tm2)
+coefficients(tm3)
+coefficients(tm4)
+```
+
+## TENURE + CBRM
+Exploring this relationship
+```{r}
+
+tm6 <- glmer(ResWint ~ Tenure + (1|ez), family = binomial,data = td)
+summary(tm6)
+tm7 <- glmer(ResWint ~ Tenure + cbrmYN + (1|ez) , family = binomial,data = td) 
+summary(tm7)
+```
+##So, including CBRM Y/N significantly improves model... but adding type as a grouping doesn't....
+```{r}
+tm8 <- glmer(ResWint ~ Tenure + cbrmYN + (1|ez) + (1|cbrmType), family = binomial, data = td)
+#tm9 <- glmer(ResWint ~ Tenure + cbrmYN + cbrmType + (1|ez) , family = binomial, data = td)
+anova(tm6, tm7, tm8)
+```
+
+##tm7 is signif imp over tm6....and we don't get improvement by adding cbrmType to this.....
+##Here are the coefficients for this model (reminder: random intercept model)
+```{r}
+coef(tm7)
+```
+
+What if we swap cbrmType for cbrmYN in tm7?
+No big diff....
+```{r}
+tm10 <- glmer(ResWint ~ Tenure + cbrmType + (1|ez) , family = binomial,data = td)
+anova(tm7, tm10)
+```
+
+#CBRM x Rules
+Should we also look at the relationship between Practices, Rules and CBRM outside of Tenure?
+... again rules are not signif, and nothign is unless you add is cbrmtn then that is signif
+```{r}
+# RULE + CBRM ?
+tm11 <- glmer(ResWint ~ Rule +  cbrmYN + (1|ez) + (1|cbrmType), family = binomial,data = td)
+summary(tm11) 
+```
+
+# Social Capital & Rules ...
+Given what we see above wrt the (weak) relationship between (this particular set of) Rules and (this one) Practice, does this mean for our hypothesizes relationships between Social Capital and the prevalance of Informal vs. Formal Rules? 
+##Original Hypothesis :
+  Increased cognitive social capital will lead to more prevalence of *informal* rules [within certain ecological zones]
+  Rules ~ SC + ez
+### SC1 
+```{r, message = FALSE, warning= FALSE}
+library(MASS)
+# need to use MASS::polr for ordered logistic regression
+scm<- polr(Rule ~ cogSC1 , data = td, method = c("logistic"))
+scm1<- polr(Rule ~ cogSC1 + ez, data = td, method = c("logistic"))
+
+anova(scm, scm1) # big improvement by including ez, as we predicted
+```
+### SC2
+```{r, message = FALSE, warning= FALSE}
+# should compare w probit vs. logistic too....
+
+sc2m<- polr(Rule ~ cogSC2 , data = td, method = c("logistic"))
+summary(sc2m)
+sc2m1<- polr(Rule ~ cogSC2 + ez, data = td, method = c("logistic"))
+summary(sc2m1)
+anova(sc2m, sc2m1) 
+anova(scm1, sc2m1) # Social capital index 1 performs better
+```
+Social capital index 1 performs better but is very similar, so maybe depends on which will be easier to interpret
+
+```{r}
+# 
+```
+
