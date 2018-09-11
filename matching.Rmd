@@ -1770,7 +1770,7 @@ EF1_Summary<- bind_rows(xc1, xtr1, xp41, xp51, xp61, xp71, xp81, xp91) %>%
          Median_Post = post1)  
  
 #write.csv(EF1_Summary, file= "./plots/EF1_Summary.csv")   
-#kable(EF1_Summary, digits = 2, caption = "Ecological Factor 1")
+kable(EF1_Summary, digits = 2, caption = "Ecological Factor 1")
 ```
 Factor 2
 ```{r}
