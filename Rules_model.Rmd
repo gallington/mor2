@@ -1,9 +1,9 @@
 ---
 title: "Tenure, Rules and Practices..."
 output:
-  pdf_document: default
   html_document:
     df_print: paged
+  pdf_document: default
 ---
 ```{r setup, echo = FALSE, message = FALSE, include = FALSE, warning= FALSE}
 library(foreign)
@@ -38,13 +38,15 @@ mor2FULL<- foreign::read.spss("./data/Org_HHS_May2016_5_28_16.sav" ,
                  use.value.labels=FALSE) #
 # tidy format
 tbl_df(mor2FULL)
-sc<- foreign::read.spss("./data/HHSAnal_April23.sav" , 
-                 to.data.frame=TRUE,
-                 use.value.labels=FALSE) 
-tbl_df(sc)
+#sc<- foreign::read.spss("./data/HHSAnal_April23.sav" , 
+#                 to.data.frame=TRUE,
+#                 use.value.labels=FALSE) 
+#tbl_df(sc)
 #testdata
 td<- mor2FULL%>% dplyr::select(ResWint = a_ResWint,  # Practice
-                  Tenure = q02a_RightNatWintPast,  # Tenure
+                  TenurePast = q02a_RightNatWintPast,  # Tenure on Winter Pasture
+                  UseCamp    = A_UsWtrCamp,         # Have or Use a winter Campsite
+                  TenureCamp = B_ContractWtrCamp,   # Have a use or posseion contract for the winter camp
                   Rule = q03_TimingRules3.3,       # Rule formality 
                   ez = Ecologicalzone_4,           # ez 
                   Trsp = AnotherAilLSOnPast,
@@ -55,15 +57,40 @@ td<- mor2FULL%>% dplyr::select(ResWint = a_ResWint,  # Practice
                   #cogSCAgg = CognSC_Agg           # NOT SURE HOW THIS WAS CALC'D, range is 0.41 - 2
                   RefNum = SurveyRefNumber,
                   )
-td %<>% mutate_at(2:7, funs(factor(.)))
+td %<>% mutate_at(2:9, funs(factor(.)))
 td$Rule<- ordered(td$Rule)
+```
+
+  # ADD RECODED Winter Camp Tenure. 
+# need to recode the Winter Camp data using 2 diff vars, so that it is No don't use, Yes use but don't have a contract or Yes use and do have a use or poassession contract: 
+```{r}
+td<- mutate(td, WtrCamp = case_when(UseCamp == 0 & TenureCamp == 0 ~ 0,   # No use or contract
+                                    UseCamp == 1 & TenureCamp == 0 ~ 1,   # Yes use, no contract
+                            UseCamp == 1 & TenureCamp == 1 | TenureCamp == 2 ~ 2, # Yes use, yes contract
+                            TRUE ~ NA_real_))                                 # else NA
+td %<>% mutate_at(13, funs(ordered(.)))
+
+
+
+  # This method makes dummy variables:
+# td.mut<- mutate(td, r1_No = ifelse(r1 == 0, 1, 0))
+# raw.data<- mutate(raw.data, r1_Inf = ifelse(r1 == 1, 1, 0))
+# raw.data<- mutate(raw.data, r1_Form = ifelse(r1 == 2, 1, 0))
+# raw.data %<>% na.omit()
 
 ```
 
-Subset data for this analysis:
+Summarize data for this analysis:
+ Almost everyone said that they use a winter campsite, and around 2/3 of those hh have a use or possession contract. Only one hh said they have rights but do not use it (reliable?) so maybe we can just use the contract Q, and not worry about also using the Use Q?
 ```{r}
 sumdf<- dfSummary(td)
 sumdf
+
+# 3-Way Frequency Table
+mytable <- xtabs(~A_UsWtrCamp+B_ContractWtrCamp, data=mor2FULL)
+ftable(mytable) # print table 
+
+ftable(td.mut$WtrCamp, td.mut$TenurePast)
 ```
 
 First some data exploration plots:
@@ -88,48 +115,46 @@ scaov<- kruskal.test(Rule ~ ez, data = td)
 scaov
 
 ```
-
-
-```{r, echo = FALSE, message = FALSE, include = FALSE, warning= FALSE}
-# tmod1<- glm(ResWint ~ Tenure, family = binomial("logit"), data = td)
-# tmod1
-# tmod2<- glm(ResWint ~ Tenure  + Rule, family = binomial("logit"), data = td)
-# tmod2
-# tmod3<- glm(ResWint ~ Tenure  * Rule, family = binomial("logit"), data = td)
-# tmod3
-# anova(tmod1, tmod2, tmod3)
-```
-## TENURE + RULE FORMALITY
+# TENURE + RULE FORMALITY
 ### varying INTERCEPT models:
 As of now ez & cbrm not nested 
+
+```{r, echo = FALSE, message = FALSE, include = FALSE, warning= FALSE}
+        # this chunk is hidden. was exploring tenure & rules w/o EZ, but really doesn't make sense to not include it.
+# tmod1<- glm(ResWint ~ Tenure, family = binomial("logit"), data = td)
+# tmod2<- glm(ResWint ~ Tenure  + Rule, family = binomial("logit"), data = td)
+# tmod3<- glm(ResWint ~ Tenure  * Rule, family = binomial("logit"), data = td)
+# anova(tmod1, tmod2, tmod3)
+```
+
+## Tenure on Winter Pasture:
 ```{r, message = FALSE, warning= FALSE}
 #Better to use lmer() for mixed effects ...
-tm1 <- glmer(ResWint ~ Tenure + (1|ez), family = binomial,data = td)
-tm2 <- glmer(ResWint ~ Tenure + (1|ez) + (1|cbrmType), family = binomial,data = td)
-tm3 <- glmer(ResWint ~ Tenure + Rule + (1|ez), family = binomial,data = td)
-tm4 <- glmer(ResWint ~ Tenure + Rule + (1|ez) + (1|cbrmType), family = binomial,data = td)
-tm5 <- glmer(ResWint ~ Tenure + Rule + (ez|Rule), family = binomial,data = td)
-
+tm1 <- glmer(ResWint ~ TenurePast + (1|ez), family = binomial,data = td)
+tm2 <- glmer(ResWint ~ TenurePast + (1|ez) + (1|cbrmType), family = binomial,data = td)
+tm3 <- glmer(ResWint ~ TenurePast + Rule + (1|ez), family = binomial,data = td)
+tm4 <- glmer(ResWint ~ TenurePast + Rule + (1|ez) + (1|cbrmType), family = binomial,data = td)
+tm5 <- glmer(ResWint ~ TenurePast + Rule + (ez|Rule), family = binomial,data = td)
+tm6 <- glmer(ResWint ~ TenurePast + Rule + cbrmYN + (1|ez) , family = binomial,data = td) # 2nd BEST SO FAR
+tm7 <- glmer(ResWint ~ TenurePast + cbrmYN + (1|ez) , family = binomial,data = td)   # BEST SO FAR
+# How to tell if this is any better??? 
+tm8 <- glmer(ResWint ~ TenurePast + cbrmYN + (1|ez) + (cbrmYN|cbrmType), family = binomial,data = td) 
 ```
 
 Compare models: (looking at changes in loglikelihoods and deviance as add more complexity to model)
 ```{r,message = FALSE, warning= FALSE}
-anova(tm1, tm2, tm3, tm4, tm5)
-```
+anova(tm1, tm2, tm3, tm4, tm5, tm6, tm7)
 
 ##Adding Rules does seem to improve a little, but not huge:
-```{r}
+
 summary(tm2)
 summary(tm3)
-```
-
-
-
-##But do we really get much from adding cbrm in here?
-```{r}
 summary(tm3)
 summary(tm4)
 ```
+##But do we really get much from adding cbrm in here?
+#Yes, if it is CBRM YN, not so if it's CBRM Type, but probably bc I am specifying it incorrectly... 
+
 
 ##Also: If look at coefficients, the intercepts vary only across cbrm type, not ez?
 See coeffs for tm1,tm3 vs. tm2,4
@@ -140,7 +165,44 @@ coefficients(tm3)
 coefficients(tm4)
 ```
 
-## TENURE + CBRM
+## Tenure on Winter Campsite:
+**Q for MFG: There isn't a direct parallel Rules Q, but perhaps the timing Q still applies here?**
+The best model from above was:
+tm7 <- glmer(ResWint ~ TenurePast + cbrmYN + (1|ez) ) 
+```{r, message = FALSE, warning= FALSE}
+#Better to use lmer() for mixed effects ...
+cm1 <- glmer(ResWint ~ WtrCamp + (1|ez), family = binomial,data = td)
+cm2 <- glmer(ResWint ~ WtrCamp + (1|ez) + (1|cbrmType), family = binomial,data = td)
+cm3 <- glmer(ResWint ~ WtrCamp + Rule + (1|ez), family = binomial,data = td)
+# tm5 <- glmer(ResWint ~ WtrCamp + Rule + (ez|Rule), family = binomial,data = td)
+
+  # add tenure on pastures AND winter camp in one model: 
+cm4 <- glm(ResWint ~ TenurePast + WtrCamp, family = binomial,data = td)
+cm5 <- glm(ResWint ~ TenurePast + WtrCamp + Rule , family = binomial,data = td)
+cm6 <- glmer(ResWint ~ TenurePast + WtrCamp + cbrmYN + (1|ez), family = binomial,data = td)
+cm7 <- glmer(ResWint ~ TenurePast + WtrCamp + Rule + cbrmYN + (1|ez), family = binomial,data = td)
+
+```
+
+
+
+# Checking model assumptions, just to be safe
+Assumption: The response y comes from a known distribution with a known mean-variance relationship
+To check this assumption we look at a plot of residuals, and try to see if there is a fan shape.
+
+Assumption: There is a straight line relationship between a known function g of the mean of y and the predictors x
+To check this assumption, we check the residual plot above for non-linearity, or a U-shape. In our case there is no evidence of non-linearity. If the residuals seem to go down then up, or up then down, we may need to add a polynomial function of the predictors using the poly function.
+```{r}
+plot(cm2, which = 1)
+
+# library(mvabund)
+# cm.many <- manyglm(ResWint ~ WtrCamp + (1|ez), family="binomial", data=td)
+# plot(cm.many)
+```
+
+
+
+# TENURE + CBRM
 Exploring this relationship
 ```{r}
 
