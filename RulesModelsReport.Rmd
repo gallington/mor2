@@ -1,0 +1,344 @@
+---
+title: "Rules & Tenure Models Summary for Mtg w Maria"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, echo = FALSE, message = FALSE, include = FALSE, warning= FALSE}
+library(foreign)
+#library(corrplot)
+library(magrittr)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(readxl)
+library(knitr)
+library(summarytools)
+library(lme4)
+library(sjPlot)
+```
+
+### OUTLINE:
+1. Summary  
+  1.2 Data prep  
+
+2. WINTER: Reserve Winter Pastures  
+  2.1 Null Model  
+  2.2 Winter Pasture Tenure  
+  2.2.1 Org-level tenure  
+    2.2.2 Household-level tenure  
+  2.3 Winter Camp Tenure (hh)  
+
+3. SPRING: Reserve Spring Pastures  
+  3.1 Null Model  
+  3.2  
+  
+##1. Summary:  
+
+(removed ordering of params in this version.)  
+  
+### 1.2 Data prep: (hidden in report view)    
+
+```{r, warning= FALSE, message = FALSE, echo = FALSE, results = "hide"}
+# THIS IS THE FULL DATASET WITH ALL 700
+  # the org level data are merged in to this as well. 
+mor2FULL<- foreign::read.spss("./data/Org_HHS_May2016_5_28_16.sav" , 
+                 to.data.frame=TRUE,
+                 use.value.labels=FALSE) #
+# tidy format
+tbl_df(mor2FULL)
+
+
+  # subsetting the FULL (combined) dataset to a smaller df:
+td<- mor2FULL%>% dplyr::select(
+          #** Response Variables (Practices) ***
+                  ResWint = a_ResWint,  # Reserve Winter Pastures
+                  ResSpr = b_ResSpr,    # Reserve Spring Pastures
+          #** Predictor Variables *** 
+                  # Org-level Tenure q:
+                  TenureWPast = q02a_RightNatWintPast,   # Tenure Rights on Winter Pasture
+                                                         #(Inf/ use /possession contract)                                                             #But only 2 in Answ: Inf & Use 
+                  TenureSpPast =q02a_RightNatSpringPast, # Tenure rights on Spring Pasture
+                  # HH-level Tenure q:
+                  UseWPast = A_UsWtrPast,                # Have or use Winter Pasture 
+                                                          #  2/3 yes, 1/3 no
+                  UseWCamp    = A_UsWtrCamp,             # Have or use a Winter Campsite
+                  UseSpPast = A_UsSepSprPas,             # Have or use a sep Spring Pasture
+                  ContractSpPast = B_ContractSprPast,    # Use/Poss contract for Sp Pasture
+                  ContractWPast= B_ContractWtrPast,      # Use/poss contract for Wtr Pasture 
+                                                            #  most are no
+                  ContractWCamp = B_ContractWtrCamp,     # Use/Poss contract for Wtr Camp
+                  #ORG-level Rules q:
+                  Rule = q03_TimingRules3.3,       # Rule formality 
+          #** Cognitive Social Capital :          
+                    # see Ulambayar et al. (201?) for info on which Qs were used, how combined
+                  cogSC1 = CognSC,                 # Mean of scores for items included
+                                                      # scaled 0-2 
+                  cogSC2 = CognSC2,                # Sum of scores, 0-12
+                  #cogSCAgg = CognSC_Agg    # NOT SURE HOW THIS WAS CALC'D, range is 0.41 - 2
+          #** confounding vars / fixed & random effects :
+                  ez = Ecologicalzone_4,           # ez 
+                  Trsp = AnotherAilLSOnPast,       # trespassing
+                  cbrmType = CBRM_type,            # CBRM Type
+                  cbrmYN = CBRM_Y_N,               # CBRM Yes/No
+          
+                  RefNum = SurveyRefNumber,
+                  Org = ORG_CODE
+                  )
+td %<>% mutate_at(c(1:11,14:17), funs(factor(.)))
+#td %<>% mutate_at(c(1:2,5:7,8:10,14:17), funs(factor(.)))
+#td %<>% mutate_at(c(3:4,11), funs(ordered(.)))
+# should we make TenurePast ordered also????
+
+```
+  
+  
+**Recode household-level tenure vars:**   
+I'm not sure that I've recoded correctly, bc it doesn't capture any of the "don't know" answers, which were a lot and are not necesarily the same as No or NA.
+Tried them once as Dummy Vars and that was not helpful. 
+Should these be ordinal or just factors? Have tired both ways, same general results, so really we only need to use ordered if we really are trying to make precise predictions, rather than generally trying to get a sense of the relative influence of the predictors, I think.
+```{r}
+  # Winter Pasture Tenure:
+td<- mutate(td, hhTenureWPast = case_when(ContractWPast == 0 ~ 0,   # No contract
+                                       ContractWPast == 1 ~ 1,   # Yes use contract
+                                       ContractWPast == 2 ~ 2,   # Yes possession contract
+                                       TRUE ~ NA_real_)) 
+  # Winter Camp Tenure:
+td<- mutate(td, hhTenureWCamp = case_when(ContractWCamp == 0 ~ 0,   # No contract
+                                       ContractWCamp == 1 ~ 1,   # Yes use contract
+                                       ContractWCamp == 2 ~ 2,   # Yes possession contract
+                                       TRUE ~ NA_real_))         # else NA
+
+  # Spring Pasture Tenure:
+td<- mutate(td, hhTenureSpPast = case_when(ContractSpPast == 0 ~ 0,   # No contract
+                                       ContractSpPast == 1 ~ 1,   # Yes use contract
+                                       ContractSpPast == 2 ~ 2,   # Yes possession contract
+                                       TRUE ~ NA_real_))         # else NA
+   
+  # order:
+#td %<>% mutate_at(20:21, funs(ordered(.)))
+```
+
+### Add dummy Vars for Rules : 
+```{r}
+td <- mutate(td, RuleNo = case_when(Rule == 0 ~ 1,   # No rules = 1
+                                     Rule == 1 | Rule == 2 ~ 0,   # set others to zero
+                                     TRUE ~ NA_real_))            # else NA
+
+td <- mutate(td, RuleInf = case_when(Rule == 1 ~ 1,   # Informal rules = 1
+                                     Rule == 0 | Rule == 2 ~ 0,   # set others to zero
+                                    TRUE ~ NA_real_))            # else NA
+
+
+td <- mutate(td, RuleFormal = case_when(Rule == 2 ~ 1,   # Formal rules = 1
+                                     Rule == 0 | Rule == 1 ~ 0,   # set others to zero
+                                     TRUE ~ NA_real_))            # else NA
+
+td %<>% mutate_at(c(20:22), funs(factor(.)))
+```
+
+# MODELS:
+
+In this doc I am only including the best models thus far. 
+For full information on process of investigating alternate variable forms and model fits see Rules_model.Rmd
+
+# 2. WINTER : 
+Predicting Likelihood that a herder hosuehold will reserve Winter Pastures
+
+**2.1 Null Model ------ **
+The estimate of the constant is the logit of the proportion Reserving Pastures:
+```{r}
+null<-  glm( ResWint ~ 1, data=td, family=binomial)
+```
+Ref: http://data.princeton.edu/wws509/R/c3s1.html
+
+####2.2 Winter Pasture Tenure & Rule Formality**
+-TENURE + RULE FORMALITY
+-varying INTERCEPT models:
+
+**2.2.1 Org-level tenure var:**
+This model uses the response regarding tenure on W Pastures from the Organiztion-level survey. Answers were either: Informal/customary use rights or Formal use contract. 
+This param has been specified above as ordered. 
+Model specified w random intercept by ecological zone.
+```{r, warning= FALSE, message = FALSE}
+tm6 <- glmer(ResWint ~ TenureWPast + Rule + cbrmYN + (1|ez) , family = binomial,data = td) # 2nd BEST SO FAR
+tm7 <- glmer(ResWint ~ TenureWPast + cbrmYN + (1|ez) , family = binomial,data = td)   # BEST SO FAR
+  
+summary(tm7) 
+
+  # this presents the betas as Odds Ratios:
+t<- tab_model(tm6, tm7)
+knit_print(t)
+  # this compares the AICs, etc.
+anova(tm6, tm7)
+```
+
+**Interpretting these results:**
+
+Odds of reserving pasture is 32% lower in households that have a formal use contract, compared to those with informal/customary rights.   (this seems surprising? am I understanding how these are coded in the data correctly?)
+
+Odds of reserving pasture increase by 52% if the household is part of a CBRM.
+Rules were not significant in these models.
+
+**Haven't considered social capital param in this model**
+
+**Alt model form:**  
+
+including random slopes for effect of Rule and CBRM by ez, in addition to random intercept for ez:  
+```{r}
+  #best:
+tm9.1 <- glmer(ResWint ~ TenureWPast  + cbrmYN + (1+ Rule|ez) + (1 + cbrmYN|ez), family = binomial,data = td) # best
+  # for comparison
+tm9.2 <- glmer(ResWint ~ TenureWPast + Rule + (1+ Rule|ez) + (1 + cbrmYN|ez), family = binomial,data = td)
+  # shakes out even better than 9.1?:
+tm9.3 <- glmer(ResWint ~ TenureWPast  + cbrmYN + (1+ Rule|ez) + (1 + TenureWPast|ez), family = binomial,data = td)
+
+anova(tm9.1, tm9.2, tm9.3)
+
+ # can't calc icc w random slope and intercept models 
+
+```
+
+But this yields generally the same values for the coeffecients to the model above without the random slopes.
+
+***2.2.2 Household level tenure var:***
+This model uses the response from the Household-level survey regarding whether the hh has a Use or Possession contract for the Winter Pasture. Also incorporated the hh-level Q regarding tenure status on the Winter *CAMPSITE* as a predictor for these models as well.
+Compared  multiple models in original work (Rules_model.Rmd) with different combinations of Rule vars, cbrm status and Social Capital param. 
+
+Also, ended up specifying random intercept for Org when using the hh-level Tenure var.
+Is this signif bc there is Org-level influence on either a) what kind of tenure a hh woudl have and/or b) how much they actually know about their tenure-status?
+(note: much worse fit if include a random intercept for ez when using hh level tenure var. surprising that this doesn't vary?)
+
+*Now Rules are more significant than cbrm status.*
+
+```{r}
+  # just Pasture tenure, Reuls, cbrm, SC1
+htm5 <- glmer(ResWint ~ hhTenureWPast + cbrmYN + RuleNo + cogSC1 + (1|Org), 
+              family = binomial, data = td ) # hmmmm.... now Rules signif not cgrm....
+
+# just Camp Tenure, Rules, cbrm, SC1 :
+  htm6 <- glmer(ResWint ~ hhTenureWCamp + cbrmYN + RuleNo + cogSC1 + (1|Org), family = binomial, data = td)
+    # modelling with BOTH winter tenure parameters :
+htm7 <- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + cbrmYN + RuleNo + cogSC1 + (1|Org), family = binomial, data = td)
+  # models are WORSE w ez
+htm8 <- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + cbrmYN + RuleNo + cogSC1 + (1|ez), family = binomial, data = td)
+
+t<- tab_model(htm5, htm6, htm7)
+knit_print(t)
+```
+  
+
+Take-home message is that for Reserving W Pasture, best explained by Tenure on W Campsite, Rules and cog SC.
+
+
+** some additional considerations: **  
+
+TENURE + CBRM 
+Exploring this relationship  
+
+
+```{r}
+
+t1 <- glmer(ResWint ~ hhTenureWPast + (1|ez), family = binomial,data = td)
+summary(t1)
+
+t2 <- glmer(ResWint ~ hhTenureWCamp + cbrmYN +(1|ez), family = binomial,data = td)
+summary(t1)
+
+tc <- glmer(ResWint ~ hhTenureWPast + cbrmYN + (1|ez) , family = binomial,data = td) 
+summary(tc)
+
+t2c <- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + cbrmYN +(1|ez), family = binomial,data = td)
+summary(t1)
+
+t<- tab_model(t1,t2,tc, t2c)
+knit_print(t)
+```
+
+**Interpreting the Odds Ratios:**
+Based on htm7:
+The odds of a hh reserving winter pasture are 45-55% lower if there are not Rules in place regarding timing of grazing of (winter pasture). 
+However, the odds of the hh reserving pasture increase with increasing tenure on the winter camp. 
+The odds of the household reserving pasture increases the most with increases in Social Capital -- by 138% for each unit increase in SC1.
+
+
+# 3. SPRING 
+# Reserve Spring Pastures 
+New outcome variable : Reserve Spring Pastures
+Do we see similar relationships with potential explanatory variables?
+nullSp<- glm( ResSpr ~1, data= td, family = binomial)
+This only works when we use the dummary variable version of the Rules var: RuleNo or RuleInf both work w basically same result. 
+```{r}
+ ## Sp Pasture
+
+  # Org level tenure var:
+htmSp.1 <- glmer(ResSpr ~ TenureSpPast + cbrmYN + RuleNo + cogSC1 + (1|Org) , family = binomial, data = td ) # hmmmm.... now Rules signif not cgrm....
+
+  # household level tenure var:
+htmSp <- glmer(ResSpr ~ hhTenureSpPast + cbrmYN + RuleNo + cogSC1 + (1|Org) , family = binomial, data = td ) # hmmmm.... now Rules signif not cgrm....
+
+summary(htmSp)
+summary(htmSp.1)
+t<- tab_model(htmSp, htmSp.1)
+knit_print(t)
+```
+
+**Interpretting the odds ratios:**  tenure on the spring pasture, membership in a formal CBRM and cognitive social capital all increase the odds that a household will reserve the spring pastures. Rules (re: timing of grazing) were not significant. 
+
+
+
+### SOCIAL CAPITAL & RULES ...  
+
+Given what we see above wrt the (weak) relationship between (this particular set of) Rules and (this one) Practice, does this mean for our hypothesized relationships between Social Capital and the prevalance of Informal vs. Formal Rules? 
+
+**Original Hypothesis:**  
+  Increased cognitive social capital will lead to more prevalence of *informal* rules (within certain ecological zones)
+  Rules ~ Social Capital + ecological zone
+#### SC1 
+```{r, message = FALSE, warning= FALSE}
+library(MASS)
+# need to use MASS::polr for ordered logistic regression
+scm<- polr(Rule ~ cogSC1 , data = td, method = c("logistic"))
+scm1<- polr(Rule ~ cogSC1 + ez, data = td, method = c("logistic"))
+
+anova(scm, scm1) # big improvement by including ez, as we predicted
+```
+
+Big improvement by including ez, as we predicted
+
+
+td by ez
+```{r}
+mfs <- td %>% filter(ez == 4)
+ds  <- td %>% filter(ez == 1)
+st  <- td %>% filter(ez == 2)
+
+```
+Now separate models for each ez
+```{r}
+mt.null <-  glm( ResWint ~ 1, data=mfs, family=binomial)
+ds.null <-  glm( ResWint ~ 1, data=ds, family=binomial)
+st.null <-  glm( ResWint ~ 1, data=st, family=binomial)
+
+  # this model will not converge unless all of these parameters are included??
+#mtm <- glmer(ResWint ~ TenureWPast + Rule + cbrmYN + cogSC1 + (1|Org) , data = mfs, family = "binomial")
+
+
+mtmp <- glm(ResWint ~  hhTenureWPast+  Rule + cbrmYN + cogSC1 , data = mfs, family = "binomial")
+mtmc <- glm(ResWint ~  hhTenureWCamp+  Rule + cbrmYN + cogSC1 , data = mfs, family = "binomial")
+mtm <- glm(ResWint ~  hhTenureWPast+ hhTenureWCamp+  Rule + cbrmYN + cogSC1 , data = mfs, family = "binomial")
+
+
+dsmp <- glm(ResWint ~ hhTenureWPast + Rule + cbrmYN + cogSC1 , data = ds, family = "binomial")
+dsmc <- glm(ResWint ~ hhTenureWCamp + Rule + cbrmYN + cogSC1 , data = ds, family = "binomial")
+
+
+stmp <- glm(ResWint ~ hhTenureWPast + Rule + cbrmYN + cogSC1 , data = st, family = "binomial")
+
+stmc <- glm(ResWint ~ hhTenureWCamp + Rule + cbrmYN + cogSC1 , data = st, family = "binomial")
+
+s
+
+```

@@ -1,9 +1,9 @@
 ---
 title: "Tenure, Rules and Practices..."
 output:
+  pdf_document: default
   html_document:
     df_print: paged
-  pdf_document: default
 ---
 ```{r setup, echo = FALSE, message = FALSE, include = FALSE, warning= FALSE}
 library(foreign)
@@ -20,11 +20,13 @@ library(knitr)
 library(summarytools)
 library(lme4)
 ```
+# NEXT UP : making dummy vars for use and contract vars.
+
 
 ## SO WHAT DO WE HAVE SO FAR?
-1. Not a super strong relationship between Rules (on timing of grazing) and Cognitive Social Capital, but need to spend some more time on this. But there is a diff in this relationship across diff ecological zones (as we predicted). This is just prelim, need to look at this some more.
-2. Probability of Reserving Winter Pastures is explained more by Tenure (Rights to the Pasture) than Rule Formality (regarding Timing of Grazing)
 
+1. Probability of Reserving Winter Pastures is explained more by Tenure (Rights to the Pasture) than Rule Formality (regarding Timing of Grazing)
+2. Not a super strong relationship between Rules (on timing of grazing) and Cognitive Social Capital, but need to spend some more time on this. But there is a diff in this relationship across diff ecological zones (as we predicted). This is just prelim, need to look at this some more.
 ## NOTES ON THINGS I STILL NEED TO INVESTIGATE:
 1. Tenure on Winter Campsite 
     17 Sept : started incorporating this var, and get similar results, and even better if use both
@@ -38,7 +40,7 @@ library(lme4)
      
 ## when I come back: 
 - summarize results so far and send to Maria
--
+- 
 
 ```{r, warning= FALSE, message = FALSE, echo = FALSE, results = "hide"}
 # THIS IS THE FULL DATASET WITH ALL 700
@@ -55,118 +57,138 @@ sc<- foreign::read.spss("./data/HHSAnal_April23.sav" ,
                  use.value.labels=FALSE) 
 tbl_df(sc)
 
-
+  # subsetting the FULL (combined) dataset to a smaller df:
 td<- mor2FULL%>% dplyr::select(
-                      # Response Variables (Practices)
+          #** Response Variables (Practices) ***
                   ResWint = a_ResWint,  # Reserve Winter Pastures
                   ResSpr = b_ResSpr,    # Reserve Spring Pastures
-                      # Predictor Variables 
-                    # org-level Tenure q:
-                  TenureWPast = q02a_RightNatWintPast,   # Tenure Rights on Winter Pasture (Inf/ use contract/possession contract)                                                                                           #  But only 2 factors in answersinf & use? 
+          #** Predictor Variables *** 
+                  # Org-level Tenure q:
+                  TenureWPast = q02a_RightNatWintPast,   # Tenure Rights on Winter Pasture
+                                                         #(Inf/ use /possession contract)                                                             #But only 2 in Answ: Inf & Use 
                   TenureSpPast =q02a_RightNatSpringPast, # Tenure rights on Spring Pasture
-                    # hh-level tenure q:
-                  UseWPast = A_UsWtrPast,                # have or use winter pasture -- 2/3 yes, 1/3 no
-                  UseWCamp    = A_UsWtrCamp,             # have or use a winter Campsite
-                  UseSpPast = A_UsSepSprPas,             # have or use a separate spring pasture
-                  ContractSpPast = B_ContractSprPast,    # use or possession contract for spring pasture
-                  ContractWPast= B_ContractWtrPast,      # use or possession contract for winter pasture -- most are no
-                  ContractWCamp = B_ContractWtrCamp,     # have a use or possession contract for the winter camp
-                    #org-level Rules Q
+                  # HH-level Tenure q:
+                  UseWPast = A_UsWtrPast,                # Have or use Winter Pasture 
+                                                          #  2/3 yes, 1/3 no
+                  UseWCamp    = A_UsWtrCamp,             # Have or use a Winter Campsite
+                  UseSpPast = A_UsSepSprPas,             # Have or use a sep Spring Pasture
+                  ContractSpPast = B_ContractSprPast,    # Use/Poss contract for Sp Pasture
+                  ContractWPast= B_ContractWtrPast,      # Use/poss contract for Wtr Pasture 
+                                                            #  most are no
+                  ContractWCamp = B_ContractWtrCamp,     # Use/Poss contract for Wtr Camp
+                  #ORG-level Rules q:
                   Rule = q03_TimingRules3.3,       # Rule formality 
+          #** Cognitive Social Capital :          
+                    # see Ulambayar et al. (201?) for info on which Qs were used, how combined
+                  cogSC1 = CognSC,                 # Mean of scores for items included
+                                                      # scaled 0-2 
+                  cogSC2 = CognSC2,                # Sum of scores, 0-12
+                  #cogSCAgg = CognSC_Agg    # NOT SURE HOW THIS WAS CALC'D, range is 0.41 - 2
+          #** confounding vars / fixed & random effects :
                   ez = Ecologicalzone_4,           # ez 
-                  Trsp = AnotherAilLSOnPast,
-                  cbrmType = CBRM_type,
-                  cbrmYN = CBRM_Y_N,
-                  cogSC1 = CognSC,                 # mean of scores for items included, scaled 0-2 
-                  cogSC2 = CognSC2,                # sum of scores, 0-12
-                  #cogSCAgg = CognSC_Agg           # NOT SURE HOW THIS WAS CALC'D, range is 0.41 - 2
+                  Trsp = AnotherAilLSOnPast,       # trespassing
+                  cbrmType = CBRM_type,            # CBRM Type
+                  cbrmYN = CBRM_Y_N,               # CBRM Yes/No
+          
                   RefNum = SurveyRefNumber,
                   Org = ORG_CODE
                   )
-td %<>% mutate_at(c(5:7,12:15), funs(factor(.)))
-td %<>% mutate_at(c(3:4,8:11), funs(ordered(.)))
+td %<>% mutate_at(c(1:2,5:7,8:10,14:17), funs(factor(.)))
+td %<>% mutate_at(c(3:4,11), funs(ordered(.)))
 # should we make TenurePast ordered also????
 
 ```
 
 ## Add Recoded Winter Camp Tenure. 
-First tried to recode the Winter Camp data using 2 diff vars, so that it was No-don't use, Yes-use but don't have a contract or Yes-use and do have a use or poassession contract. None of that was helping to explain, maybe bc so many Use, but the spread is a little more vaired for just the contracts question. 
+First tried to recode the Winter Camp data using 2 diff vars (Use & Tenure), so that it was No-don't use, 
+Yes-use but don't have a contract or 
+Yes-use and do have a use or poassession contract. 
+None of that was helping to explain, maybe bc so many Use, but the spread is a little more varied for just the contracts question. 
+But now I'm not sure that we should use these, bc it doesn't capture any of the "don't know" answers, which were a lot and are not necesarily the same as No or NA.
+Tried them once as Dummy Vars and that was not helpful. 
 ```{r}
-  # the first way tha ti did it, using both variables:
+  # the first way that i did it, using both variables:
 # td<- mutate(td, WtrCamp = case_when(UseCamp == 0 & TenureCamp == 0 ~ 0,   # No use or contract
 #                                     UseCamp == 1 & TenureCamp == 0 ~ 1,   # Yes use, no contract
 #                             UseCamp == 1 & TenureCamp == 1 | TenureCamp == 2 ~ 2, # Yes use, yes contract
 #                             TRUE ~ NA_real_))                                 # else NA
 # td %<>% mutate_at(13, funs(ordered(.)))
 
-td<- mutate(td, TenureWCamp = case_when(ContractWCamp == 0|ContractWCamp == 3 | ContractWCamp == 4 ~ 0,   # No contract
+ 
+
+# as of now we have set all of the "don't know"s to NAs? 
+  # Winter Camp Tenure:
+td<- mutate(td, hhTenureWCamp = case_when(ContractWCamp == 0 ~ 0,   # No contract
                                        ContractWCamp == 1 ~ 1,   # Yes use contract
                                        ContractWCamp == 2 ~ 2,   # Yes possession contract
-                                       TRUE ~ NA_real_))                                 # else NA
+                                       TRUE ~ NA_real_))         # else NA
+   ##### DO WE NEED TO MAKE THESE ORDERED ....? #####
 #td %<>% mutate_at(14, funs(ordered(.)))
+  # Winter Pasture Tenure:
+td<- mutate(td, hhTenureWPast = case_when(ContractWPast == 0 ~ 0,   # No contract
+                                       ContractWPast == 1 ~ 1,   # Yes use contract
+                                       ContractWPast == 2 ~ 2,   # Yes possession contract
+                                       TRUE ~ NA_real_)) 
+td<- mutate(td, hhTenureSpPast = case_when(ContractSpPast == 0 ~ 0,   # No contract
+                                       ContractSpPast == 1 ~ 1,   # Yes use contract
+                                       ContractSpPast == 2 ~ 2,   # Yes possession contract
+                                       TRUE ~ NA_real_))         # else NA
+   
+
+td %<>% mutate_at(20:21, funs(ordered(.)))
 
 
   # This method makes dummy variables:
 # td.mut<- mutate(td, r1_No = ifelse(r1 == 0, 1, 0))
-# raw.data<- mutate(raw.data, r1_Inf = ifelse(r1 == 1, 1, 0))
+# td.mut<- mutate(raw.data, r1_Inf = ifelse(r1 == 1, 1, 0))
+# td.mut<- mutate(raw.data, r1_Form = ifelse(r1 == 2, 1, 0))
 # raw.data<- mutate(raw.data, r1_Form = ifelse(r1 == 2, 1, 0))
 # raw.data %<>% na.omit()
 
+# Dummy Vars for Rules : 
+td <- mutate(td, RuleNo = case_when(Rule == 0 ~ 1,   # No rules = 1
+                                     Rule == 1 | Rule == 2 ~ 0,   # set others to zero
+                                     TRUE ~ NA_real_))            # else NA
+
+td <- mutate(td, RuleInf = case_when(Rule == 1 ~ 1,   # Informal rules = 1
+                                     Rule == 0 | Rule == 2 ~ 0,   # set others to zero
+                                    TRUE ~ NA_real_))            # else NA
+
+
+td <- mutate(td, RuleFormal = case_when(Rule == 2 ~ 1,   # Formal rules = 1
+                                     Rule == 0 | Rule == 1 ~ 0,   # set others to zero
+                                     TRUE ~ NA_real_))            # else NA
+
+td %<>% mutate_at(c(20:22), funs(factor(.)))
 ```
 
-Summarize data for this analysis:
- Almost everyone said that they use a winter campsite, and around 2/3 of those hh have a use or possession contract. Only one hh said they have rights but do not use it (reliable?) so maybe we can just use the contract Q, and not worry about also using the Use Q?
-```{r}
-sumdf<- dfSummary(td)
-sumdf
 
-# 3-Way Frequency Table
-mytable <- xtabs(~A_UsWtrCamp+B_ContractWtrCamp, data=mor2FULL)
-ftable(mytable) # print table 
 
-ftable(td.mut$WtrCamp, td.mut$TenurePast)
-```
 
-First some data exploration plots:
-Plot 1: ResWint Pasture ~ Tenure & CBRM_YN
-Plot 2: cog soc cap ~ Rules & ez
-Is this second plot indicating the highest Cogn Social capital in Desert Steppe w/ No Rules? 
-Plot 3: ResWint Pasture ~ WtrCamp & CBRM_YN
-```{r, echo = FALSE, message = FALSE, warning= FALSE}
-#library(ggplot2)
-dens<- ggplot(td, aes(x = ResWint)) + geom_density() + facet_wrap(Tenure ~ cbrmYN)
-dens  # 0/1 = cbrm no/yes and 1/2 = Right to Wint Pasture no/yes
-
-ezlabels <- c("1"= "Desert Steppe", "2" = "Steppe", "3" = "Eastern Steppe", "4" = "Forest Mtn Steppe")
-rulelabels <-c("0" = "None", "1"= "Informal", "2" = "Formal")
-rsc<- ggplot(td, aes(x= cogSC1)) + 
-        geom_density() + 
-        facet_grid(Rule ~ ez, labeller=labeller(ez = ezlabels, Rule = rulelabels)) 
-rsc
-
-denscamp<- ggplot(td, aes(x = ResWint)) + geom_density() + facet_wrap(TenureWCamp ~ cbrmYN)
-denscamp  # 0/1 = cbrm no/yes and 1/2 = Right to Wint Pasture no/yes
-
-```
 Rules vary by ecological zone 
 ```{r}
 scaov<- kruskal.test(Rule ~ ez, data = td)
 scaov
 
 ```
+# Null Model ------ 
+steps Ref'd from http://data.princeton.edu/wws509/R/c3s1.html
+the estimate of the constant is the logit of the proportion Reservign Pastures:
+```{r}
+null<-  glm( ResWint ~ 1, data=td, family=binomial)
+
+nullSp<- glm( ResSpr ~1, data= td, family = binomial)
+```
+
 # TENURE + RULE FORMALITY
 ### varying INTERCEPT models:
 As of now ez & cbrm not nested 
 
-```{r, echo = FALSE, message = FALSE, include = FALSE, warning= FALSE}
-        # this chunk is hidden. was exploring tenure & rules w/o EZ, but really doesn't make sense to not include it.
-# tmod1<- glm(ResWint ~ Tenure, family = binomial("logit"), data = td)
-# tmod2<- glm(ResWint ~ Tenure  + Rule, family = binomial("logit"), data = td)
-# tmod3<- glm(ResWint ~ Tenure  * Rule, family = binomial("logit"), data = td)
-# anova(tmod1, tmod2, tmod3)
-```
 
 ## Tenure on Winter Pasture:
+ 
+ Note: this is using the Org-level Tenure Q... 
+ 
 ```{r, message = FALSE, warning= FALSE}
 #Better to use lmer() for mixed effects ...
 tm1 <- glmer(ResWint ~ TenureWPast + (1|ez), family = binomial,data = td)
@@ -176,37 +198,30 @@ tm4 <- glmer(ResWint ~ TenureWPast + Rule + (1|ez) + (1|cbrmType), family = bino
 tm5 <- glmer(ResWint ~ TenureWPast + Rule + (ez|Rule), family = binomial,data = td)
 tm6 <- glmer(ResWint ~ TenureWPast + Rule + cbrmYN + (1|ez) , family = binomial,data = td) # 2nd BEST SO FAR
 tm7 <- glmer(ResWint ~ TenureWPast + cbrmYN + (1|ez) , family = binomial,data = td)   # BEST SO FAR
-# How to tell if this is any better??? 
-tm8 <- glmer(ResWint ~ TenureWPast + cbrmYN + (1|ez) + (cbrmYN|cbrmType), family = binomial,data = td) 
 
-# OH BU TWE NEE DTO CONTROL FOR ORG, RIGHT?
-# HOW BEST TO DO THIS??
-tm9 <- glmer(ResWint ~ TenureWPast + cbrmYN + (1|ez) + (cbrmYN|Org), family = binomial,data = td)   #
+tm8 <- glmer(ResWint ~ TenureWPast + cbrmYN + (1|ez) + (1|Org), family = binomial,data = td)
+tm8.1<- glmer(ResWint ~ TenureWPast + cbrmYN + (1|ez) + (1 + TenureWPast|Org), family = binomial,data = td)
+# 
+
+# Random intercept for ez and random slopes for effect of Rule and CBRM by ez : 
+tmn <- glmer(ResWint ~ TenureWPast + (1+Rule|ez) + (1 + cbrmYN|ez),family = binomial,data = td)
+tm9 <- glmer(ResWint ~ TenureWPast + Rule + cbrmYN + (1+ Rule|ez) + (1 + cbrmYN|ez), family = binomial,data = td) #
+  #best one:
+tm9.1 <- glmer(ResWint ~ TenureWPast  + cbrmYN + (1+ Rule|ez) + (1 + cbrmYN|ez), family = binomial,data = td) # best
+tm9.2 <- glmer(ResWint ~ TenureWPast + Rule + (1+ Rule|ez) + (1 + cbrmYN|ez), family = binomial,data = td)
+tm9.3 <- glmer(ResWint ~ TenureWPast  + cbrmYN + (1+ Rule|ez) + (1 + TenureWPast|ez), family = binomial,data = td)
+
+tm9.4 <- glmer(ResWint ~ TenureWPast  + cbrmYN + (1+ Rule|ez) + (1|Org), family = binomial,data = td) # best
 ```
 
 Compare models: (looking at changes in loglikelihoods and deviance as add more complexity to model)
+Adding Rules doesn't seem to improve it 
 ```{r,message = FALSE, warning= FALSE}
 anova(tm1, tm2, tm3, tm4, tm5, tm6, tm7)
-
-##Adding Rules does seem to improve a little, but not huge:
-
-summary(tm2)
-summary(tm3)
-summary(tm3)
-summary(tm4)
+anova(tmn, tm9, tm9.1, tm9.3)
+anova(tm9, tm9.1, tm9.3)
 ```
-###But do we really get much from adding cbrm in here?
-###Yes, if it is CBRM YN, not so if it's CBRM Type, but probably bc I am specifying it incorrectly... 
 
-
-###Also: If look at coefficients, the intercepts vary only across cbrm type, not ez?
-See coeffs for tm1,tm3 vs. tm2,4
-```{r}
-coefficients(tm1)
-coefficients(tm2)
-coefficients(tm3)
-coefficients(tm4)
-```
 
 ## Tenure on Winter Campsite:
 **Q for MFG: There isn't a direct parallel Rules Q, but perhaps the timing Q still applies here?**
@@ -216,23 +231,28 @@ tm7 <- glmer(ResWint ~ TenurePast + cbrmYN + (1|ez) )
 ###NOTE: going from the recorded variable that included both Use and Contract on winter camp to the recoded var just using Contract on w camp does MUCH better at explaining Reserving Pastures.
 ```{r, message = FALSE, warning= FALSE}
 #Better to use lmer() for mixed effects ...
-cm1 <- glmer(ResWint ~ TenureWCamp + (1|ez), family = binomial,data = td)
-cm2 <- glmer(ResWint ~ TenureWCamp + (1|ez) + (1|cbrmType), family = binomial,data = td)
-cm3 <- glmer(ResWint ~ TenureWCamp + Rule + (1|ez), family = binomial,data = td)
+cm1 <- glmer(ResWint ~ hhTenureWCamp + (1|ez), family = binomial,data = td)
+cm2 <- glmer(ResWint ~ hhTenureWCamp + cbrmYN+ (1|ez) , family = binomial,data = td) # BEST
+cm3 <- glmer(ResWint ~ hhTenureWCamp + Rule + (1|ez), family = binomial,data = td)
 # tm5 <- glmer(ResWint ~ TenureWCamp + Rule + (ez|Rule), family = binomial,data = td)
 
   # add tenure on pastures AND winter camp in one model: 
-cm4 <- glm(ResWint ~ TenurePast + TenureWCamp, family = binomial,data = td)
+cm4 <- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + (1|ez), family = binomial,data = td)
   #  if check the chi sq on cm4 it is better than null, but not great
   #  1-pchisq(851.65-838.91, 617-614)
-cm5 <- glm(ResWint ~ TenurePast + TenureWCamp + Rule , family = binomial,data = td)
-cm6 <- glmer(ResWint ~ TenurePast + TenureWCamp + cbrmYN + (1|ez), family = binomial,data = td)
-cm7 <- glmer(ResWint ~ TenurePast + TenureWCamp + Rule + cbrmYN + (1|ez), family = binomial,data = td)
+cm5 <- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + Rule + (1|ez), family = binomial,data = td)
+cm6 <- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + cbrmYN + (1|ez), family = binomial,data = td)
+cm7 <- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + Rule + cbrmYN + (1|ez), family = binomial,data = td)
+
+# including random slopes : 
+cm8 <- glmer(ResWint ~ TenureWPast + hhTenureWCamp  + (1+ Rule|ez) + (1 + cbrmYN|ez), family = binomial,data = td)
+
+cm9 <- glmer(ResWint ~ TenureWPast + hhTenureWCamp + Rule + cbrmYN + (1+ Rule|ez) + (1 + cbrmYN|ez), family = binomial,data = td)
 
 ```
 The best model from above is: 
-cm6 <- glmer(ResWint ~ TenurePast + TenureWCamp + cbrmYN + (1|ez), family = binomial,data = td)
-
+cm6 <- glmer(ResWint ~ TenureWPast + TenureWCamp + cbrmYN + (1|ez), family = binomial,data = td)
+# wait now that i've adjusted TenureWPast now Rules are more signif than cbrm?? Gah!
 And things don't improve if we add in Rule formality.
 
 
@@ -251,6 +271,27 @@ plot(cm2, which = 1)
 # plot(cm.many)
 ```
 
+# SPRING 
+# Reserve Spring Pastures 
+New outcome variable : Reserve Spring Pastures
+Do we see similar relationships with potential explanatory variables?
+
+This only works when we use the dummary variable version of the Rules var: RuleNo
+```{r}
+ ## Sp Pasture
+  # hhSpTenure, Rules, cbrm & SC
+htmSp <- glmer(ResSpr ~ hhTenureSpPast + cbrmYN + RuleNo + cogSC1 + (1|Org) , family = binomial, data = td ) # hmmmm.... now Rules signif not cgrm....
+
+# this fails:
+#htmSpo <- glmer(ResSpr ~ ContractSpPast + cbrmYN + Rule + cogSC1 + (1|Org) , family = binomial, data = td ) # hmmmm.... now Rules signif not cgrm....
+
+htmSp.1 <- glmer(ResSpr ~ TenureSpPast + cbrmYN + RuleNo + cogSC1 + (1|Org) , family = binomial, data = td ) # hmmmm.... now Rules signif not cgrm....
+
+summary(htmSp)
+summary(htmSp.1)
+```
+
+
 
 
 #TENURE + CBRM
@@ -258,22 +299,54 @@ Exploring this relationship
 As of 17 Sept this only includes the Tenure on Winter Pastures, and hasn't been fixed to use th enew variable name TenurePast
 ```{r}
 
-tm6 <- glmer(ResWint ~ Tenure + (1|ez), family = binomial,data = td)
-summary(tm6)
-tm7 <- glmer(ResWint ~ Tenure + cbrmYN + (1|ez) , family = binomial,data = td) 
-summary(tm7)
+t1 <- glmer(ResWint ~ hhTenureWPast + (1|ez), family = binomial,data = td)
+summary(t1)
+tc <- glmer(ResWint ~ hhTenureWPast + cbrmYN + (1|ez) , family = binomial,data = td) 
+summary(tc)
+
+t2c <- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + (1|ez), family = binomial,data = td)
+summary(t1)
 ```
 ###So, including CBRM Y/N significantly improves model... but adding type as a grouping doesn't....
 ```{r}
-tm8 <- glmer(ResWint ~ Tenure + cbrmYN + (1|ez) + (1|cbrmType), family = binomial, data = td)
+#tm8 <- glmer(ResWint ~ Tenure + cbrmYN + (1|ez) + (1|cbrmType), family = binomial, data = td)
 #tm9 <- glmer(ResWint ~ Tenure + cbrmYN + cbrmType + (1|ez) , family = binomial, data = td)
 anova(tm6, tm7, tm8)
 ```
 
 ###tm7 is signif imp over tm6....and we don't get improvement by adding cbrmType to this.....
 #Here are the coefficients for this model (reminder: random intercept model)#
+And some contingency tables..... 
 ```{r}
 coef(tm7)
+
+cbctable<- xtabs(~cbrmYN+ hhTenureWCamp, data= td) # should we use org level or hh level data for this Q?
+cbptable<- xtabs(~cbrmYN+ hhTenureWPast, data= td) # should we use org level or hh level data for this Q?
+
+ftable(cbctable)
+summary(cbctable)
+
+ftable(cbptable)
+summary(cbptable)
+
+# recoding tenure to be no/yes to compare that....
+wcNY<- mutate(td, hhTenureWCamp = case_when(ContractWCamp == 0|ContractWCamp == 3 | ContractWCamp == 4 ~ 0,   # No contract
+                                       ContractWCamp == 1 | ContractWCamp == 2 ~ 1,   # Yes contract, either use or possession
+                                       TRUE ~ NA_real_))                                 # else NA
+#td %<>% mutate_at(14, funs(ordered(.)))
+wpYN<- mutate(td, hhTenureWPast = case_when(ContractWPast == 0|ContractWPast == 3 | ContractWPast == 4 ~ 0,   # No contract
+                                       ContractWPast == 1 | ContractWPast == 2 ~ 1,   # Yes  contract
+                                       TRUE ~ NA_real_)) 
+
+cbctable2<- xtabs(~cbrmYN+ hhTenureWCamp, data= wcNY) # should we use org level or hh level data for this Q?
+cbptable2<- xtabs(~cbrmYN+ hhTenureWPast, data= wpYN) # should we use org level or hh level data for this Q?
+
+ftable(cbctable2)
+summary(cbctable2)
+
+ftable(cbptable2)
+summary(cbptable2)
+
 ```
 
 What if we swap cbrmType for cbrmYN in tm7?
@@ -285,7 +358,7 @@ anova(tm7, tm10)
 
 # CBRM x RULES
 Should we also look at the relationship between Practices, Rules and CBRM outside of Tenure?
-... again rules are not signif, and nothign is unless you add is cbrmtn then that is signif
+... again rules are not signif, and nothign is unless you add in cbrmtn then that is signif
 ```{r}
 # RULE + CBRM ?
 tm11 <- glmer(ResWint ~ Rule +  cbrmYN + (1|ez) + (1|cbrmType), family = binomial,data = td)
@@ -293,10 +366,10 @@ summary(tm11)
 ```
 
 # SOCIAL CAPITAL & RULES ...
-Given what we see above wrt the (weak) relationship between (this particular set of) Rules and (this one) Practice, does this mean for our hypothesizes relationships between Social Capital and the prevalance of Informal vs. Formal Rules? 
+Given what we see above wrt the (weak) relationship between (this particular set of) Rules and (this one) Practice, does this mean for our hypothesized relationships between Social Capital and the prevalance of Informal vs. Formal Rules? 
 **Original Hypothesis:**
   Increased cognitive social capital will lead to more prevalence of *informal* rules [within certain ecological zones]
-  Rules ~ SC + ez
+  Rules ~ Social Capital + ecological zone
 ### SC1 
 ```{r, message = FALSE, warning= FALSE}
 library(MASS)
@@ -320,9 +393,7 @@ anova(scm1, sc2m1) # Social capital index 1 performs better
 Social capital index 1 performs better but is very similar, so maybe depends on which will be easier to interpret
 
 
-# RSV SPRING PASTURES 
-New outcome variable : Reserve Spring Pastures
-Do we see similar relationships with potential explanatory variables?
+
 
 ```{r}
 # what other vars do we need to add to the dataframe? 
@@ -331,4 +402,61 @@ sm1 <- glmer(ResSpr ~ TenureSpPast + cbrmYN + (1|ez), family = binomial,data = t
 
 
 ```
+
+
+Plotting the fixed and random effects 
+library(devtools)
+devtools::install_github("strengejacke/sjPlot")
+package "effects" not found??
+Per sjPlot doc: "the marginal R-squared considers only the variance of the fixed effects, while the conditional R-squared takes both the fixed and random effects into account.
+```{r}
+#
+sp.plots<- tab_model(htmSp, htmSp.1)
+sp.plots
+```
+
+Plotting model results, inc residual fits:
+```{r}
+plot(htm6)
+plot(htm6, type = c("p", "smooth") , id = 0.05) # id outliers
+plot(htm6, sqrt(abs(resid(.))) ~ fitted(.), type=c('p', 'smooth'))
+plot(htm6, resid(.) ~ fitted(.), abline=c(h = 0),  lty = 1,  type = c("p", "smooth")) #
+
+
+```
+http://ddar.datavis.ca/pages/extra/titanic-glm-ex.pdf
+
+
+td by ez
+```{r}
+mfs <- td %>% filter(ez == 4)
+ds  <- td %>% filter(ez == 1)
+st  <- td %>% filter(ez == 2)
+
+```
+Now separate models for each ez
+```{r}
+mt.null <-  glm( ResWint ~ 1, data=mfs, family=binomial)
+ds.null <-  glm( ResWint ~ 1, data=ds, family=binomial)
+st.null <-  glm( ResWint ~ 1, data=st, family=binomial)
+
+  # this model will not converge unless all of these parameters are included??
+mtm <- glmer(ResWint ~ TenureWPast + Rule + cbrmYN + cogSC1 + (1|Org) , data = mfs, family = "binomial")
+mtm <- glmer(ResWint ~  hhTenureWCamp+ RuleNo + cbrmYN + cogSC1 + (1|Org) , data = mfs, family = "binomial")
+
+dsm <- glmer(ResWint ~ TenureWPast + Rule + cbrmYN + cogSC1 + (1|Org), data = ds, family = "binomial")
+stm <- glmer(ResWint ~ TenureWPast + Rule + cbrmYN + cogSC1 , data = st, family = "binomial")
+
+anova(mt.null, mtm)
+anova(ds.null, dsm)
+anova(st.null, stm)
+
+mtm <- glm(ResWint ~ TenureWPast + Rule + cbrmYN + cogSC1 , data = mfs, family = "binomial")
+dsm <- glm(ResWint ~ TenureWPast + Rule + cbrmYN + cogSC1 , data = ds, family = "binomial")
+
+
+```
+
+
+
 
