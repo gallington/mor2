@@ -162,6 +162,10 @@ td <- mutate(td, RuleFormal = case_when(Rule == 2 ~ 1,   # Formal rules = 1
 td %<>% mutate_at(c(20:22), funs(factor(.)))
 ```
 
+Another subset of the df that accounts for removal of NAs, so can compare across:
+```{r}
+td.sc <- td %>% drop_na(cogSC1)
+```
 
 
 
@@ -222,7 +226,7 @@ anova(tmn, tm9, tm9.1, tm9.3)
 anova(tm9, tm9.1, tm9.3)
 ```
 
-
+[Note from Jan 10: not using Org-level param anymore and cbrm not signif when consider hh-level param]
 ## Tenure on Winter Campsite:
 **Q for MFG: There isn't a direct parallel Rules Q, but perhaps the timing Q still applies here?**
 The best model from above was:
@@ -254,7 +258,7 @@ The best model from above is:
 cm6 <- glmer(ResWint ~ TenureWPast + TenureWCamp + cbrmYN + (1|ez), family = binomial,data = td)
 # wait now that i've adjusted TenureWPast now Rules are more signif than cbrm?? Gah!
 And things don't improve if we add in Rule formality.
-
+[NOTE: Ported some of the above to down below to examine these nested models, but with Org as random intercept not ex, as other analyses showed that's better.]
 
 
 # Checking model assumptions, just to be safe
@@ -277,6 +281,8 @@ New outcome variable : Reserve Spring Pastures
 Do we see similar relationships with potential explanatory variables?
 
 This only works when we use the dummary variable version of the Rules var: RuleNo
+
+[as of Jan 10 these are out of date:]
 ```{r}
  ## Sp Pasture
   # hhSpTenure, Rules, cbrm & SC
@@ -285,10 +291,10 @@ htmSp <- glmer(ResSpr ~ hhTenureSpPast + cbrmYN + RuleNo + cogSC1 + (1|Org) , fa
 # this fails:
 #htmSpo <- glmer(ResSpr ~ ContractSpPast + cbrmYN + Rule + cogSC1 + (1|Org) , family = binomial, data = td ) # hmmmm.... now Rules signif not cgrm....
 
-htmSp.1 <- glmer(ResSpr ~ TenureSpPast + cbrmYN + RuleNo + cogSC1 + (1|Org) , family = binomial, data = td ) # hmmmm.... now Rules signif not cgrm....
+#htmSp.1 <- glmer(ResSpr ~ TenureSpPast + cbrmYN + RuleNo + cogSC1 + (1|Org) , family = binomial, data = td ) # hmmmm.... now Rules signif not cgrm....
 
 summary(htmSp)
-summary(htmSp.1)
+#summary(htmSp.1)
 ```
 
 
@@ -304,10 +310,16 @@ summary(t1)
 tc <- glmer(ResWint ~ hhTenureWPast + cbrmYN + (1|ez) , family = binomial,data = td) 
 summary(tc)
 
-t2c <- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + (1|ez), family = binomial,data = td)
-summary(t1)
+t2  <- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + (1|ez), family = binomial,data = td)
+summary(t2 )
+
+t2c <- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + cbrmYN+ (1|ez), family = binomial,data = td)
+summary(t2c)
+
+tr <- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + cbrmYN+ Rule + (1|ez), family = binomial,data = td)
+summary(tr)
 ```
-###So, including CBRM Y/N significantly improves model... but adding type as a grouping doesn't....
+###So, including CBRM Y/N significantly improves model... but adding type as a grouping doesn't.... and once you add Rule cbrm is no longer signif---prob bc the Rule param is cor?
 ```{r}
 #tm8 <- glmer(ResWint ~ Tenure + cbrmYN + (1|ez) + (1|cbrmType), family = binomial, data = td)
 #tm9 <- glmer(ResWint ~ Tenure + cbrmYN + cbrmType + (1|ez) , family = binomial, data = td)
@@ -409,11 +421,6 @@ library(devtools)
 devtools::install_github("strengejacke/sjPlot")
 package "effects" not found??
 Per sjPlot doc: "the marginal R-squared considers only the variance of the fixed effects, while the conditional R-squared takes both the fixed and random effects into account.
-```{r}
-#
-sp.plots<- tab_model(htmSp, htmSp.1)
-sp.plots
-```
 
 Plotting model results, inc residual fits:
 ```{r}
@@ -441,11 +448,21 @@ ds.null <-  glm( ResWint ~ 1, data=ds, family=binomial)
 st.null <-  glm( ResWint ~ 1, data=st, family=binomial)
 
   # this model will not converge unless all of these parameters are included??
-mtm <- glmer(ResWint ~ TenureWPast + Rule + cbrmYN + cogSC1 + (1|Org) , data = mfs, family = "binomial")
-mtm <- glmer(ResWint ~  hhTenureWCamp+ RuleNo + cbrmYN + cogSC1 + (1|Org) , data = mfs, family = "binomial")
+#mtm <- glmer(ResWint ~ TenureWPast + Rule + cbrmYN + cogSC1 + (1|Org) , data = mfs, family = "binomial")
 
-dsm <- glmer(ResWint ~ TenureWPast + Rule + cbrmYN + cogSC1 + (1|Org), data = ds, family = "binomial")
-stm <- glmer(ResWint ~ TenureWPast + Rule + cbrmYN + cogSC1 , data = st, family = "binomial")
+
+mtmp <- glm(ResWint ~  hhTenureWPast+  Rule + cbrmYN + cogSC1 , data = mfs, family = "binomial")
+mtmc <- glm(ResWint ~  hhTenureWCamp+  Rule + cbrmYN + cogSC1 , data = mfs, family = "binomial")
+mtm <- glm(ResWint ~  hhTenureWPast+ hhTenureWCamp+  Rule + cbrmYN + cogSC1 , data = mfs, family = "binomial")
+
+
+dsmp <- glm(ResWint ~ hhTenureWPast + Rule + cbrmYN + cogSC1 , data = ds, family = "binomial")
+dsmc <- glm(ResWint ~ hhTenureWCamp + Rule + cbrmYN + cogSC1 , data = ds, family = "binomial")
+
+
+stmp <- glm(ResWint ~ hhTenureWPast + Rule + cbrmYN + cogSC1 , data = st, family = "binomial")
+
+stmc <- glm(ResWint ~ hhTenureWCamp + Rule + cbrmYN + cogSC1 , data = st, family = "binomial")
 
 anova(mt.null, mtm)
 anova(ds.null, dsm)
@@ -458,5 +475,141 @@ dsm <- glm(ResWint ~ TenureWPast + Rule + cbrmYN + cogSC1 , data = ds, family = 
 ```
 
 
+Jan 8  insert: 
+  Playing around w RuleNo dummary var vs. ordinal Rule and Org vs. ez random intercepts...
+  original:
+```{r}
+htm5a <- glm(ResWint ~ hhTenureWPast + cbrmYN + RuleNo + cogSC1 , 
+              family = binomial, data = td )
+htm5 <- glmer(ResWint ~ hhTenureWPast + cbrmYN + RuleNo + cogSC1 + (1|Org), 
+              family = binomial, data = td )
+htm5.1 <- glmer(ResWint ~ hhTenureWPast + cbrmYN + Rule + cogSC1 + (1|Org), 
+              family = binomial, data = td )
+htm5.3 <- glmer(ResWint ~ hhTenureWPast + cbrmYN + RuleNo + cogSC1 + (1|ez), 
+              family = binomial, data = td )
+htm5.4 <- glmer(ResWint ~ hhTenureWPast + cbrmYN + Rule + cogSC1 + (1|ez), 
+              family = binomial, data = td )
+# none of my attempts to include random slopes (or intercepts) for ecological zone seem to be working...
+htm5is <- glmer(ResWint ~ hhTenureWPast + Rule + cogSC1 + (1|Org) + (1 + Rule|ez), 
+              family = binomial, data = td )
+
+htm5b <- glmer(ResWint ~ hhTenureWPast +  RuleNo + cogSC1 + (1|Org), family = binomial, data = td )
+
+tab_model(htm5, htm5.1, htm5.3, htm5.4)
+```
+htm5 and htm5.1 are best, but htm5 with the dummary var for Rules continues to perform the best.
+
+RE-EXAMINING NESTED MODELS, based on what we've learned in other analyses:
+```{r, message = FALSE, warning= FALSE}
+  # pasture
+cm1 <- glmer(ResWint ~ hhTenureWPast + (1|Org), family = binomial,data = td.sc)
+cm2 <- glmer(ResWint ~ hhTenureWPast + cbrmYN+ (1|Org) , family = binomial,data = td.sc) # better
+cm3 <- glmer(ResWint ~ hhTenureWPast + Rule + (1|Org), family = binomial,data = td.sc) # not better
+cm4 <- glmer(ResWint ~ hhTenureWPast + cogSC1 + (1|Org), family = binomial,data = td.sc) # better
+cm5 <- glmer(ResWint ~ hhTenureWPast + Rule + cogSC1 + (1|Org), family = binomial,data = td.sc) #BEST
+cm6 <- glmer(ResWint ~ hhTenureWPast + Rule + cbrmYN +cogSC1 + (1|Org), family = binomial,data = td.sc)  
+cm7 <- glmer(ResWint ~ hhTenureWPast + cbrmYN +cogSC1 + (1|Org), family = binomial,data = td.sc) #
+```
+
+# to look at the effect of rules by ecological zone
+```{r}
+  # 
+mtez<- glmer(ResWint ~ hhTenureWPast + (1|ez), family = binomial,data = td) 
+  # THIS YIELDS DIFF COEFFICIENTS FOR RULES BY EZ IN ADDITION TO DIFF INTERCEPTS BY EZ:
+mtrez<- glmer(ResWint ~ hhTenureWPast + (1 + Rule|ez), family = binomial,data = td) 
+
+coefficients(cmez)
+```
+
+--------code below here RETIRED:##---
+
+cm4 <- glmer(ResWint ~ hhTenureWPast + cbrmYN + (1|Org) + (1 + Rule|ez), family = binomial,data = td) # nope
+
+  # camp
+cm1 <- glmer(ResWint ~ hhTenureWCamp + (1|Org), family = binomial,data = td)
+cm2 <- glmer(ResWint ~ hhTenureWCamp + cbrmYN+ (1|Org) , family = binomial,data = td) # BEST
+cm3 <- glmer(ResWint ~ hhTenureWCamp + Rule + (1|Org), family = binomial,data = td)
+cm3 <- glmer(ResWint ~ hhTenureWCamp + Rule + (1|Org), family = binomial,data = td)
+cm4 <- glmer(ResWint ~ hhTenureWCamp + cbrmYN + (1 + Rule|ez), family = binomial,data = td) #nope
+cm4 <- glmer(ResWint ~ hhTenureWCamp + cbrmYN + (1|Org) + (1 + Rule|ez), family = binomial,data = td) # nope
+  # add tenure on pastures AND winter camp in one model: 
+cm4 <- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + (1|ez), family = binomial,data = td)
+  #  if check the chi sq on cm4 it is better than null, but not great
+  #  1-pchisq(851.65-838.91, 617-614)
+cm5 <- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + Rule + (1|ez), family = binomial,data = td)
+cm6 <- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + cbrmYN + (1|ez), family = binomial,data = td)
+cm7 <- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + Rule + cbrmYN + (1|ez), family = binomial,data = td)
+
+# including random slopes : 
+cm8 <- glmer(ResWint ~ TenureWPast + hhTenureWCamp  + (1+ Rule|ez) + (1 + cbrmYN|ez), family = binomial,data = td)
+
+cm9 <- glmer(ResWint ~ TenureWPast + hhTenureWCamp + Rule + cbrmYN + (1+ Rule|ez) + (1 + cbrmYN|ez), family = binomial,data = td)
+[old code above]
 
 
+---Jan 10:
+stepwise:Can only do this with model without random intercepts included, but generally the same message if we compare these manually
+```{r}
+fullmod <- glm(ResWint ~ hhTenureWCamp+hhTenureWPast +  Rule + RuleNo+ cbrmYN +cogSC1 , family = binomial,data = td.sc)  
+
+backward <- step(fullmod)
+summary(backward) #gives the best model
+```
+
+
+
+# So now to figure out how to get the coeffs of the best model by EZ: 
+
+Get a "singular fit" warning if try to specify random effect by ez with the full model. This means it yields a single intercept value, rather than varying. But only if use WCamp or cogSC1. Which seems to indicate that ONLY WPasture & Rules interact w ez? But even still, in this formulation there is only a variable intercept specified. The coefficients for Rules or WPast don't vary. Does this indicate that we need to be specifying that the Rules and/or WPasture shoudl vary by ez? 
+```{r}
+# let's use this as an example:
+cm5 <- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + Rule + cogSC1 + (1|Org), family = binomial,data = td.sc) #BEST
+summary(cm5)
+  # this yields singular fit
+#cm5 <- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + Rule + cogSC1 + (1|ez), family = binomial,data = td.sc) #BEST
+
+cm5ez <- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + Rule + cogSC1 + (1|Org) +  (1|ez) , family = binomial, data = td.sc)
+  # this has variable intercept by ez but coeff of Rules is the same.
+mtez<- glmer(ResWint ~ Rule + (1|ez), family = binomial,data = td) 
+coefficients(mtez)
+```
+
+
+```{r}  
+# singular fit warning, but does yield diff coefficients for Rules by ez....
+mtez<- glmer(ResWint ~ Rule + (1+ Rule|ez), family = binomial,data = td) 
+coef(mtez)
+# but this yields a singular fit warning and yields same coeffs for intercept and all params. wtf.
+mtez<- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp+ Rule + (1+ Rule|ez), family = binomial,data = td) 
+coef(mtez)
+  
+  #  But now THIS yields diff intercepts AND diff coeffs for Rules by ez.
+mtez<- glmer(ResWint ~ hhTenureWPast + Rule + (1+ Rule|ez), family = binomial,data = td) 
+coef(mtez)
+
+  # this will not converge:  
+mtez<- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + (1+ Rule|ez), family = binomial,data = td) 
+
+```
+
+Generate a likelihood summary table:
+```{r}
+vcdExtra::LRstats(glmlist(titanic.glm1, titanic.glm2, titanic.glm3))
+```
+
+It can be useful to look at the distribution of the conditional models
+```{r}
+lattice::dotplot(ranef(htm7, which = "Org", condVar = TRUE), scales = list(y = list(alternating = 0)))
+```
+
+```{r}
+lattice::dotplot(ranef(bestSp, which = "Org", condVar = TRUE), scales = list(y = list(alternating = 0)))
+```
+
+```{r}
+
+popmod<- glm(ResWint ~ hhTenureWPast +hhTenureWCamp + Rule + cogSC1 + pop , family = binomial, data = td.a) 
+
+back<- step(popmod)
+
+```
