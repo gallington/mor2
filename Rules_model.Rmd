@@ -613,3 +613,42 @@ popmod<- glm(ResWint ~ hhTenureWPast +hhTenureWCamp + Rule + cogSC1 + pop , fami
 back<- step(popmod)
 
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Pseudor^2  Can't use this function w glmer object so removing random effects.
+Get really low values, e.g. Nagelkirk is 0.094, when want the val to be at least .15 for a medium effect size....
+But, not sure about using these for mixed effects models anyway.
+```{r}
+htm7.0<- glm(ResWint ~ hhTenureWPast + hhTenureWCamp + Rule + cogSC1  , family = binomial, data = td)
+summary(htm7.0)
+PseudoR2(htm7.0)
+```

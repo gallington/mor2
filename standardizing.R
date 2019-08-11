@@ -129,8 +129,35 @@ rpe.ar<- arrange(rpe, ez)
 rpejoin <- left_join(rpe, fstan[,6:7], by= "RefNum") %>% 
   left_join(gstan[,6:7], by= "RefNum") %>%
   left_join(bstan[,6:7], by= "RefNum") %>%
-  left_join(lstan[,6:7], by= "RefNum")
+  left_join(lstan[,6:7], by= "RefNum") %>%
+  left_join(oail, by = "RefNum") %>%
+  left_join(hhcont, by = "RefNum") %>%
+  left_join(hhrts, by = "RefNum") %>%
+  left_join(hhtrends, by = "RefNum")
 
+#rpejoin %<>% mutate_at(32:33, funs(factor(.)))
+factors<- c(1,3:6,10:16)
+rpejoin %<>% mutate_at(factors, funs(factor(.)))
+
+
+
+  
+##############  
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+  
+  
+  
 
 
 
@@ -179,119 +206,12 @@ rpe.new<- select(rpejoin, one_of(c("r1", "r2", "ez", "pl", "p2s", "p3s", "p4","p
 
 
 # 
-df<-as.data.frame(lapply(c("p4","p5", "p6", "p7","p8", "p9", "p10"), function(x) factor(rpe.new[[x]])))
-names(df)<- c("p4","p5", "p6", "p7","p8", "p9", "p10")
-
-for (i in 1:length(names(df))) {
-  rpe.new[[names(df)[i]]] <- df[[i]]
-}
 
 rpe.new$r1<- ordered(rpe.new$r1,  labels= c("None", "Informal", "Formal"))
-rpe.new$ez<- ordered(rpe.new$ez, labels = c("Desert Steppe", "Steppe","Eastern Steppe", "FstMtn Steppe"))
+rpejoin$ez<- ordered(rpejoin$ez, labels = c("Desert Steppe", "Steppe","Eastern Steppe", "FstMtn Steppe"))
 
 
 olu<- as.factor(mor2$q24_OtherLandUsers)
 oail<- as.factor(mor2$AnotherAilLSOnPast)
 rpetr<- cbind(rpe.new, olu, oail)
 
-
-
-# go through them systematically..... to explore ... 
-
-scatterplotMatrix(
-  #formula = ~ p4 + p5 + p6 +p7 + gs + fs + bare.inv + ls |r1,
-  #formula = ~ p4  + gs + fs + bare.inv + ls |r1,
-  #formula = ~   p5  + gs + fs + bare.inv + ls |r1,
-  formula = ~  p6   + gs + fs + bare.inv + ls |r1,
-  #formula = ~  p7 + gs + fs + bare.inv + ls |r1,
-  data = rpe.new,
-  diagonal = "density",
-  by.groups = TRUE)
-
-
-ggplot(rpe.r1, aes(x= pl, y= gs, color = r1))+
-  #geom_smooth(model=lm)+
-  #geom_density2d()+
-  geom_point() +
-  labs(x= "Total 2010 SFU", y="Perr grass cover")
-
-# plot 2: Density plot with transparency (using the alpha argument):
-ggplot(data=rpe.r1,aes(x=r1, group=p6, fill=p6)) + 
-  geom_density(adjust=1.5 , alpha=0.2)
-# plot 3: Stacked density plot:
-ggplot(data=rpe.r1,aes(x=r1, group=p6, fill=p6)) + 
-  geom_density(adjust=1.5, position="fill")
-
-
-ggplot(rpe.r1, aes(x= p2s, y= gs, color = r1))+
-  geom_smooth(model=lm)+
-  labs(x= " Avg Distance 2010", y="Perr grass cover")
-
-
-ggplot(rpe.r1, aes(x= p3s, y= gs, color = r1))+
-  geom_smooth(model=lm)+
-  labs(x= " Total Distance 2010", y="Perr grass cover")
-
-
-ggplot(rpe.r1, aes(x= r1, y= gs, color = p4))+
-  geom_boxplot()+
-  labs(x= "Rules on Timing of Grazing? (No/Informal/Formal)", 
-       y="Perr grass cover",
-       title = "Fall Otor")
-ggplot(rpe.r1, aes(x= r1, y= gs, color = p5))+
-  geom_boxplot()+
-  labs(x= "Rules on Timing of Grazing? (No/Informal/Formal)", 
-       y="Perr grass cover",
-       title = "Winter Otor")
-ggplot(rpe.r1, aes(x= r1, y= gs, color = p6))+
-  geom_boxplot()+  
-  labs(x= "Rules on Timing of Grazing?  (No/Informal/Formal)", 
-       y="Perr grass cover",
-       title = "Reserving Winter Pastures")
-
-
-ggplot(rpe.r1, aes(x= r1, y= gs, color = p7))+
-  geom_boxplot()+ 
-  labs(x= "Rules on Timing of Grazing?  (No/Informal/Formal)", 
-       y="Perr grass cover",
-       title = "Reserving Spring Pastures")
-ggplot(rpe.r1, aes(x= r1, y= gs, color = p8))+
-  geom_boxplot()+
-  labs(x= "Rules on Timing of Grazing?  (No/Informal/Formal)", 
-       y="Perr grass cover",
-       title = "Reserve Dzud Pasture")
-
-ggplot(rpe.r1, aes(x= r1, y= gs, color = p9))+
-  geom_boxplot()+
-  labs(x= "Rules on Timing of Grazing?  (No/Informal/Formal)", 
-       y="Perr grass cover",
-       title = "Graze Winter Pastures in Summer/Fall")
-
-ggplot(rpe.sub, aes(x= r1, y= gs, color = p10))+
-  geom_boxplot()+
-  labs(x= "Rules on Timing of Grazing?  (No/Informal/Formal)", 
-       y="Perr grass cover",
-       title = "Grazing Dzud Reserves in Non-Emergency")
-
-
-
-# plot 2: Density plot with transparency (using the alpha argument):
-ggplot(data=rpe.r1,aes(x=pl, group=ez, fill=ez)) + 
-  geom_density(adjust=1.5 , alpha=0.2)+
-  labs(x="Total 2010 SFU", 
-       title = "Distribution of herd size across ecological zones")+
-  scale_fill_discrete(name = "Ecol Zone",
-                      labels = c("Desert Steppe", "Steppe", "Eastern Steppe", "Forest/Mtn Steppe"))
-
-ecol.sum <- rpe.r1 %>% group_by(ez) %>% summarise(sum = sum(pl))
-
-ggplot(data=rpe.r1,aes(x=r1, group=ez, fill=ez)) + 
-  geom_density(adjust=1.5 , alpha=0.2)+
-  labs(x="Total 2010 SFU", 
-       title = "Distribution of rules about timing of grazing\n across ecological zones (None/Informal/Formal")+
-  scale_fill_discrete(name = "Ecol Zone",
-                      labels = c("Desert Steppe", "Steppe", "Eastern Steppe", "Forest/Mtn Steppe"))
-
-
-# also run w data subset by group?
-rpe.r1 <- filter(rpe.new, !is.na(r1))  # removed row that have NA in r1
