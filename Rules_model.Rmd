@@ -1,3 +1,5 @@
+KEEP THIS - it contains all of the models we considered.
+
 ---
 title: "Tenure, Rules and Practices..."
 output:
@@ -20,7 +22,11 @@ library(knitr)
 library(summarytools)
 library(lme4)
 ```
-# NEXT UP : making dummy vars for use and contract vars.
+9 Sept 2019:
+NOTE: This is the full script with documentation of all of the candidate models that we explored. The best fit models were carried over to RuleModelsReport.Rmd in order to write up a summary for MFG. 
+
+
+# [OLD, but keeping in case need to remember I thought of this as a thing to explore:] NEXT UP : making dummy vars for use and contract vars.
 
 
 ## SO WHAT DO WE HAVE SO FAR?
