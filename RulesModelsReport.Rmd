@@ -15,10 +15,11 @@ output:
 <Sept 9 2019>
 
 TO DO:
--save all of the data import and wrangling to a separate script and export to an rdata file that we call back in here. 
+- Set some global viz params to use for plots below.
+-[Done 9-10-19]save all of the data import and wrangling to a separate script and export to an rdata file that we call back in here. 
 
 
-```{r setup, echo = FALSE, message = FALSE, include = FALSE, warning= FALSE}
+```{r setup, echo = FALSE, message = FALSE, include = FALSE, warning= FALSE, cache= TRUE}
 library(haven)  # this is the new package to use instead of (foreign)
 #library(corrplot)
 library(magrittr)
@@ -27,7 +28,7 @@ library(dplyr)
 library(ggplot2)
 library(readxl)
 library(knitr)
-#library(summarytools)
+library(summarytools)
 library(lme4)
 library(sjPlot)
 library(stringr)
@@ -35,211 +36,163 @@ library(kableExtra)
 library(qwraps2)
 
 options(scipen = 999)
+
+
+# This is pulled from teh vignette for the summarytools pkg, which gives
+# these suggested specifications to enable easy viewing of outputs:
+# https://cran.r-project.org/web/packages/summarytools/vignettes/Introduction.html
+
+opts_chunk$set(results = 'asis',      # This is essential (can also be set #at the chunk-level)
+                comment = NA, 
+                prompt = FALSE, 
+                cache = FALSE, # additional global settings I want to have for this doc:
+                message = FALSE,
+                warning = FALSE)
+
+st_options(plain.ascii = FALSE,        # This is very handy in all Rmd documents
+            style = "rmarkdown",        # This too
+            footnote = NA,             # Avoids footnotes which would clutter the results
+            subtitle.emphasis = FALSE  # This is a setting to experiment with - according tothe theme used, it might improve the headings layout
+           )   
+
+```
+
+```{r, echo=FALSE}
+# this setting also also suggested from summarytools vignette:
+st_css()                              # This is a must; without it, expect odd layout,
+                                      # especially with dfSummary()
 ```
 
 
----- Data prep: (hidden in report view)    
+---- Data prep now located in 1_RTM-datapull.R: (hidden in report view)    
 < not including Use params in the dataframe called td now >
-Everything is straight factors, num or chr except for Rules which is ordered.
+That script does the following:
+1. Everything is straight factors, num or chr except for Rules which is ordered.
+2. Recodes household-level tenure vars:  
+3. Per discussion on Jan 7 2018, have condensed use & possession responses in to one category. 
+4. Adds dummy Vars for Rules : [this is only useful for a few of the models]
+5. Creates a subset of the df that removes all records w/ NAs in Social capital
 
-```{r, warning= FALSE, message = FALSE, echo = FALSE, results = "hide", cache=TRUE}
-# THIS IS THE FULL DATASET WITH ALL 700 hh
-  # the org level data are merged in to this as well. 
-mor2FULL<- read_sav("./data/Org_HHS_May2016_5_28_16.sav") #
-#mor2FULL <- mor2 
-
-# tidy format
-tbl_df(mor2FULL)
-
-
-  # subsetting the FULL (combined) dataset to a smaller df:
-td<- mor2FULL%>% dplyr::select(
-          #** Response Variables (Practices) ***
-                  ResWint = a_ResWint,  # Reserve Winter Pastures
-                  ResSpr = b_ResSpr,    # Reserve Spring Pastures
-          #** Predictor Variables *** 
-                  # Org-level Tenure q:
-                  TenureWPast = q02a_RightNatWintPast,   # Tenure Rights on Winter Pasture
-                                                         #(Inf/ use /possession contract) #But only 2 in Answ: Inf & Use 
-                  TenureSpPast =q02a_RightNatSpringPast, # Tenure rights on Spring Pasture
-                  # HH-level Tenure q:
-                  #UseWPast = A_UsWtrPast,                # Have or use Winter Pasture 
-                                                          #  2/3 yes, 1/3 no
-                  #UseWCamp    = A_UsWtrCamp,             # Have or use a Winter Campsite
-                  #UseSpPast = A_UsSepSprPas,             # Have or use a sep Spring Pasture
-                  ContractSpPast = B_ContractSprPast,    # Use/Poss contract for Sp Pasture
-                  ContractWPast= B_ContractWtrPast,      # Use/poss contract for Wtr Pasture 
-                                                            #  most are no
-                  ContractWCamp = B_ContractWtrCamp,     # Use/Poss contract for Wtr Camp
-                  #ORG-level Rules q:
-                  Rule = q03_TimingRules3.3,       # Rule formality 
-          #** Cognitive Social Capital :          
-                    # see Ulambayar et al. (201?) for info on which Qs were used, how combined
-                  cogSC1 = CognSC,                 # Mean of scores for items included
-                                                      # scaled 0-2 
-                  cogSC2 = CognSC2,                # Sum of scores, 0-12
-                  #cogSCAgg = CognSC_Agg    # NOT SURE HOW THIS WAS CALC'D, range is 0.41 - 2
-          #** confounding vars / fixed & random effects :
-                  ez = Ecologicalzone_4,           # ez 
-                  Trsp = AnotherAilLSOnPast,       # trespassing
-                  cbrmType = CBRM_type,            # CBRM Type
-                  cbrmYN = CBRM_Y_N,               # CBRM Yes/No
-          
-                  RefNum = SurveyRefNumber,
-                  Org = ORG_CODE,
-                  Aimag = AIMAG_NAME,
-                  Soum = SOUM_NAME
-                  )
-td %<>% mutate_at(c(1:8,11:14), funs(factor(.)))
-#td %<>% mutate_at(c(8:10,14:17), funs(factor(.)))
-td %<>% mutate_at(c(8), funs(ordered(.)))
-# should we make TenurePast ordered also????
-#td %<>% mutate_at(c(9:10), funs(scale(.)))
-
-td<- mor2FULL%>% dplyr::select(
-          #** Response Variables (Practices) ***
-                  ResWint = a_ResWint,  # Reserve Winter Pastures
-                  ResSpr = b_ResSpr,    # Reserve Spring Pastures
-          #** Predictor Variables *** 
-                  # Org-level Tenure q:
-                  #TenureWPast = q02a_RightNatWintPast,   # Tenure Rights on Winter Pasture
-                                                         #(Inf/ use /possession contract) #But only 2 in Answ: Inf & Use 
-                  #TenureSpPast =q02a_RightNatSpringPast, # Tenure rights on Spring Pasture
-                  # HH-level Tenure q:
-                  #UseWPast = A_UsWtrPast,                # Have or use Winter Pasture 
-                                                          #  2/3 yes, 1/3 no
-                  #UseWCamp    = A_UsWtrCamp,             # Have or use a Winter Campsite
-                  #UseSpPast = A_UsSepSprPas,             # Have or use a sep Spring Pasture
-                  ContractSpPast = B_ContractSprPast,    # Use/Poss contract for Sp Pasture
-                  ContractSpCamp = B_ContractSprCamp, 
-                  ContractWPast= B_ContractWtrPast,      # Use/poss contract for Wtr Pasture 
-                                                            #  most are no
-                  ContractWCamp = B_ContractWtrCamp,     # Use/Poss contract for Wtr Camp
-                  #ORG-level Rules q:
-                  Rule = q03_TimingRules3.3,       # Rule formality 
-          #** Cognitive Social Capital :          
-                    # see Ulambayar et al. (201?) for info on which Qs were used, how combined
-                  cogSC1 = CognSC,                 # Mean of scores for items included
-                                                      # scaled 0-2 
-                  cogSC2 = CognSC2,                # Sum of scores, 0-12
-                  #cogSCAgg = CognSC_Agg    # NOT SURE HOW THIS WAS CALC'D, range is 0.41 - 2
-          #** confounding vars / fixed & random effects :
-                  ez = Ecologicalzone_4,           # ez 
-                  Trsp = AnotherAilLSOnPast,       # trespassing
-                  cbrmType = CBRM_type,            # CBRM Type
-                  cbrmYN = CBRM_Y_N,               # CBRM Yes/No
-          
-                  RefNum = SurveyRefNumber,
-                  Org = ORG_CODE,
-                  Aimag = AIMAG_NAME,
-                  Soum = SOUM_NAME
-                  )
-td %<>% mutate_at(c(1:6,10:13), funs(factor(.)))
-#td %<>% mutate_at(c(8:10,14:17), funs(factor(.)))
-td %<>% mutate_at(c(7), funs(ordered(.)))
-# should we make TenurePast ordered also????
-#td %<>% mutate_at(c(9:10), funs(scale(.)))
-
-```
-
-
----* Recode household-level tenure vars:  
-Per discussion on Jan 7 2018, have condensed use & possession responses in to one category. See previous versions in version control.
+# Load Rdata files 
 ```{r}
-  # Winter Pasture Tenure:
-td<- mutate(td, hhTenureWPast = case_when(ContractWPast == 0 ~ 0,   # No contract
-                                       ContractWPast == 1 ~ 1,   # Yes use contract
-                                       ContractWPast == 2 ~ 1,   # Yes possession contract
-                                       TRUE ~ NA_real_)) 
-  # Winter Camp Tenure:
-td<- mutate(td, hhTenureWCamp = case_when(ContractWCamp == 0 ~ 0,   # No contract
-                                       ContractWCamp == 1 ~ 1,   # Yes use contract
-                                       ContractWCamp == 2 ~ 1,   # Yes possession contract
-                                       TRUE ~ NA_real_))         # else NA
-
-  # Spring Pasture Tenure:
-td<- mutate(td, hhTenureSpPast = case_when(ContractSpPast == 0 ~ 0,   # No contract
-                                       ContractSpPast == 1 ~ 1,   # Yes use contract
-                                       ContractSpPast == 2 ~ 1,   # Yes possession contract
-                                       TRUE ~ NA_real_))         # else NA
-  # Spring Camp Tenure:
-td<- mutate(td, hhTenureSpCamp = case_when(ContractSpCamp == 0 ~ 0,   # No contract
-                                       ContractSpCamp == 1 ~ 1,   # Yes use contract
-                                       ContractSpCamp == 2 ~ 1,   # Yes possession contract
-                                       TRUE ~ NA_real_))         # else NA
-   
-  # order:
-#td %<>% mutate_at(20:21, funs(ordered(.)))
-td %<>% mutate_at(18:21, funs(factor(.)))
-
-```
-
---- Add dummy Vars for Rules : [this is only useful for a few of the models]
-
-```{r, echo = FALSE, results= "hide"}
-td <- mutate(td, RuleNo = case_when(Rule == 0 ~ 1,   # No rules = 1
-                                     Rule == 1 | Rule == 2 ~ 0,   # set others to zero
-                                     TRUE ~ NA_real_))            # else NA
-
-td <- mutate(td, RuleInf = case_when(Rule == 1 ~ 1,   # Informal rules = 1
-                                     Rule == 0 | Rule == 2 ~ 0,   # set others to zero
-                                    TRUE ~ NA_real_))            # else NA
-
-
-td <- mutate(td, RuleFormal = case_when(Rule == 2 ~ 1,   # Formal rules = 1
-                                     Rule == 0 | Rule == 1 ~ 0,   # set others to zero
-                                     TRUE ~ NA_real_))            # else NA
-
-td %<>% mutate_at(c(22:24), funs(factor(.)))
-```
-
----This creates a subset of the df that removes all records w/ NAs in Social capital, so can compare across:
-```{r}
-td.sc <- td %>% drop_na(cogSC1)
+load("./data/td.RData")
 ```
 
 
 # Data exploration and some basic cross-tabs:
-Can't figure out how to get it to create a nice looking output.
+
 
 ```{r, echo = FALSE, eval = FALSE}
+# Can't figure out how to get it to create a nice looking output.
+# need to add more to table specifications and also set labels
+
 library(qwraps2)
 options(qwraps2_markup = "markdown")
 sumdf<- dfSummary(td)
 sumdf
-print(dfSummary(td, plain.ascii = FALSE))
+
+view(dfSummary(td, plain.ascii = FALSE))
 sumdf<- td[c(1:2, 8:9, 11, 14, 16, 19:21)]
 summary_table(sumdf, )
 
-td %>%
+td %>%            # this needs to be adjusted, it's pulling the wrong vars:
   dplyr::select(c(1:2, 8:9, 11, 16, 19:21)) %>%
   summary_table(.)
+
+dfSummary(td, plain.ascii = FALSE, style = "grid", 
+          graph.magnif = 0.75, valid.col = FALSE, tmp.img.dir = "/tmp")
+
+```
+
+# Table of Variables for analysis
+```{r results = "asis"}
+#stargazer::stargazer(td, type = "html", title = "Table 1. Variables included in analysis")
+
+#knitr::kable(td, type = "html", title = "Table 1. Variables included in analysis")
 ```
 
 
 
 # Frequency Tables
-mytable <- xtabs(~A_UsWtrCamp+B_ContractWtrCamp, data=td)
-ftable(mytable) # print table 
-
 
 ```{r}
+# with this method we can compare across all three:
+# by creating a flat version of the contingency tables
 hh<- xtabs(~td$hhTenureWPast + td$hhTenureWCamp +ez , data = td)
-ftable(hh)
+ftable(hh) # %>% print(method= "render")
+
+library(MASS)
+loglm(~td$hhTenureWPast + td$hhTenureWCamp + ez, hh)
+
+
 ```
+
+
+#Cross tabs between tenure on the pastures and tenure on the camp and comparison across ecological zones.
+We created contingency tables and used Chi-Square tests of assocition(independence) to assess whether there is an association between the responses. 
+(Ho = the variables are independent/not associated with each other) 
+
+###My initial take: There is little correspondence between the tenure status on winter pastures and winter camps; there is not a similar pattern in response. 
+
+##The actual test result: (We can reject the null hypothesis that they are independent : Evidence suggests that there *is* an association between the tenure status on winter camps and winter pastures....Χ2 = 213.5572   df = 4   p = .0000)
+So, how do we actually interpret this?  Does this mean that they are not indepdendent and we shouldn't be considering them both in the model?
+
+###My inital take: There was not an even distribution of the tenure status on pastures across th eecological zones. Most households (68%) reported that they did not have formal use (or possession) agreements. Those that did were relatively evenly distributed across the ecological zones.In cntrast, the majority of respondents (64.4%) did have formal use agreements/contracts for their winter camp.
+
+##Actual test results: Evidence suggests that there *is* an association between ecological zone and tenure status? (PASTURE: Χ2 = 35.5196   df = 6   p = .0000) (CAMP: Χ2 = 65.2532   df = 6   p = .0000) Which is what we would expect/what we predicted.
+
+
+Why are we getting diff test stats w diff chisq methods? Need to figure out what's under the hood in the ctable test...
+bc it is also using diff df. So, I think I might need to just use the chisq.test() function.
+
 ```{r}
-summary(hh)
+#summary(hh)
+#freq(tobacco[ ,c("gender", "age.gr", "smoker")])
+
+# I think this function will only let you cross two at a time... 
+ctable(td$hhTenureWPast, td$hhTenureWCamp, chisq = TRUE, headings = FALSE) %>%
+  print( method = "render")
+
+# comparing stats w diff chisq methods:
+ctestab<-table(td$hhTenureWCamp, td$hhTenureWPast)
+print(chisq.test(ctestab))
+
+ctable(td$hhTenureWPast, td$ez, chisq = TRUE, headings = FALSE) %>%
+  print( method = "render")
+
+ctestab<-table(td$ez, td$hhTenureWPast)
+print(chisq.test(ctestab))
+
+ctable(td$hhTenureWCamp, td$ez, chisq = TRUE, headings = FALSE) %>%
+  print( method = "render")
+
+ctestab<-table(td$ez, td$hhTenureWCamp)
+print(chisq.test(ctestab))
+#chisq.test(ctestab, simulate.p.value = TRUE, B = 1000)
+
+```
+Cross tabs between Reserving Pasture and tenure status:
+
+
+NOTE: I get diff test stats for these comparisons when I run it w the built-it ctable chisq test versus using chisq.test().
+significance levels are approx the same but not exactly and the test stat values are diff.
+```{r}
+# ot<- xtabs(~ResWint + hhTenureWPast, data = td)
+# ftable(ot)
+# summary(ot)
+# ctable(td$ResWint, td$hhTenureWPast,  chisq = TRUE, headings = FALSE) %>%
+#   print( method = "render")
+
+
+ctestab<-table(td$ResWint, td$hhTenureWPast)
+print(chisq.test(ctestab, simulate.p.value = TRUE, B= 1000))
 ```
 
-ot<- xtabs(~ResWint + TenureWPast, data = td)
-ftable(ot)
-summary(ot)
+There was a significant association between Tenure on the winter pasture and whether or not a household reported that they reserve the pasture (Χ2 = 8.8199,  p = .0006). [if run w monte carlo sims then don't get a df param]
 
-rt<- xtabs(~ResWint + hhTenureWPast, data = td)
-ftable(rt)
-summary(rt)
 
-Relationship btwn social capital on prob of reserving pastures, given diff levels of Rule formality:
+
+Visualizations of the relationship btwn social capital and probability of reserving pastures, given diff levels of Rule formality:
  [TO DO: Settle on a plotting scheme for these plots....]
 ```{r}
 ggplot(td, aes(cogSC1, as.numeric(ResWint)-1, color=Rule)) +
@@ -270,40 +223,34 @@ td %>% filter(ez == c(1,2,4)) %>% ggplot(aes(cogSC2, as.numeric(Rule)-1, color=e
 ```
 
 ```{r}
-sr <- xtabs(~ cogSC1 + Rule + ez, data =td)
+#This isn't really all that helpful, since cogSC is continuous....
+sr <- xtabs(~ ResWint + Rule + ez, data =td)
 ftable(sr)
-```
----Rule formality by response to Reserving Pastures
-```{r}
-  # Winter Pasture
-ggplot(td, aes(x = Rule, y = ResWint)) +
-  stat_sum(aes(size = ..n.., group = 1)) +
-  scale_size_area(max_size=10)
 
+#freq(td[,c("ResWint", "Rule", "ez")], style = "rmarkdown")
 ```
 
-```{r}
-  # Spring Pasture
-ggplot(td, aes(x = Rule, y = ResSpr)) +
-  stat_sum(aes(size = ..n.., group = 1)) +
-  scale_size_area(max_size=10)
-
-```
 
 ```{r}
 rc <- xtabs(~ Rule + cbrmYN, data =td)
-ftable(rc)
-```
-```{r}
-rcez <- xtabs(~ Rule + cbrmYN +ez, data =td)
-ftable(rcez)
-```
+# ftable(rc)
+chisq.test(rc, simulate.p.value = TRUE, B = 1000)
 
+#ctable(td$Rule, td$cbrmYN, chisq= TRUE, headings = FALSE) %>%
+ # print(method = "render")
+
+
+```
+There is an association between Rule formality and whether or not a household is a member of a CBRM group.
 How correllated are Rule formality and cbrm status?  == these are rather correllated, so makes sense that not using both.
+[Except that for SPring both are important? but cbrm more in that case]
 ```{r, echo= FALSE}
 #Checking if two categorical variables are independent can be done with Chi-Squared test of independence.run the #chi-squared test and the resulting p-value here can be seen as a measure of correlation between these two variables.
 chisq.test(td$Rule, td$cbrmYN)
 ```
+
+
+
 
 # MODELS:
 
@@ -321,6 +268,8 @@ We assessed subsets of the independent/predictor variables via a stepwise method
 
 **2.1 Null Model ------ **
 Determining support for specifying random effect for Organization. 
+[I am now unclear why we went with Org rather than Soum (or both), as Soum performs better below.
+However, it may be because in the actual models everything worked better w Org not Soum]
 
 The estimate of the constant is the logit of the proportion Reserving Pastures:
 Testing null models w just the randon intercept specified, to see which of these accounts for the most var. 
@@ -336,14 +285,17 @@ nullw.re <-  glmer( ResWint ~ 1 + (1|ez), data=td, family=binomial) #worse
 nullw.rs <-  glmer( ResWint ~ 1 + (1|Soum), data=td, family=binomial) #better
 nullw.rso <-  glmer( ResWint ~ 1 + (1|Soum) + (1|Org), data=td, family=binomial)  #best, AIC = 934.4
 nullw.rsxo <-  glmer( ResWint ~ 1 + (Org|Soum), data=td, family=binomial)  
-anova(nullw, nullw.r, nullw.re, nullw.rs, nullw.rso, nullw.rsxo)
+#anova(nullw.r, nullw.re, nullw.rs, nullw.rso, nullw.rsxo)
+anova(nullw.r, nullw.rs, nullw.rso)
 
 nulls  <-  glm ( ResSpr ~ 1 , data = td, family = binomial)
-nulls.r <-  glmer( ResSpr ~ 1 + (1|Org), data = td, family = binomial) #better
+nulls.r <-  glmer( ResSpr ~ 1 + (1|Org), data = td, family = binomial) #better  AIC = 950
 nulls.re <-  glmer( ResSpr ~ 1 + (1|ez), data = td, family = binomial) #worse
-nulls.rs <-  glmer( ResSpr ~ 1 + (1|Soum), data = td, family = binomial) #better
-nulls.rso <-  glmer( ResSpr ~ 1 + (1|Soum)+ (1|Org), data = td, family = binomial)  #worse
-anova(nulls.r, nulls.re, nulls.rs, nulls.rso)
+nulls.rs <-  glmer( ResSpr ~ 1 + (1|Soum), data = td, family = binomial) #better  (best, AIC = 913)
+nulls.rso <-  glmer( ResSpr ~ 1 + (1|Soum)+ (1|Org), data = td, family = binomial)  # AIC = 915
+#anova(nulls.r, nulls.re, nulls.rs, nulls.rso)
+anova(nulls.r, nulls.rs, nulls.rso)
+
 ```
 
 
@@ -389,6 +341,7 @@ Various attempts at models w ecological zone included as either fixed or random 
 
 htm7 <- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + Rule +  cogSC1 +   (1|Org) , family = binomial, data = td.sc)
 summary(htm7)
+
 tab_model(htm7)
 ```
 ```{r}
@@ -476,13 +429,6 @@ ggplot(wDat, aes(fitted, color= hhTenureWPast)) + geom_density()
 ggplot(wDat, aes(fitted, color= hhTenureWCamp)) + geom_density() 
 ggplot(wDat, aes(fitted, color= ResWint)) + geom_density() 
 ```
-
-```{r}
-
-```
-
-
-
 
 
 ------# **Reserve Spring Pastures**  
@@ -598,10 +544,20 @@ fit.scm<- scm1$fitted.values
 colnames(fit.scm)<- c("None", "Informal", "Formal")
 scm.df<- data.frame(fit.scm, scm1$model)
 
+```
+
+Big improvement by including ez, as we predicted
+
 # returns predicted class membership, so look for the highest estimated probability in each zone.
+Edit this to create a table:
+```{r}
+# EZ = 1
 predict(ezm, newdata = data.frame(ez="1"),type="p") #0 = No rules, Inf next
+# EZ = 2
 predict(ezm, newdata = data.frame(ez="2"),type="p") #1 = Inf, formal next
+#EZ = 3
 predict(ezm, newdata = data.frame(ez="3"),type="p") #1 = Inf, then no, then formal
+#EZ = 4
 predict(ezm, newdata = data.frame(ez="4"),type="p") #1 = Inf, then formal next
 
 
@@ -609,10 +565,15 @@ predict(ezm, newdata = data.frame(ez="4"),type="p") #1 = Inf, then formal next
 exp(ezm$zeta - ezm$coefficients)/(1 + exp(ezm$zeta - ezm$coefficients))
 
 
-ggplot(scm.df, aes(x=)) 
+#ggplot(scm.df, aes(x=)) 
 ```
 
-Big improvement by including ez, as we predicted
+
+
+
+
+
+
 
 **Separating out the data by ecological zone** 
 to try to understand why having issues trying to incorporate ez:  
@@ -872,7 +833,7 @@ kable(mz.or, format = "markdown")
 # Create a new dataframe that includes population of people and livestock (as of now just aimag level #s, but woudl be interesting to look at soum level too)
 
 ```{r, eval = FALSE}
-pop<- read.csv("../data/2009Population.csv", header = TRUE)
+pop<- read.csv("./data/mor2data/2009Population.csv", header = TRUE)
 # human population in thousands
 # lsk population in thousands 
 
