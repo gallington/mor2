@@ -249,6 +249,37 @@ How correllated are Rule formality and cbrm status?  == these are rather correll
 chisq.test(td$Rule, td$cbrmYN)
 ```
 
+Plotting correlation matrices for model parameters:
+```{r}
+library(corrplot)
+library(car)
+library(ltm)
+library(lavaan)
+library(psych)
+library(semTools)
+library(polycor)
+
+# subset to remove extras:
+td.sub <- td[,c(7,10, 13, 17:21)]
+
+##################
+# CORRELATIONS #
+#################
+
+# use hetcor for heterogeneous correlations 
+# from polycor package
+corrplot(hetcor(td.sub)$cor, 
+         type = "lower", method = "number", 
+         number.cex = 0.7, diag = FALSE)
+corrplot(hetcor(td.sub)$cor, 
+         type = "lower", method = "pie", 
+         number.cex = 0.7, diag = FALSE)
+
+# test if correlation matrix diff from 0s with 1 on diagonal
+cortest.bartlett(hetcor(td.sub)$cor, n = nrow(td.sub)) 
+# this one isn't as bad
+
+```
 
 
 
@@ -266,7 +297,7 @@ We built {#} multilevel statistical models with different levels of complexity t
 where $y_i$ is the dependent variable measured at houhold $i$ in organization $j$. Model 1 was used as the baseline model to estimate the group-level variance in the dependent variable. We compared each model to an intercept-only model and models w random intercepts performed better in both instances.
 We assessed subsets of the independent/predictor variables via a stepwise method to explore the relative model fits across different combinations of predictors.
 
-**2.1 Null Model ------ **
+### 2.1 Null Model 
 Determining support for specifying random effect for Organization. 
 [I am now unclear why we went with Org rather than Soum (or both), as Soum performs better below.
 However, it may be because in the actual models everything worked better w Org not Soum]
@@ -306,7 +337,7 @@ summary(nulls.r )
 Ref: http://data.princeton.edu/wws509/R/c3s1.html  
 
 
-####2.2 Winter Pasture Tenure & Rule Formality
+###2.2 Winter Pasture Tenure & Rule Formality
 ** Household level tenure var:**
 This model uses the response from the Household-level survey regarding whether the hh has a Use or Possession contract for the Winter Pasture. Also incorporated the hh-level Q regarding tenure status on the Winter **CAMPSITE** as a predictor for these models as well.
 Compared  multiple models in original work (Rules_model.Rmd) with different combinations of Rule vars, cbrm status and Social Capital param. 
@@ -314,6 +345,8 @@ Compared  multiple models in original work (Rules_model.Rmd) with different comb
 Also, ended up specifying random intercept for Org when using the hh-level Tenure var.
 Is this signif bc there is Org-level influence on either a) what kind of tenure a hh woudl have and/or b) how much they actually know about their tenure-status?
 (note: much worse fit if include a random intercept for ez when using hh level tenure var. surprising that this doesn't vary?)
+
+Reserving Winter Pastures ~ Tenure + cbrm + Rules + SocCap + (1 | Org)
 
 *Now Rules are more significant than cbrm status.*
 
@@ -431,7 +464,7 @@ ggplot(wDat, aes(fitted, color= ResWint)) + geom_density()
 ```
 
 
-------# **Reserve Spring Pastures**  
+# 3. Reserve Spring Pastures**  
 
 Do we see similar relationships with potential explanatory variables?  
 nullSp<- glm( ResSpr ~1, data= td, family = binomial)  
