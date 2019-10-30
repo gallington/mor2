@@ -3,7 +3,6 @@ output:
   html_document: default
   pdf_document: default
 ---
-double check bc hhtenure wasnt set as factor in td
 
 ---
 title: "Rules & Tenure Models"
@@ -12,13 +11,12 @@ output:
     df_print: paged
   pdf_document: default
 ---
-<Sept 9 2019>
 
 TO DO:
+-figure out how to run MCMC for the pval estimations...
 - Set some global viz params to use for plots below.
--[Done 9-10-19]save all of the data import and wrangling to a separate script and export to an rdata file that we call back in here. 
--pull summary stats and cross-tabs to separate script.
-
+-[Done 19-9-10]save all of the data import and wrangling to a separate script and export to an rdata file that we call back in here. 
+-[Done 19-09-30]pull summary stats and cross-tabs to separate script.
 
 ```{r setup, echo = FALSE, message = FALSE, include = FALSE, warning= FALSE, cache= TRUE}
 library(haven)  # this is the new package to use instead of (foreign)
@@ -32,6 +30,7 @@ library(knitr)
 library(summarytools)
 library(lme4)
 library(sjPlot)
+library(sjmisc)
 library(stringr)
 library(kableExtra)
 library(qwraps2)
@@ -58,14 +57,16 @@ st_options(plain.ascii = FALSE,        # This is very handy in all Rmd documents
 
 ```
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, message=FALSE}
 # this setting also also suggested from summarytools vignette:
 st_css()                              # This is a must; without it, expect odd layout,
                                       # especially with dfSummary()
+
+theme_set(theme_sjplot())
 ```
 
 
----- Data prep now located in 1_RTM-datapull.R: (hidden in report view)    
+---- Data prep now located in 1_RTM-datapull.R: (hidden in report view)  
 < not including Use params in the dataframe called td now >
 That script does the following:
 1. Everything is straight factors, num or chr except for Rules which is ordered.
@@ -73,6 +74,11 @@ That script does the following:
 3. Per discussion on Jan 7 2018, have condensed use & possession responses in to one category. 
 4. Adds dummy Vars for Rules : [this is only useful for a few of the models]
 5. Creates a subset of the df that removes all records w/ NAs in Social capital
+
+---- Data exploration and cross tabs now located in 2_RTM_dataexplore.R
+ That script does the following:
+1. basic cross tabs and chisq tests for assoc btwn model params
+
 
 # Load Rdata files 
 ```{r}
@@ -94,10 +100,9 @@ We built {#} multilevel statistical models with different levels of complexity t
 where $y_i$ is the dependent variable measured at houhold $i$ in organization $j$. Model 1 was used as the baseline model to estimate the group-level variance in the dependent variable. We compared each model to an intercept-only model and models w random intercepts performed better in both instances.
 We assessed subsets of the independent/predictor variables via a stepwise method to explore the relative model fits across different combinations of predictors.
 
-### 2.1 Null Model 
+### 2.1 Null Model & random effects
 Determining support for specifying random effect for Organization. 
-[I am now unclear why we went with Org rather than Soum (or both), as Soum performs better below.
-However, it may be because in the actual models everything worked better w Org not Soum]
+[We are going w Org, not Soum bc we have a hypothesis re: more var in herder practices between Orgs than within]
 
 The estimate of the constant is the logit of the proportion Reserving Pastures:
 Testing null models w just the randon intercept specified, to see which of these accounts for the most var. 
@@ -114,7 +119,7 @@ nullw.rs <-  glmer( ResWint ~ 1 + (1|Soum), data=td, family=binomial) #better
 nullw.rso <-  glmer( ResWint ~ 1 + (1|Soum) + (1|Org), data=td, family=binomial)  #best, AIC = 934.4
 nullw.rsxo <-  glmer( ResWint ~ 1 + (Org|Soum), data=td, family=binomial)  
 #anova(nullw.r, nullw.re, nullw.rs, nullw.rso, nullw.rsxo)
-anova(nullw.r, nullw.rs, nullw.rso)
+print(anova(nullw.r, nullw.rs, nullw.rso)) 
 
 nulls  <-  glm ( ResSpr ~ 1 , data = td, family = binomial)
 nulls.r <-  glmer( ResSpr ~ 1 + (1|Org), data = td, family = binomial) #better  AIC = 950
@@ -123,6 +128,7 @@ nulls.rs <-  glmer( ResSpr ~ 1 + (1|Soum), data = td, family = binomial) #better
 nulls.rso <-  glmer( ResSpr ~ 1 + (1|Soum)+ (1|Org), data = td, family = binomial)  # AIC = 915
 #anova(nulls.r, nulls.re, nulls.rs, nulls.rso)
 anova(nulls.r, nulls.rs, nulls.rso)
+anova(nulls.rso, nulls.rs, nulls.r)
 
 ```
 
@@ -152,9 +158,14 @@ Below I have just the results of a stepwise model comparison, based on all of th
 Stepwise:  [Can only do this with model without random intercepts included, but generally the same message if we compare these manually, which I do in a diff doc]
 In general I don't want to use this, as it is not theory based, just throwing it all in, but we did lots of testing prior and this was just to check. 
 ```{r}
+# DON:T USE THIS EXCEPT FOR BASIC EXPLORATION OF PARAMS.
 fullmod <- glm(ResWint ~ hhTenureWCamp+hhTenureWPast +  Rule + RuleNo+ cbrmYN +cogSC1 +ez , family = binomial,data = td) 
+
+fullmod <- glm(ResWint ~ hhTenureWCamp+hhTenureWPast +  Rule + RuleNo+ cbrmType +cogSC1  , family = binomial,data = td) 
 backward <- step(fullmod)
 summary(backward) #gives the best model
+
+
 ```
 
 ####Takeaway: The data are best explained by a model that includes:  
@@ -166,13 +177,29 @@ So, this is the same model as above, but w random effects of Org specified. Mode
 Various attempts at models w ecological zone included as either fixed or random effect were not signif and/or performed poorly. Only ez3=Eastern Steppe was ever signif.
 
 ```{r}
-# 
+# don't use this one bc Rules and CBRM are so correlated?? but it 
 #htm7 <- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + Rule + cbrmYN+ cogSC1 +   (1|Org) , family = binomial, data = td.sc)
 
-htm7 <- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + Rule +  cogSC1 +   (1|Org) , family = binomial, data = td.sc)
-summary(htm7)
+htm7 <- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + Rule +  cogSC1 +   (1|Org) , family = binomial, data = td.sc)   #AIC = 648
+  # tested to see if interaction terms improved fit... 
+  # shoudl we report this?
+#htm7.2 <- glmer(ResWint ~ (hhTenureWPast + hhTenureWCamp + Rule +  cogSC1)^2 +   (1|Org) , family = binomial, data = td.sc)    # AIC = 649 
+#htm7.4 <- glmer(ResWint ~ (hhTenureWPast + hhTenureWCamp + Rule +  cogSC1)^4 +   (1|Org) , family = binomial, data = td.sc) # AIC = 653
 
+#anova(htm7, htm7.2, htm7.4, test = "Chisq")
+summary(htm7)
+  #analysis of deviance table:
+car::Anova(htm7)
+  # table of the odds ratios:
 tab_model(htm7)
+
+# Plot the estimates: 
+  # plotting defaults to descending order with the highes effect at the top:
+  #The “neutral” line, i.e. the vertical intercept that indicates no effect (x-axis position 1 for most glm’s and position 0 for most linear models), is   #drawn slightly thicker than the other grid lines. You can change the line color with the vline.color-argument.
+
+plot_model(htm7, title = "Reserve Winter Pastures", auto.label = FALSE)
+
+
 ```
 ```{r}
 wchi.diff<- (943.16-634.54)
@@ -187,7 +214,8 @@ Based on htm7:
 
 But, the Marginal R^2 is very low....
 ```{r}
-tab_model(htm7)
+tab_model(htm7)  # can add multiple to compare...
+#tab_model(htm7, htm8)
 ```
 
 
@@ -238,26 +266,28 @@ hist +
 ```
 
 Let's explore the values w high predicted value but observed = 0 to see what's up. 
-###Looks like there is a relationship between the level of social capital and the fitted value (pos). So operhaps the impact of SC1 is so great that the model is over prediction the probability that a hh will reserve pastures.###
+###Looks like there is a relationship between the level of social capital and the fitted value [where did i get that from? I don't see a huge diff in mean cogSC values] (pos). So operhaps the impact of SC1 is so great that the model is over prediction the probability that a hh will reserve pastures.###
 ```{r}
 # filter the df of predicted vals it so it's the values on the right that were obsv No, pred Yes and look at summary stats:
-wDat%>%dplyr::filter(fitted >= 0.5) %>% filter(ResWint == 0) %>% summary_table(.)
+#wDat%>%dplyr::filter(fitted >= 0.5) %>% filter(ResWint == 0) %>% summary_table(.)
 badpred <- wDat%>%dplyr::filter(fitted >= 0.5) %>% filter(ResWint == 0)
 # let's compare those to the summary stats for the correctly predicted:
-wDat%>%dplyr::filter(fitted >= 0.5) %>% filter(ResWint == 1) %>% summary_table(.)
+#wDat%>%dplyr::filter(fitted >= 0.5) %>% filter(ResWint == 1) %>% summary_table(.)
+goodpred <- wDat%>%dplyr::filter(fitted >= 0.5) %>% filter(ResWint == 1)
+
 
 # merge w the original data so can visualize by EZ:
 
 #wDat.td<- left_join(wDat, td, by = "Org")
 
 
-ggplot(wDat, aes(fitted))+geom_density()+facet_wrap(.~Rule)+theme_bw()
+#ggplot(badpred, aes(fitted))+geom_density()+theme_bw()
 
 # histogram of predicted values, colored by Rule formality 
-ggplot(wDat, aes(fitted, color= Rule)) + geom_density() 
-ggplot(wDat, aes(fitted, color= hhTenureWPast)) + geom_density() 
-ggplot(wDat, aes(fitted, color= hhTenureWCamp)) + geom_density() 
-ggplot(wDat, aes(fitted, color= ResWint)) + geom_density() 
+ggplot(badpred, aes(fitted, color= Rule)) + geom_density() 
+# ggplot(wDat, aes(fitted, color= hhTenureWPast)) + geom_density() 
+# ggplot(wDat, aes(fitted, color= hhTenureWCamp)) + geom_density() 
+# ggplot(wDat, aes(fitted, color= ResWint)) + geom_density() 
 ```
 
 
@@ -279,22 +309,51 @@ Double checking model fit with a stepwise procedure confirms (without the random
 ```{r}
 fullSpmod <- glm(ResSpr ~ hhTenureSpPast+ hhTenureSpCamp+ Rule + RuleNo+ cbrmYN +cogSC1 , family = binomial,data = td.sc) 
 backward <- step(fullSpmod)
-summary(backward) #gives the best model
+#summary(backward) #gives the best model
 ```
 
 Best model as determined above, with the random effect of Org, presented as odds ratios:
 ```{r}
 bestSp <- glmer(formula = ResSpr ~ hhTenureSpPast + hhTenureSpCamp+ cbrmYN + RuleNo+ cogSC1 + (1|Org), family = binomial, 
     data = td)
+summary(bestSp)
 tab_model(bestSp)
+
+coef(summary(bestSp))
+
+plot_model(bestSp,
+           title = "Reserve Spring Pastures", 
+           sort.est = TRUE,
+           #auto.label = FALSE, 
+           axis.labels = c("Rules","cbrmYN","Camp Tenure", "Social Capital", "Pasture Tenure"),
+           colors = "blue") 
+```
+
+```{r}
+# visualizing the varation in intercepts across the Orgs.
+
+int<- bestSp@beta
+Spint<- int[1]
+# explore the variation in intercepts across Orgs:
+org<- coef(bestSp)
+Sorg<- org$Org 
+# Rename a column in R
+colnames(Sorg)[colnames(Sorg)=="(Intercept)"] <- "Int"
+
+
+ggplot(Sorg, aes(x= (Int))) + geom_density() + geom_vline(xintercept = Spint)
+
+
 ```
 
 **Interpretting the odds ratios:**  tenure on the spring pasture, membership in a formal CBRM and cognitive social capital all increase the odds that a household will reserve the spring pastures. Rules (re: timing of grazing) were not significant, but the coeffs indicate that the negative impact of NOT having rules on the odds of reserving pasture.. Conditional R2 describes the proportion of variance explained by both the fixed and random factors ... which, doesn't seem great?
+
+
 In the meantime, here's the original and predicted values. 
 To visualize will have to decide a cut-off point for the fitted to assign 0/1
 ```{r}
-df.htmSp<- htmSp@frame
-spDat <- data.frame(htmSp@frame, resid=residuals(htmSp,type="pearson"),fitted=fitted(htmSp))
+df.bestSp<- bestSp@frame
+spDat <- data.frame(bestSp@frame, resid=residuals(bestSp,type="pearson"),fitted=fitted(bestSp))
 
 theme= theme(panel.grid.major = element_blank(),
              panel.grid.minor = element_blank(),
@@ -343,7 +402,14 @@ ggplot(spDat, aes(fitted, color= RuleNo)) + geom_density()
 ggplot(spDat, aes(fitted, color= hhTenureSpPast)) + geom_density() 
 ggplot(spDat, aes(fitted, color= cbrmYN)) + geom_density() 
 
-
+# boxplot of fitted values by Rule and hh Tenure on W Pasture
+f<- ggplot(wDat, aes(x=Rule, y = fitted))
+f+ geom_boxplot() +
+  theme_bw() +
+  xlab("Rule formality")+
+  ylab("predicted probability reserve patures") +
+  facet_grid(.~hhTenureWPast) 
+  
 
 ```
 
@@ -358,22 +424,57 @@ Given what we see above wrt the (weak) relationship between (this particular set
 **Original Hypothesis:**  
   Increased cognitive social capital will lead to more prevalence of *informal* rules (within certain ecological zones)
   Rules ~ Social Capital + ecological zone
+
+But is there a chance that we have the order/direction of causality wrong in that?
+  It could be Soc Cap ~ Rules + ez
+    - or -
+  Soc Cap ~ Rules + (1|ez)  NO. More likely Rule as a results of SC not other way around?
+  
 #### SC1 
 ```{r, message = FALSE, warning= FALSE}
 library(MASS)
 # need to use MASS::polr for ordered logistic regression
-ezm<- polr(Rule ~ ez, data = td, method = c("logistic"))
-scm<- polr(Rule ~ cogSC1 , data = td, method = c("logistic"))
-scm1<- polr(Rule ~ cogSC1 + ez, data = td, method = c("logistic"))
-
-anova(scm, scm1) # big improvement by including ez, as we predicted
-summary(scm1) # outputs are re: prob of being in that class or lower
+rezm<- polr(Rule ~ ez, data = td, method = c("logistic"))
+rscm<- polr(Rule ~ cogSC1 , data = td, method = c("logistic"))
+rse1<- polr(Rule ~ cogSC1 + ez, data = td, method = c("logistic"))
+anova(rezm, rscm) # big improvement by including ez, as we predicted
+summary(rse1) # outputs are re: prob of being in that class or lower
 #intercepts are the zetas
 
-fit.scm<- scm1$fitted.values
-colnames(fit.scm)<- c("None", "Informal", "Formal")
-scm.df<- data.frame(fit.scm, scm1$model)
+# scm<- lm(cogSC1 ~ ez, data =td, method = c("logistic"))
+# scm1<- lm(cogSC1 ~ Rule, data =td, method = c("logistic"))
+# anova(scm, scm1)
+# scm<- glmer(cogSC1 ~ Rule + (1|ez), data =td)
+# summary(scm)
 
+# FITTED VALS:
+fit.rse<- rse1$fitted.values
+colnames(fit.rse)<- c("None", "Informal", "Formal")
+rse.df<- data.frame(fit.rse, rse1$model)
+
+rse_dat <- data.frame(cogSC1 = seq(0, 2, length.out= 200), ez = rep(1:4, 50))
+rse_dat$ez<- as.factor(rse_dat$ez)
+newdat<- cbind(rse_dat, predict(rse1, rse_dat, type = "probs"))
+
+
+lnewdat <- melt(newdat, id.vars = c("cogSC1", "ez"),
+                variable.name = "Rule_Level", value.name = "Probability")
+
+ggplot(lnewdat, aes(x= cogSC1, y=Probability, color= Rule_Level )) +
+  geom_smooth()+  
+  #geom_line()+
+  #geom_smooth(position=position_jitter(width=.01,height=.01))+
+  coord_cartesian(xlim = c(0,2), ylim = c(0,0.75))+
+  xlab("Cognitive Social Capital")+
+  ylab("Pred Prob of Class Membership") +
+  facet_grid(.~ez, labeller = label_both)
+
+
+ggplot(lnewdat, aes(x= cogSC1, y= Probability, color = Rule_Level))+
+  geom_smooth()+
+   coord_cartesian(xlim = c(0,2), ylim = c(0,0.75))+
+  xlab("Cognitive Social Capital")+
+  ylab("Pred Prob of Class Membership") 
 ```
 
 Big improvement by including ez, as we predicted
@@ -382,7 +483,7 @@ Big improvement by including ez, as we predicted
 Edit this to create a table:
 ```{r}
 # EZ = 1
-predict(ezm, newdata = data.frame(ez="1"),type="p") #0 = No rules, Inf next
+predict(rse1, newdata = data.frame(ez="1"),type="p") #0 = No rules, Inf next
 # EZ = 2
 predict(ezm, newdata = data.frame(ez="2"),type="p") #1 = Inf, formal next
 #EZ = 3
@@ -393,6 +494,9 @@ predict(ezm, newdata = data.frame(ez="4"),type="p") #1 = Inf, then formal next
 
 # calc cumulative probabilities of having certain rule formality:
 exp(ezm$zeta - ezm$coefficients)/(1 + exp(ezm$zeta - ezm$coefficients))
+
+# how would this apply w a 
+exp(rse1$zeta - rse1$coefficients)/(1 + exp(rse1$zeta - rse1$coefficients))
 
 
 #ggplot(scm.df, aes(x=)) 
@@ -473,6 +577,9 @@ To do that, create a dataframe w the specified values:
 But we'll need to consider all combinations in order to really predict.
 
 ```{r}
+
+      ##### THESE ARE NOT RUN W THE RANDOM INTERCEPT ####
+
 finalW <- glm(ResWint ~ hhTenureWPast + hhTenureWCamp + Rule + cogSC1, family = binomial, data = td)
 
 # start w just one value for each
@@ -523,12 +630,14 @@ rf<- ggplot(predDat, aes(x= wPred, color=Rule))+
   geom_vline(data= filter(predDat, Rule == 0), aes(xintercept=median(wPred, na.rm=T)),  
                color="Maroon", linetype="dashed", size=1)
 rf
+
+
 ggplot(predDat, aes(x= cogSC1, y= wPred, color = Rule))+
   geom_smooth()+
   coord_cartesian(xlim = c(0,2))+
   xlab("cognitive social capital")+
-  ylab("predicted prob of reserving W pasture") #+
-  #facet_wrap(.~hhTenureWPast)
+  ylab("predicted prob of reserving W pasture") +
+  facet_wrap(.~hhTenureWPast)
 
 ggplot(predDat, aes(x= wPred, y= hhTenureWPast, color = Rule))+
     geom_point(shape=1,position=position_jitter(width=.1,height=.1))
@@ -557,61 +666,74 @@ predDat%>%group_by(Rule)%>%
 
 ```
 
-
+THESE DON"T INCLUDE THE RANDOM EFFECT>>>>>
 ```{r}
-finalS <- glm(ResSpr ~ hhTenureSpPast +cbrmYN + Rule + cogSC1, family = binomial, data = td)
+finalS <- glm(ResSpr ~ hhTenureSpCamp + hhTenureSpPasture +cbrmYN + RuleNo + cogSC1, family = binomial, data = td)
 
 # start w just one value for each
-p_dat <- cbind(expand.grid(hhTenureSpPast=c(0,1),cbrmYN=c(0,1),Rule=c(0,1,2), cogSC1=seq(0,2, .25)))
+sp_dat <- cbind(expand.grid(hhTenureSpCamp=c(0,1),cbrmYN=c(0,1),Rule=c(0,1,2), cogSC1=seq(0,2, .25)))
 
-p_dat %<>% mutate_at(c(1:2), funs(factor(.)))
-p_dat %<>% mutate_at(3, funs(ordered(.)))
+sp_dat %<>% mutate_at(c(1:2), funs(factor(.)))
+sp_dat %<>% mutate_at(3, funs(ordered(.)))
 
 
 
 
 
 #predict(finalW, p_dat, type="response")
-sPred<- predict(finalS, p_dat, type="response")
+sPred<- predict(finalS, sp_dat, type="response")
 
-predDat <- data.frame(p_dat, sPred)
+spredDat <- data.frame(sp_dat, sPred)
 
 
-ggplot(predDat, aes(x= sPred, y=hhTenureSpPast))+
+ggplot(spredDat, aes(x= sPred, y=hhTenureSpCamp))+
   geom_dotplot(binaxis = "y", stackdir = "center")+
   coord_cartesian(xlim = c(0,1))+
   xlab("predicted value for probability reserve patures")+
   ylab("Tenure on Spring Pasture ")
 
 
-ggplot(predDat, aes(x= sPred, color=hhTenureSpPast))+
+ggplot(spredDat, aes(x= sPred, color=hhTenureSpCamp))+
   geom_density()+
   coord_cartesian(xlim = c(0,1))+
   xlab("predicted value for probability reserve patures")+
   ylab("Tenure on Spring Pasture ")
 
 
-ggplot(predDat, aes(x= sPred, color=Rule))+
+ggplot(spredDat, aes(x= sPred, color=Rule))+
   geom_density()+
   coord_cartesian(xlim = c(0,1))+
   xlab("predicted value for probability reserve patures")+
   ylab("Rule formality ")
 
-ggplot(predDat, aes(x= cogSC1, y= sPred, color = Rule))+
+ggplot(spredDat, aes(x= cogSC1, y= sPred, color = Rule))+
   geom_smooth()+  
   #geom_smooth(position=position_jitter(width=.01,height=.01))+
   coord_cartesian(xlim = c(0,2))+
   xlab("cognitive social capital")+
-  ylab("predicted prob of reserving Sp pasture") #+
-  #facet_wrap(.~hhTenureWPast)
+  ylab("predicted prob of reserving Sp pasture") +
+  facet_wrap(.~hhTenureSpCamp)
 
-ggplot(predDat, aes(x= sPred, y= hhTenureSpPast, color = Rule))+
+ggplot(spredDat, aes(x= sPred, y= hhTenureSpCamp, color = Rule))+
     geom_point(shape=1,position=position_jitter(width=.1,height=.1))
 
 
 ```
 
+Looking more at the predicted values:
 
+```{r}
+spredDat%>%group_by(hhTenureSpPast)%>%
+  summarise(pred= median(sPred))
+
+spredDat%>%group_by(hhTenureSpCamp)%>%
+  summarise(pred= median(sPred))
+
+spredDat%>%group_by(Rule)%>%
+  summarise(pred= median(sPred))
+
+
+```
 
 NOT USEFUL YET
 ```{r, eval = FALSE}
@@ -677,4 +799,169 @@ pop %<>% dplyr::select(-aimag)
 ```
 
 
+#OTOR
+
+TO: Examine w Fall Otor
+    Explore impact of social network strength--impact of network ouside the soum
+
+First determining the correct random effect term:
+```{r}
+wotor1 <- glmer(Wotor ~ hhTenureWPast + otherPast + Rule +  cogSC1 +   (1|Org), family = binomial, data = td) 
+
+wotor2 <- glmer(Wotor ~ hhTenureWPast + otherPast + Rule +  cogSC1 +   (1|Soum), family = binomial, data = td) 
+
+tab_model(wotor1, wotor2)
+plot_models(wotor1, wotor2)
+```
+The Conditional R^2 and the AIC support RE for Org over Soum.
+
+Inclusion of diff terms:
+    NEED TO TRY W CBRM? No, bc redundant w Org
+  WINTER OTOR
+```{r}
+wotor1 <- glmer(Wotor ~ hhTenureWPast + otherPast + Rule +  cogSC1 +   (1|Org), family = binomial, data = td.sc)
+
+
+wotor2 <- glmer(Wotor ~ hhTenureWPast + otherPast + Rule +  bondSC +   (1|Org), family = binomial, data = td.sc)
+
+wotor3 <- glmer(Wotor ~  otherPast + Rule + hhTenureWPast+  (1|Org), family = binomial, data = td)
+  # w just Tenure not Rules
+wotor4 <- glmer(Wotor ~  otherPast + hhTenureWPast+ (1|Org), family = binomial, data = td)
+  # w just Rule not Tenure
+wotor5 <-glmer(Wotor ~  otherPast + Rule+ (1|Org), family = binomial, data = td)
+
+  # w Just access to other pastures:
+wotor6 <-glmer(Wotor ~  otherPast + (1|Org), family = binomial, data = td)
+
+anova(wotor1, wotor3, wotor4, wotor5, wotor6)
+
+tab_model(wotor3, wotor4, wotor5, wotor6, wshow.aic = TRUE, show.icc = FALSE)
+
+```
+
+  FALL OTOR
+  (more suport for Org as RE than Soum)
+```{r}
+fotor1 <- glmer(Fotor ~ hhTenureWPast + otherPast + Rule +  cogSC1 +   (1|Org), family = binomial, data = td.sc)
+  # structSC
+# fotor2 <- glmer(Fotor ~ hhTenureWPast + otherPast + Rule +  strSC2+  (1|Org), family = binomial, data = td.sc)
+  # with just the bondingSC:
+fotor2 <- glmer(Fotor ~ hhTenureWPast + otherPast + Rule +  bondSC+  (1|Org), family = binomial, data = td)
+
+
+tab_model(fotor1, fotor2, show.aic = TRUE)
+
+fotor2 <- glmer(Fotor ~  otherPast + Rule +  cogSC1 +  (1|Org), family = binomial, data = td)
+
+
+anova(fotor1, fotor3, fotor4, fotor5, fotor6)
+
+tab_model(fotor3, fotor4, fotor5, fotor6, wshow.aic = TRUE, show.icc = FALSE)
+plot_model(bestSp,
+           title = "Reserve Spring Pastures", 
+           sort.est = TRUE,
+           #auto.label = FALSE, 
+           axis.labels = c("Rules","cbrmYN","Camp Tenure", "Social Capital", "Pasture Tenure"),
+           colors = "blue") 
+```
+
+  
+
+# GETTING PREDICTED DATA:
+```{r}
+# haven't figured out how to do this with the RE included so have to redo w/o
+wot<- glm(Wotor ~  otherPast + Rule + hhTenureWPast, family = binomial, data = td)
+
+# start w just one value for each
+wo_dat <- cbind(expand.grid(otherPast=c(1,2,3),Rule=c(0,1,2), hhTenureWPast= c(0,1)))
+
+wo_dat %<>% mutate_at(c(1:2), funs(ordered(.)))
+wo_dat %<>% mutate_at(3, funs(factor(.)))
+
+
+
+
+
+#predict(finalW, p_dat, type="response")
+woPred<- predict(wot, wo_dat, type="response")
+
+wopredDat <- data.frame(wo_dat, woPred)
+```
+Fall Otor Predicted
+```{r}
+# haven't figured out how to do this with the RE included so have to redo w/o
+fot<- glm(Fotor ~  otherPast + Rule + hhTenureWPast + cogSC1, family = binomial, data = td)
+
+# start w just one value for each
+fo_dat <- cbind(expand.grid(otherPast=c(1,2,3),Rule=c(0,1,2), hhTenureWPast= c(0,1), cogSC1=seq(0,2, 0.25)))
+
+fo_dat %<>% mutate_at(c(1:2), funs(ordered(.)))
+fo_dat %<>% mutate_at(3, funs(factor(.)))
+
+
+
+
+
+#predict(finalW, p_dat, type="response")
+foPred<- predict(fot, fo_dat, type="response")
+
+fopredDat <- data.frame(fo_dat, foPred)
+```
+
+Then plot the predicted data:
+```{r}
+
+plot(woPred~otherPast, data= wopredDat)
+
+# something not working here:
+ggplot(wopredDat, aes(x= otherPast, y=woPred)) +
+  geom_boxplot()+  
+  #geom_smooth(position=position_jitter(width=.01,height=.01))+
+  coord_cartesian(xlim = c(1,3))+
+  xlab("using other Pastures")+
+  ylab("predicted prob of winter otor") +
+  facet_wrap(.~Rule)
+
+ggplot(wopredDat, aes(x= otherPast, y=woPred)) +
+  geom_boxplot()+  
+  #geom_smooth(position=position_jitter(width=.01,height=.01))+
+  coord_cartesian(xlim = c(1,3))+
+  xlab("using other Pastures")+
+  ylab("predicted prob of winter otor") +
+  facet_wrap(.~hhTenureWPast)
+
+ggplot(wopredDat, aes(x= otherPast, y=woPred)) +
+  geom_boxplot()+  
+  #geom_smooth(position=position_jitter(width=.01,height=.01))+
+  coord_cartesian(xlim = c(1,3))+
+  xlab("using other Pastures")+
+  ylab("predicted prob of winter otor") +
+  facet_grid(.~Rule+hhTenureWPast, labeller = label_both)
+
+
+  #FALL OTOR:
+ggplot(fopredDat, aes(x= otherPast, y=foPred)) +
+  geom_boxplot()+  
+  #geom_smooth(position=position_jitter(width=.01,height=.01))+
+  coord_cartesian(xlim = c(1,3))+
+  xlab("using other Pastures")+
+  ylab("predicted prob of winter otor") +
+  facet_grid(.~Rule, labeller = label_both)
+
+ggplot(fopredDat, aes(x= otherPast, y=foPred)) +
+  geom_boxplot()+  
+  #geom_smooth(position=position_jitter(width=.01,height=.01))+
+  coord_cartesian(xlim = c(1,3))+
+  xlab("using other Pastures")+
+  ylab("predicted prob of winter otor") +
+  facet_grid(.~hhTenureWPast, labeller = label_both)
+
+ggplot(fopredDat, aes(x= cogSC1, y=foPred, color= Rule)) +
+  geom_smooth()+  
+  #geom_smooth(position=position_jitter(width=.01,height=.01))+
+  coord_cartesian(xlim = c(0,2))+
+  xlab("using other Pastures")+
+  ylab("predicted prob of fall otor") +
+  facet_grid(.~otherPast, labeller = label_both)
+```
 
