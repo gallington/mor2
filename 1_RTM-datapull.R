@@ -95,7 +95,7 @@ td<- mor2FULL%>% dplyr::select(
         #cogSCAgg = CognSC_Agg    # NOT SURE HOW THIS WAS CALC'D, range is 0.41 - 2
       #** Bridging & Bonding SC:           # sum of answers re: bridging and bonding SC
         #strSC2 = StrucSC2,              # Sum of answers, range = 0-13
-        #just the bonding qs:
+        #just the bonding qs:  includes family and friends outside of the soum (and within)
         bondSC = BondSCsum,        # sum of five bonding items 7.6a-e
       #Access to other pastures:
         accPast = CanUseOtherPast,
@@ -141,14 +141,14 @@ td<- mutate(td, hhTenureSpCamp = case_when(ContractSpCamp == 0 ~ 0,   # No contr
                                            ContractSpCamp == 2 ~ 1,   # Yes possession contract
                                            TRUE ~ NA_real_))         # else NA
 
-td %<>% mutate_at(21:24, funs(factor(.)))
+td %<>% mutate_at(22:25, funs(factor(.)))
 #Reorder the Access Other Pastures answers:
 td<- mutate(td, otherPast = case_when(accPast == 3 ~ 1,   # No set to 1
                                       accPast == 1 ~ 2,   # Yes w/in Soum set to 2
                                       accPast == 2 ~ 3,   # Yes w/in & other soums set to 3
                                       TRUE ~ NA_real_))  # Other set to NA
 # order:
-td %<>% mutate_at(25, funs(ordered(.)))
+td %<>% mutate_at(26, funs(ordered(.)))
 
 
 #Add dummy Vars for Rules --------------  
@@ -157,7 +157,8 @@ td %<>% mutate_at(25, funs(ordered(.)))
 #td <- mutate(td, RuleNo = case_when(Rule == 0 ~ 1,   # No rules = 1
 #                                    Rule == 1 | Rule == 2 ~ 0,   # set others to zero
 #                                    TRUE ~ NA_real_))            # else NA
-      #### Flipped the direction of the Rule DV so 0 = no and 1 = yes.
+
+      #### ----->>>>>Flipped the direction of the Rule DV so 0 = no and 1 = yes.
 td <- mutate(td, RuleNo = case_when(Rule == 0 ~ 0,   # No rules = 1
                                     Rule == 1 | Rule == 2 ~ 1,   # set others to zero
                                     TRUE ~ NA_real_))            # else NA
@@ -170,7 +171,7 @@ td <- mutate(td, RuleFormal = case_when(Rule == 2 ~ 1,   # Formal rules = 1
                                         Rule == 0 | Rule == 1 ~ 0,   # set others to zero
                                         TRUE ~ NA_real_))            # else NA
 
-td %<>% mutate_at(c(26:28), funs(factor(.)))
+td %<>% mutate_at(c(27:28), funs(factor(.)))
  
 # rescale the STructural scoial capital
 td$strSC2<- rescale(td$strSC2, to = c(0,1))
