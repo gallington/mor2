@@ -6,6 +6,8 @@
 library(readxl)
 library(dplyr)
 library(magrittr)
+library(reshape2)
+library(tidyr)
 # Import raw files--------------------------------------------------------------------
 # THE DATA THAT NEEDS TO BE IMPORTED AND JOINED:
 # 
@@ -261,7 +263,7 @@ x == y  # to find the ones that aren't lining up....
 #y[c(27:29,33),]
 
 td.fg <- td %>% inner_join(frg.use.avcv, by = c("Aimag", "Soum"))
-
+td.fg %<>% mutate(frg.left = (100-frgUse))
 #------
 #Don't need this anymore, foudn a better way to do it above:
 # Had to do it this way bc the line above was generating extra lines
