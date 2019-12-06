@@ -11,13 +11,13 @@ output:
     df_print: paged
   pdf_document: default
 ---
+-2019-12-6: versioned the prior itteration of this that included all the old model comparisons and restarted w new based on the new tabel of hypothesized relationships from our call on Dec. 5
 
 TO DO:
 -figure out how to run MCMC for the pval estimations...
 - Set some global viz params to use for plots below.
 -[Done 19-9-10]save all of the data import and wrangling to a separate script and export to an rdata file that we call back in here. 
--[Done 19-09-30]pull summary stats and cross-tabs to separate script.
-
+-[Done 19-09-30]pull out summary stats and cross-tabs to separate script.
 ```{r setup, echo = FALSE, message = FALSE, include = FALSE, warning= FALSE, cache= TRUE}
 library(haven)  # this is the new package to use instead of (foreign)
 #library(corrplot)
@@ -65,7 +65,7 @@ st_css()                              # This is a must; without it, expect odd l
 theme_set(theme_sjplot())
 ```
 
-
+[Update this to reflect new data table that includes Jay's forage use data...]
 ---- Data prep now located in 1_RTM-datapull.R: (hidden in report view)  
 < not including Use params in the dataframe called td now >
 That script does the following:
