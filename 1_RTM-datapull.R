@@ -2,12 +2,16 @@
 # This script pulls in the db, queries and wrangles the data &
 # saves as rdata to pull in to next script: 
 
+#---------------   UPDATE THIS TO INCLUDE PULLING THE FORAGE DATA FROM JAY
+#---------------  As of now that still lives buried in jays_data.R
 
 library(haven)  # this is the new package to use instead of (foreign)
 #library(corrplot)
 library(magrittr)
 library(tidyr)
 library(dplyr)
+library(readxl)
+library(reshape2)
 
 # THIS IS THE FULL DATASET WITH ALL 700 hh
 # the org level data are merged in to this as well. 
@@ -16,6 +20,19 @@ mor2FULL<- read_sav("./data/Org_HHS_May2016_5_28_16.sav") #
 
 # tidy format
 tbl_df(mor2FULL)
+
+# Info on fixing the names to match MOR2 ---------------------------------------------
+#   need to match these on Soum ID, Aimag + Soum_name
+#
+soums <- read.csv("./data/mor2data/from_Jay/soum_names.csv", stringsAsFactors = FALSE)
+soums %<>% rename(Soum_name = jay)
+soums$MOR2match<- trimws(soums$MOR2match)  #trim trailing white space
+
+# aimag level :
+aimags <- read.csv("./data/from_Jay/aimag_names.csv", stringsAsFactors = FALSE)
+
+
+
 
 # subsetting the FULL (combined) dataset to a smaller df:
 ## alt data import-------------------
@@ -192,3 +209,102 @@ save(td, td.sc, file = "./data/td.RData")
 load("./data/td.RData")
 
 write.csv(td, "./data/td-export.csv")
+
+
+######## Forage Use: #################
+# table that (supposedly) links mor2 names w jay's names
+soums <- read.csv("./data/mor2data/from_Jay/soum_names.csv", stringsAsFactors = FALSE)
+soums %<>% rename(Soum_name = jay)
+soums$MOR2match<- trimws(soums$MOR2match)  #trim trailing white space
+# table of the aimag and soum name pairs from jay--so can 
+# distinguish the soums w same name-diff aimag 
+jas <- read.csv("./data/mor2data/from_Jay/j_aimag_soum.csv", stringsAsFactors = FALSE)
+
+# now this joins them so that we have the aimag and soums 
+aimag.soum<- jas %>% left_join(soums, by = "Soum_name") %>% arrange(Aimag_name, Soum_name)
+# but we don't have the mor2 aimag matches...
+mor2as<- as.data.frame(td[, 20:21] %>% distinct() %>% arrange(Aimag,Soum))
+# yeah the aimag names don't match damn
+#df$depth[df$depth<10] <- 0  # one option for reassigning values
+
+aimag.soum<- aimag.soum %>% mutate(Aimag =
+                                     case_when(Aimag_name == "Arxangai" ~ "Arkhangai",
+                                               Aimag_name == "Bayanxongor"~ "Bayankhongor",
+                                               #Aimag== "Dornod", "Dornod",
+                                               #Aimag== "Dornogovi"
+                                               #Dundgovi
+                                               Aimag_name == "O'mnogovi"~ "Umnugovi",
+                                               Aimag_name== "O'vorxangai"~"Uvurkhangai",
+                                               #Selenge
+                                               Aimag_name == "Su'xbaatar"~ "Sukhbaatar",
+                                               Aimag_name == "To'v" ~ "Tuv",
+                                               TRUE ~ as.character(Aimag_name)))  
+
+
+# add the CV vals to this:
+j.forage.cv <- read.csv("./data/forageCV.csv")
+names.cv<- aimag.soum %>% left_join(j.forage.cv, by = c("Aimag_name", "Soum_name"))
+
+# Forage USE = (Forage Demand/Forage Available) 
+# see data files for metadata or call sheet = 1 below
+j.forage.use <- read_excel("./data/mor2data/from_Jay/Forage_use_paired_soum_modisV6.xlsx", sheet = 2)
+tbl_df(j.forage.use)
+# select out the cols we want, including the forage use vals for 2010-2011:
+
+j.forage.use <- j.forage.use[2:37,c(1:5, 16:17)]
+colnames(j.forage.use)<- c("Aimag_name", "Soum_name", "Soum_ID", "Ecozone", "Poly_ID", "fu10", "fu11")
+j.forage.use %<>% mutate_at(6:7, funs(as.numeric(.)))
+
+# rename the colum from the soums name table imported above
+#soums$Soum<- soums$Soum_name
+
+# add the other cols now? 
+
+
+#   2010-2011 avg
+frg.use <- j.forage.use %>% 
+  gather("Year", "pctFrgUse", 6:7) 
+frg.use$Year<- as.factor(frg.use$Year)
+frg.use$pctFrgUse<- as.numeric(frg.use$pctFrgUse)
+
+frg.use<- frg.use[,c(1,2,4,6,7)]
+
+
+
+# function to cal CV
+#cv <- function(x) 100*( sd(x)/mean(x))
+#j.forage.cv <- read.csv("./data/forageCV.csv")
+#j.forage.cv$Aimag<- j.forage.cv$Aimag_name
+#j.forage.cv$Soum<- j.forage.cv$Soum_name
+
+#frg.use.a<- frg.use%>% left_join(j.forage.cv, by = c("Aimag", "Soum"))
+
+# Need to summarize first bc now have three years of values for each soum
+# now calc mean across 2010-2011 SoumID
+frg.use.av <- frg.use %>%
+  group_by(Aimag_name, Soum_name) %>% # if put all these together they will appear in the output
+  summarise(frgUse = mean(pctFrgUse)) 
+# save as a df to remove all of the tibble info hanging around
+frg.use.av <- as.data.frame(frg.use.av)
+#frg.use.av <- frg.use.av [,2:3]  # might need to keep Soum bc of duplicates...
+
+frg.use.avcv<- names.cv %>% left_join(frg.use.av, by = c("Aimag_name", "Soum_name"))
+#rename MOR2Match to match 
+frg.use.avcv<- frg.use.avcv %>% rename(Soum = MOR2match)
+#df$depth[df$depth<10] <- 0 
+frg.use.avcv$Soum[frg.use.avcv$Soum == "Bat-Ulzii"] <- "Bat-Ulziit"
+
+
+# combine with the td dataframe:
+load("./data/td.RData")
+td$Aimag <- as.character(td$Aimag)
+td$Soum <- as.character(td$Soum)
+
+x<- td%>% distinct(Aimag, Soum) %>% arrange(Aimag, Soum)
+y<- frg.use.avcv %>% distinct(Aimag, Soum) %>% arrange(Aimag, Soum)
+x == y  # to find the ones that aren't lining up.... 
+#x[c(27:29,33),]
+#y[c(27:29,33),]
+
+td.fg <- td %>% inner_join(frg.use.avcv, by = c("Aimag", "Soum"))
+td.fg %<>% mutate(frg.left = (100-frgUse))
