@@ -310,33 +310,10 @@ tab_model(wp, sp, wo, fo, show.aic = TRUE, show.icc = TRUE)
 
 #MODEL COMPARISONS:
 ## Reserving Wtr Pastures
-full model, with two diff versions of the Rule parameter, either DV or ordinal:
-```{r}
-fullw<- glmer(ResWint ~ hhTenureWPast + 
-                hhTenureWCamp + 
-                RuleYes + 
-               # RuleInf+ 
-                RuleFormal+  
-                cogSC1 +
-                bondSC+
-                otherPast+ 
-                frgCV + 
-                frg.left +   (1|Org) , family = binomial, data = td.fg) 
-
-fullw1<- glmer(ResWint ~ hhTenureWPast + 
-                 hhTenureWCamp + 
-                 Rule+  
-                 cogSC1 +
-                 bondSC+
-                 otherPast+ 
-                 frgCV + 
-                 frg.left +   (1|Org) , family = binomial, data = td.fg) 
-anova(fullw, fullw1)
-```
-
 Model based on hypothesized signif relationships, compared to the prior best-fit models
 [Hyp model is basically the same as the best-fit forage model from before, just w Rule DV instead of the ordered]
 ```{r}
+# comparing outputs w dummy var or ordered... 
 hypw<- glmer(ResWint ~ hhTenureWPast + 
                hhTenureWCamp + 
                RuleYes + 
@@ -355,14 +332,6 @@ summary(hypw)
 #anova(hypw, hypw1)  #same diff 
 summary(hypw1)
 ```
-Prior best-fits (w/ and w/o forage use). These used the ordered Rule var
-```{r}
-  # Best without forage use
-wm1<- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + Rule +  cogSC1 +   (1|Org) , family = binomial, data = td.fg) 
-  #BEST w forage use:
-wfm1<- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + Rule +  cogSC1 + frg.left+ frgCV+  (1|Org) , family = binomial, data = td.fg)  
-```
-
 Which Rules var to use? The ordered or the DVs? 
 12/29 convo: DECIDED TO STICK W THE ORDINAL 
 1/3: Realized we will have an easier time estimating probabilities while holding params constant if just use the DVs. And going to use (what was) RuleNo and RuleFormal, bc RuleNo = >0 and RuleFormal = >1
@@ -378,7 +347,6 @@ summary(hypw)
 ```
 
 
-
 ```{r, eval = FALSE}
 # visualizing the varation in intercepts across the Orgs.
 
@@ -392,11 +360,11 @@ colnames(Worg)[colnames(Worg)=="(Intercept)"] <- "Int"
 
 
 ggplot(Worg, aes(x= (Int))) + geom_density() + geom_vline(xintercept = wint)+
-  facet_grid(.~RuleNo1)
-
-
+  ggtitle("variation in intercept across Orgs")
+ 
 ```
-So the formula is: 
+
+So the formula for Reserving winter pastures is: 
 Prob Reserve WPast ~ -6.059621 + (0.662 * TenureWPast) + (0.518 * TenureWCamp) + (1.308847 * RuleYes) + (-0.215351 * RuleFormal) + (0.812 * cogSC1) + (0.048 * frg.left) + (0.046 * frgCV)
 
 The odds of reserving are=
@@ -404,19 +372,14 @@ exp(everything above)
 But can convert that to probability of reserving with:
 p= 1/(1+exp(-(everything above)))
 
-calculate a new column in your dataframe for the estimated probability of each value of X1 using the mean of X2 with the formula:
+calculate a new column in the dataframe for the estimated probability of each value of X1 using the mean of X2 with the formula:
 
 1/(1+exp(-(B0 + B1X1 + B2MeanX2 + ...))
 
 
-```{r}
+```{r, cache = TRUE}
 
 #get the means of each CONTINUOUS predictor variable and write to a variable
-Tenure0 = 0
-TenureY = 1
-RuleY = 1
-RuleN = 0
-RuleF = 0
 # mean.SC<- mean(td.fg$cogSC1)  # what is wrong w this? why can't i get a mean?
 sc<-td.fg$cogSC1[!is.na(td.fg$cogSC1)]
 mean.sc = mean(sc)  # calculated in xcel bc kept getting error here, issue w data type?
@@ -425,6 +388,7 @@ mean.CV<- mean(td.fg$frgCV)
 
 summary(hypw)
 #calculate the prob for reserving pastures for each param when the other predictor params are held constant at mean or set to zero....
+      ## adjust the code and var name below to get all the diff iterations
 probRes_0 = 1/(1+exp(-(-6.059621 + 
                          (0.662 * 0) + # hold everything off/constant except psture Tenure
                          (0.518 * 0) +  # camp tenure
@@ -533,6 +497,8 @@ grid.arrange(g.prob.SC, g.prob.f, g.prob.fcv, ncol=3, widths = c(6,6,6))
 
 
 Plotting fitted values vs. predicted values..... 
+Why do the predicted curves start so much higher than fitted?? bc responding to unrealistic set
+of data ranges in the prediction dataset?
 ```{r, cache = TRUE, echo = FALSE}
 #----- 
 # df of params for prediction:
@@ -552,21 +518,21 @@ p_dat <- cbind(expand.grid(hhTenureWPast=c(0,1),       #seq(0,1,1),
 p_dat %<>% mutate_at(c(1:4,8), funs(factor(.)))
 #p_dat %<>% mutate_at(3, funs(ordered(.)))
 
-wfpred<- data.frame(hypw@frame, fitted = fitted(hypw))
+wfit<- data.frame(hypw@frame, fitted = fitted(hypw))
 
-#predict(finalW, p_dat, type="response")
-wfPred<- predict(hypw, p_dat, type="response")
+wfPred<- predict(hypw, p_dat, type="response", allow.new.levels = TRUE)
 predwfDat <- data.frame(p_dat, wfPred)
-# fit<- tbl_df(fitted(wfmod))
-# colnames(fit)<- c("fittedProp")
-# fitDat<- bind_cols(td.fg, fit)
-
 
 
 ggplot(td.fg, aes(x= frg.left, color = ResWint))+geom_density()
-#ggplot(td.fg, aes(x= frg.left))+geom_histogram()
-ggplot(wfpred, aes(x= cogSC1, y = fitted, color = Rule))+
-  geom_smooth()
+a<- ggplot(wfit, aes(x= cogSC1, y = fitted, color = RuleYes))+
+  geom_point()+
+  geom_smooth(method = "glm", method.args = list(family = "quasibinomial"),  alpha=0.3)
+b<- ggplot(predwfDat, aes(x= cogSC1, y = wfPred, color = RuleYes))+
+  #geom_point() +
+  geom_smooth(method = "glm", method.args = list(family = "quasibinomial"),  alpha=0.3)+
+  ylim(0,1)
+grid.arrange(a,b, ncol=2, widths = c(6,6))
 
 # grid by Tenure & ecological zone
 ggplot(wfpred, aes(x= cogSC1, y = fitted, color = Rule))+
