@@ -176,39 +176,28 @@ td %<>% mutate_at(26, funs(ordered(.)))
 #                                    TRUE ~ NA_real_))            # else NA
 
       #### ----->>>>>Flipped the direction of the Rule DV so 0 = no and 1 = yes.
-td <- mutate(td, RuleNo = case_when(Rule == 0 ~ 0,   # No rules = 1
-                                    Rule == 1 | Rule == 2 ~ 1,   # set others to zero
+## But changing the name also (1/3/19) to make them easier to interpret.
+## By setting them this way, they can approximate incremental impacts akin to ordered
+td <- mutate(td, RuleYes = case_when(Rule == 0 ~ 0,   # No rules = 0
+                                    Rule == 1 | Rule == 2 ~ 1,   # set others to 1
                                     TRUE ~ NA_real_))            # else NA
+      ### Keeping this bc then I don't have to change everything w the numbering but this isn't a good one to use
+        # bc it doesn't really show impact of going from 0 to 1 or 0 to 2 so hard to interpret. 
 td <- mutate(td, RuleInf = case_when(Rule == 1 ~ 1,   # Informal rules = 1
                                      Rule == 0 | Rule == 2 ~ 0,   # set others to zero
                                      TRUE ~ NA_real_))            # else NA
 
+  # this represents going beyond just any Rules (RuleYes) and increasing the formality
+td <- mutate(td, RuleFormal = case_when( Rule == 0 | Rule == 1 ~ 0,   # set others to zero
+                                         Rule == 2 ~ 1,   # Formal rules = 1
+                                         TRUE ~ NA_real_))            # else NA
 
-td <- mutate(td, RuleFormal = case_when(Rule == 2 ~ 1,   # Formal rules = 1
-                                        Rule == 0 | Rule == 1 ~ 0,   # set others to zero
-                                        TRUE ~ NA_real_))            # else NA
-
-td %<>% mutate_at(c(27:28), funs(factor(.)))
+td %<>% mutate_at(c(27:29), funs(factor(.)))
  
 # rescale the STructural scoial capital
 td$strSC2<- rescale(td$strSC2, to = c(0,1))
 
 
-
-
-#SocCap subset ----
-  # This creates a subset of the df that removes all records w/ NAs in Social capital, so can compare across:
-
-td.sc <- td %>% drop_na(cogSC1)
-
-
-# save as Rdata to pull in to next script
-# Save multiple objects
-save(td, td.sc, file = "./data/td.RData")
-# To load the data again
-load("./data/td.RData")
-
-write.csv(td, "./data/td-export.csv")
 
 
 ######## Forage Use: #################
@@ -296,7 +285,7 @@ frg.use.avcv$Soum[frg.use.avcv$Soum == "Bat-Ulzii"] <- "Bat-Ulziit"
 
 
 # combine with the td dataframe:
-load("./data/td.RData")
+
 td$Aimag <- as.character(td$Aimag)
 td$Soum <- as.character(td$Soum)
 
@@ -307,4 +296,25 @@ x == y  # to find the ones that aren't lining up....
 #y[c(27:29,33),]
 
 td.fg <- td %>% inner_join(frg.use.avcv, by = c("Aimag", "Soum"))
-td.fg %<>% mutate(frg.left = (100-frgUse))
+td.fg %<>% mutate(frg.left = (100-frgUse)) %>% rename(frgCV = CV)
+
+attr(td.fg$cogSC1, "label") <- NULL
+attr(td.fg$cogSC1, "labels") <- NULL
+attr(td.fg$cogSC1, "names") <- NULL
+#SocCap subset ----
+# This creates a subset of the df that removes all records w/ NAs in Social capital, so can compare across:
+
+td.sc <- td.fg %>% drop_na(cogSC1)
+
+
+# save as Rdata to pull in to next script
+# Save multiple objects
+save(td.fg, td.sc, file = "./data/td.RData")
+# To load the data again
+load("./data/td.RData")
+
+write.csv(td.fg, "./data/td-export.csv")
+
+
+
+
