@@ -27,6 +27,66 @@ rpe.n <- na.omit(rpe)
 # how many in each rule category
 table(rpe.new$r1)
 
+td.e<- td[, c(9,10,14)]
+e1<- filter(td.e, ez== 1)
+e1<- e1[,1:2]
+
+e4<- filter(td.e, ez== 2)
+e4<- e4[,1:2]
+
+e4<- filter(td.e, ez== 4)
+e4<- e4[,1:2]
+
+e3<- filter(td.e, ez== 3)
+e3<- e3[,1:2]
+#e4$ez<- as.numeric(e4$ez)
+e4$cogSC1<- as.numeric(e4$cogSC1)
+e4$Rule<- as.factor(e4$Rule)
+
+hetcor(e4)$cor
+
+corrplot(hetcor(e1)$cor, 
+         type = "lower", method = "number", 
+         number.cex = 0.7, diag = FALSE)
+
+td.op<- mor2FULL%>% dplyr::select( Rule = q03_TimingRules3.3,       # Rule formality 
+                                #** Cognitive Social Capital :          
+                                # see Ulambayar et al. (201?) for info on which Qs were used, how combined
+                                cogSC1 = CognSC,   
+                                bondSC = BondSCsum,        # sum of five bonding items 7.6a-e
+                                #Access to other pastures:
+                                accPast = CanUseOtherPast)
+td.op<- mutate(td.op, otherPast = case_when(accPast == 3 ~ 1,   # No set to 1
+                                      accPast == 1 ~ 2,   # Yes w/in Soum set to 2
+                                      accPast == 2 ~ 3,   # Yes w/in & other soums set to 3
+                                      TRUE ~ NA_real_))  # Other set to NA
+td.op<- td.op[,c(1,2,3,5)]
+td.op$otherPast<- as.factor(td.op$otherPast)
+td.op$cogSC1<- as.numeric(td.op$cogSC1)
+td.op$bondSC<- as.numeric(td.op$bondSC)
+td.op$Rule<- as.factor(td.op$Rule)
+td.op <- na.omit(td.op)
+td.op<-as.data.frame(td.op)
+
+
+  # corr  btwn cogSC1 and access to Past in soums only
+corrplot(hetcor(td.op)$cor, 
+         type = "lower", method = "number", 
+         number.cex = 2, diag = FALSE)
+
+td.op2<- filter(td.op, otherPast == 2)
+td.op2<- td.op2[,1:3]
+corrplot(hetcor(td.op2)$cor, 
+         type = "lower", method = "number", 
+         number.cex = 2, diag = FALSE)
+
+ggplot(td.op, aes(x= cogSC1, ))+
+  geom_histogram(aes(y=..count..)) + facet_grid(.~otherPast) #color = otherPast
+ggplot(td.op, aes(x= bondSC, ))+
+  geom_histogram(aes(y=..count..), binwidth = 0.25) + facet_grid(.~otherPast) 
+
+ggplot(td.op, aes(x= bondSC, color = otherPast))+geom_density()
+
 
 ##################
 # CORRELATIONS #
@@ -46,7 +106,7 @@ rp <- rpe.n[,2:11]
 
 # subsets for each rule category
 # no rules (r1 == 0)
-r0 <- rp[which(rpe$r1=="None"),2:11]
+r0 <- rp[which(rpe.new$r1=="None"),2:11]
 # informal rules (r1 == 1)
 r1 <- rp[which(rpe$r1=="Informal"),2:11]
 # formal rules (r1 == 2)

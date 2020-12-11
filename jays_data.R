@@ -163,7 +163,7 @@ frg.avg <- frg.avail %>%
   group_by(year) %>%
   group_by(AimagName, SoumName, Soum_ID) %>% # if put all these together they will appear in the output)
   summarise(avail.forage = mean(biomass))
-# frg.avg<- as.data.frame(frg.avg)
+# frg.avg<- as.data.frame(frg.avg) &
 
 
 

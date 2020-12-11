@@ -2,8 +2,9 @@
 # This script pulls in the db, queries and wrangles the data &
 # saves as rdata to pull in to next script: 
 
-#---------------   UPDATE THIS TO INCLUDE PULLING THE FORAGE DATA FROM JAY
-#---------------  As of now that still lives buried in jays_data.R
+#---------------2020/10/26: updated to correct rescaling of forage
+# -----  but that really wacked out the odds ratios in the models??
+  
 
 library(haven)  # this is the new package to use instead of (foreign)
 #library(corrplot)
@@ -21,15 +22,15 @@ mor2FULL<- read_sav("./data/Org_HHS_May2016_5_28_16.sav") #
 # tidy format
 tbl_df(mor2FULL)
 
-# Info on fixing the names to match MOR2 ---------------------------------------------
+# Info on fixing the names in Jay's forage data to match MOR2 ---------------------------------------------
 #   need to match these on Soum ID, Aimag + Soum_name
-#
+#   
 soums <- read.csv("./data/mor2data/from_Jay/soum_names.csv", stringsAsFactors = FALSE)
 soums %<>% rename(Soum_name = jay)
 soums$MOR2match<- trimws(soums$MOR2match)  #trim trailing white space
 
 # aimag level :
-aimags <- read.csv("./data/from_Jay/aimag_names.csv", stringsAsFactors = FALSE)
+aimags <- read.csv("./data/mor2data/from_Jay/aimag_names.csv", stringsAsFactors = FALSE)
 
 
 
@@ -87,7 +88,7 @@ td<- mor2FULL%>% dplyr::select(
         ResSpr = b_ResSpr,    # Reserve Spring Pastures
         Wotor = e_WtrOtor,
         Fotor = d_FallOtor,  
-      #** Predictor Variables *** 
+      #*** Predictor Variables *** 
       # Org-level Tenure q:
         #TenureWPast = q02a_RightNatWintPast,   # Tenure Rights on Winter Pasture
         #(Inf/ use /possession contract) #But only 2 in Answ: Inf & Use 
@@ -194,8 +195,7 @@ td <- mutate(td, RuleFormal = case_when( Rule == 0 | Rule == 1 ~ 0,   # set othe
 
 td %<>% mutate_at(c(27:29), funs(factor(.)))
  
-# rescale the STructural scoial capital
-td$strSC2<- rescale(td$strSC2, to = c(0,1))
+
 
 
 
@@ -244,11 +244,6 @@ j.forage.use <- j.forage.use[2:37,c(1:5, 16:17)]
 colnames(j.forage.use)<- c("Aimag_name", "Soum_name", "Soum_ID", "Ecozone", "Poly_ID", "fu10", "fu11")
 j.forage.use %<>% mutate_at(6:7, funs(as.numeric(.)))
 
-# rename the colum from the soums name table imported above
-#soums$Soum<- soums$Soum_name
-
-# add the other cols now? 
-
 
 #   2010-2011 avg
 frg.use <- j.forage.use %>% 
@@ -259,14 +254,6 @@ frg.use$pctFrgUse<- as.numeric(frg.use$pctFrgUse)
 frg.use<- frg.use[,c(1,2,4,6,7)]
 
 
-
-# function to cal CV
-#cv <- function(x) 100*( sd(x)/mean(x))
-#j.forage.cv <- read.csv("./data/forageCV.csv")
-#j.forage.cv$Aimag<- j.forage.cv$Aimag_name
-#j.forage.cv$Soum<- j.forage.cv$Soum_name
-
-#frg.use.a<- frg.use%>% left_join(j.forage.cv, by = c("Aimag", "Soum"))
 
 # Need to summarize first bc now have three years of values for each soum
 # now calc mean across 2010-2011 SoumID
@@ -301,10 +288,60 @@ td.fg %<>% mutate(frg.left = (100-frgUse)) %>% rename(frgCV = CV)
 attr(td.fg$cogSC1, "label") <- NULL
 attr(td.fg$cogSC1, "labels") <- NULL
 attr(td.fg$cogSC1, "names") <- NULL
+
+attr(td.fg$bondSC, "label") <- NULL
+attr(td.fg$bondSC, "labels") <- NULL
+attr(td.fg$bondSC, "names") <- NULL
+
+# rescale the STructural scoial capital  (done below now)
+td.fg$bondSC<- rescale(td.fg$bondSC, to = c(0,2))
+#td.fg$bondSC<- scale(td.fg$bondSC) #rescale it 
+
+# RESCALE Forage Params:
+td.fg%<>% mutate(frg.rs= (frg.left/100))
+td.fg%<>% mutate(frg.rs.CV = (frgCV/100))
+
+# ADD LABELS to the factors to make them readable:
+  ## THIS JUST CHANGED THE ACTUAL VALUES NOT THE LABELS... 
+  ## WHICH THEN MESSES UP THE CODING LATER
+  ## JUST WANT NEW *LABELS*
+# td.fg<- td.fg %>%
+#   mutate(Rule =
+#            recode(Rule,
+#                   "0" = "None",
+#                   "1" = "Informal",
+#                   "2" = "Formal"),
+#          hhTenureWPast =
+#            recode(hhTenureWPast,
+#                   "0" = "No Contract",
+#                   "1" = "Use or Possession Contract"),
+#          hhTenureSpPast =
+#            recode(hhTenureSpPast,
+#                   "0" = "No Contract",
+#                   "1" = "Use or Possession Contract"),
+#          hhTenureWCamp =
+#            recode(hhTenureWCamp,
+#                   "0" = "No Contract",
+#                   "1" = "Use or Possession Contract"),
+#          hhTenureSpCamp =
+#            recode(hhTenureSpCamp,
+#                   "0" = "No Contract",
+#                   "1" = "Use or Possession Contract"),
+#          otherPast =
+#            recode(otherPast,
+#                   "1"= "None",
+#                   "2"= "Within same soum",
+#                   "3"= "Within same and in other soums")
+#          
+#          )
+  
+
 #SocCap subset ----
-# This creates a subset of the df that removes all records w/ NAs in Social capital, so can compare across:
+# This creates a subset of the df that removes all records w/ NAs in Social capital, 
+# so can compare across:
 
 td.sc <- td.fg %>% drop_na(cogSC1)
+
 
 
 # save as Rdata to pull in to next script

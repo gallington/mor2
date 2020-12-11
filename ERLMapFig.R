@@ -14,11 +14,12 @@ china_provs<- readOGR(dsn="/nfs/gallington-data/Timeseries/GIS_data/china/CHN_ad
 china <- readOGR(dsn="/nfs/gallington-data/Timeseries/GIS_data/china/CHN_adm_shp", layer='CHN_adm0')
 china_leagues<- readOGR(dsn="/nfs/gallington-data/Timeseries/GIS_data/china/CHN_adm_shp", layer='CHN_adm2')
 Xht<-readOGR(dsn="/nfs/gallington-data/Timeseries/GIS_data", layer='xilinhot')
-mg_provs<- readOGR(dsn="/nfs/gallington-data/Timeseries/GIS_data/boundary_mg", layer = 'province')
-
+mg_provs<- readOGR(dsn="./nfs/gallington-data/Timeseries/GIS_data/boundary_mg", layer = 'province')
 mg_soums<- readOGR(dsn="/nfs/gallington-data/Timeseries/GIS_data/boundary_mg", layer = 'soums')
-
 crsproj <- CRS('+init=epsg:4326')
+
+mg_provs <- readOGR(dsn= "/Users/gallington/Repositories/mor2/data/mor2data", layer = "MNG_adm2" )
+
 
 #check out the dataframe to get the index no for Xilinhot
 data.frame(im_mn)
@@ -101,12 +102,14 @@ plot(mg_proj, col= NA, border = "grey30", lty= 1)
 ############################
 
 # FOR THE ERL PAPER:-----------
+mg_provs <- readOGR(dsn= "/Users/gallington/Repositories/mor2/data/mor2data", layer = "MNG_adm2" )
 
-mg<- readOGR(dsn="/nfs/gallington-data/Herder_sem/data/MNG_adm0.shp")
-mg_aimag<- readOGR(dsn="/nfs/gallington-data/Herder_sem/data/MNG_adm1.shp")
-mg_soums<- readOGR(dsn="/nfs/gallington-data/Herder_sem/data/MNG_adm2.shp")
-mg_ez<- readOGR(dsn="/nfs/gallington-data/Herder_sem/plots/Mongolia_NaturalZones_export/Natural_Zones_aggregate_utm48n.shp")
-mor2_soums<- readOGR(dsn="/nfs/gallington-data/Herder_sem/data/MOR2_view/MOR2/MOR2_STUDY_SITES_all.shp")
+mg<- readOGR(dsn="/Users/gallington/Repositories/mor2/data/mor2data/MNG_adm0.shp")
+mg_aimag<- readOGR(dsn="/Users/gallington/Repositories/mor2/data/mor2data/MNG_adm1.shp")
+mg_soums<- readOGR(dsn="/Users/gallington/Repositories/mor2/data/mor2data/MNG_adm2.shp")
+mg_ez<- readOGR(dsn="/Users/gallington/Repositories/mor2/data/mor2data/MOR2_view/NaturalZones/Natural_Zones_aggregate_utm48n.shp")
+
+#mor2_soums<- readOGR(dsn="/nfs/gallington-data/Herder_sem/data/MOR2_view/MOR2/MOR2_STUDY_SITES_all.shp")
 
 cbsoums<- mor2_soums[mor2_soums$CBRM=='y',]
 trueCentroids = gCentroid(cbsoums,byid=TRUE)
@@ -187,6 +190,7 @@ polys.subcb0 <- mg_soums[!is.na(sp::over(mg_soums, sp::geometry(mor2_ptscb0))), 
 mor2_sm<- mg_soums[!is.na(sp::over(mg_soums, sp::geometry()))]
 
 
+
 # MG LABEL
 coords<- data.frame(x=c(97.5, 100, 110.0, 112.0), #98.34661), 
                     y = c(49, 42.23, 50.5, 44.5), #34.00082), 
@@ -227,23 +231,23 @@ Fig.1MOR2map<- tm_shape(mg_ez)+
 #tm_shape(MNG_adm1) +
  tm_shape(mg_aimag) +
   tm_polygons(alpha = 0) +
-#tm_shape(MNG_adm2) + tm_polygons(alpha = 0)+
-tm_shape(mor2_soums) +
+tm_shape(MNG_adm2) + tm_polygons(alpha = 0)+
+#tm_shape(mor2_soums) +
  # tm_fill(col = "grey", alpha = .5) +
   tm_borders(col = "black", lwd = 2) +
   tm_add_legend(type="line", lwd = 2,
                 col= "black",
                 labels = "Study Soums") +
 #tm_shape(mor2_ptscb1) +
-tm_shape(trueCentroids)+
-  tm_dots(col = "grey15",
-         size = .15,
-         shape = 17)+
- tm_add_legend(type="symbol",shape = 17,
-               col= "black",
-               labels = "soums w/ CBRM")+
+# tm_shape(trueCentroids)+
+#   tm_dots(col = "grey15",
+#          size = .15,
+#          shape = 17)+
+#  tm_add_legend(type="symbol",shape = 17,
+#                col= "black",
+#                labels = "soums w/ CBRM")+
   tm_compass(position = c(.15, .12), color.light = "grey90") +
-tm_shape(coords)+
+#tm_shape(coords)+
  tm_text("labels", size = 1)
 Fig.1MOR2map
 
@@ -279,33 +283,35 @@ MOR2map<- tm_shape(mg_ez)+
                 col=legend.ezpal, 
                 labels = leglabs, 
                 title="Ecozones") +
+  tm_shape(mg_soums) +
+  #tm_shape(mor2_soums) +
+  tm_borders(col = "grey65", lwd = 0.7) +
+  tm_add_legend(type="line", lwd = 2,
+                col= "grey65",
+                labels = "Soums") +
+  tm_add_legend(type="line", lwd = 1,
+                col= "black",
+                labels = "Aimag Boundary") +
   tm_shape(mg) +
   tm_polygons(alpha = 0) +
   tm_shape(mg_aimag) +
   tm_polygons(alpha = 0) +
-  tm_shape(mor2_soums) +
-  tm_borders(col = "black", lwd = 2) +
-  tm_add_legend(type="line", lwd = 2,
-                col= "black",
-                labels = "Study Soums") +
-  tm_add_legend(type="line", lwd = 1,
-                col= "grey65",
-                labels = "Aimag Boundary") +
-  tm_shape(trueCentroids)+
-  tm_dots(col = "grey25",
-          size = .15,
-          shape = 16)+
-  tm_add_legend(type="symbol",shape = 16,
-                col= "black",
-                labels = "soums w/ CBRM")+
+  tm_borders(col = "black", lwd = 1) +
+  #tm_shape(trueCentroids)+
+  #tm_dots(col = "grey25",
+   #       size = .15,
+    #      shape = 16)+
+  #tm_add_legend(type="symbol",shape = 16,
+   #             col= "black",
+    #            labels = "soums w/ CBRM")+
   tm_compass(position = c(.15, .12), color.light = "grey90") +
   tm_shape(coords)+
   tm_text("labels", size = 1)
 MOR2map
 # png version
-tmap_save(MOR2map, "./plots/MOR2map.png", width = 10, height = 8.5)
+tmap_save(MOR2map, "./MongoliaEZmap.png", width = 10, height = 8.5)
 # tif version
-tmap_save(MOR2map, "./plots/MOR2map.tiff", width = 10, height = 8.5)
+tmap_save(MOR2map, "./MongoliaEZmap.tiff", width = 10, height = 8.5)
 
 
 

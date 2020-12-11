@@ -11,6 +11,9 @@ output:
     df_print: paged
   pdf_document: default
 ---
+-2020-01-31: Best fits to use for table:hypw, hyps, hypwotr,
+
+-2020-01-22: versioned the prior iteration of this that included manual calculation of predicted vals/effect sizes for all the params. can do that w sjPlot more quickly. 
 -2019-12-6: versioned the prior iteration of this that included all the old model comparisons and restarted w new based on the new tabel of hypothesized relationships from our call on Dec. 5
 
 [Leftover:]
@@ -325,188 +328,35 @@ p= 1/(1+exp(-(everything above)))
 Now we calculate a new column in the dataframe for the estimated probability of each value of X1 using the mean of X2 with the formula:
 
 1/(1+exp(-(B0 + B1X1 + B2MeanX2 + ...))
-```{r}
-#get the means of each CONTINUOUS predictor variable and write to a variable
-# mean.SC<- mean(td.fg$cogSC1)  # what is wrong w this? why can't i get a mean?
-sc<-td.fg$cogSC1[!is.na(td.fg$cogSC1)]
-mean.sc = mean(sc)  # calculated in xcel bc kept getting error here, issue w data type?
-mean.frg<- mean(td.fg$frg.left)
-mean.CV<- mean(td.fg$frgCV)
-```
-
-Predicting probabilities for winter reserv
-```{r, cache = TRUE}
-   # double check the coefficients:
-#summary(hypw)
-
-  #calculate the prob for reserving pastures for each param when the other predictor params are   #held constant at mean or set to zero....
-      ## adjust the code and var name below to get all the diff iterations
-probRes_ry = 1/(1+exp(-(-6.059621 + 
-                         (0.662 * 0) + # hold everything off/constant except psture Tenure
-                         (0.518 * 0) +  # camp tenure
-                         (1.308847 * 1) + # Rules Yes
-                         (-0.215351 * 0) + # Rules Formal
-                         (0.812 * mean.sc) +  # cogSC
-                         (0.0475 * mean.frg) +  #frg.lef
-                         (0.0462 * mean.CV))))   #frgCV
-
-binprobs<- as.data.frame(cbind(probRes_0, probRes_tp, probRes_tpc, probRes_tc, probRes_ry, probRes_rf))
-#probs<- gather(binprobs, "Vars", "Probability", 1:6)
-#probs %<>% mutate(Varibale =c("Base", "Pasture Tenure", "Pasture & Camp", "Camp Tenure", "Rules", "Formal Rule")) %>% select(-Vars) %>% dplyr::mutate_if(is.numeric, format, 1)
-
-#contprobs<- as.data.frame(probRes_sc, probRes_f, probRes_fcv) 
 
 
-td2<- td.fg %>%
-  # adds a new col= pred prob of reserving, when varying SC, but all others held at 0 or mean
-  mutate(prob.sc = 1/(1+exp(-(-6.059621 +     
-                         (0.662 * 0) + # tenure
-                         (0.518 * 0) +  # camp tenure
-                         (1.308847 * 0) + # Rules Yes
-                         (-0.215351 * 0) + # Rules Formal
-                         (0.812 * td.fg$cogSC1) +  # cogSC
-                         (0.048 * mean.frg) +  #frg.lef
-                         (0.046 * mean.CV))))   #frgCV)
-        ) %>%
-    mutate(prob.frg = 1/(1+exp(-(-6.059621 +     
-                         (0.662 * 0) + # tenure
-                         (0.518 * 0) +  # camp tenure
-                         (1.308847 * 0) + # Rules Yes
-                         (-0.215351 * 0) + # Rules Formal
-                         (0.812 * mean.sc) +  # cogSC
-                         (0.048 * frg.left) +  #frg.lef
-                         (0.046 * mean.CV))))   #frgCV)
-        )%>%
-    mutate(prob.fcv = 1/(1+exp(-(-6.059621 +     
-                         (0.662 * 0) + # tenure
-                         (0.518 * 0) +  # camp tenure
-                         (1.308847 * 0) + # Rules Yes
-                         (-0.215351 * 0) + # Rules Formal
-                         (0.812 * mean.sc) +  # cogSC
-                         (0.048 * mean.frg) +  #frg.lef
-                         (0.046 * frgCV))))   #frgCV)
-        )
-```
+CAN SHORTEN ALL OF THIS (vc'd and deleted) BY JUST USING THE FUNCTIONS IN sjPlot! Such as 
+plot_model(x, type = "pred")
+"Model predictions are based on all possible combinations of the model terms, which are - roughly speaking - created using expand.grid(). For the terms in question, all values are used for combinations. All other model predictors that are not specified in the terms-argument, are held constant (which is achieved with sjstats::typical_value()). By default, continuous variables are set to their mean, while factors are set to their reference level." <- from the documentation for sjPlot. This is essentially what I've done farther below.
+
+
+Predicting probabilities for winter reserve
 ####3.1.3 Probability of Reserving Winter Pastures, by individual parameter 
 (all remaining binary predictors held at 0, continuous params set to their mean)
-```{r}
-probs %>%
-  kable() %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),full_width = F)
-```
 
-##Prob of Rsv WPast given varied social capital (all other params constant)
-```{r}
-#plot probailities when others are held constant
-g.prob.SC<-ggplot(td2, aes(x=cogSC1, y=prob.sc)) +
-  geom_point() +
-  geom_smooth(method = "glm", method.args = list(family = "binomial"), se = FALSE, alpha=0.3)+
-  ylim(0,1)+
-  labs(x = "cognitive social capital",
-       y = "probability of reserving winter pastures")+
-  ggtitle("Prob of Rsv WPast given varied social capital (all other params constant)") +
-  theme(plot.title = element_text(size=8))+
-  theme(axis.title = element_text(size=10))
-#g.prob.SC
-```
+Prob of Rsv WPast given varied social capital (all other params constant):
 
-##Prob of Rsv WPast given varied forage remaining (all other params constant)
-```{r}
-#plot probailities when others are held constant
-g.prob.f<-ggplot(td2, aes(x=frg.left, y=prob.frg)) +
-  geom_point() +
-  geom_smooth(method = "glm", method.args = list(family = "binomial"), se = FALSE, alpha=0.3)+
-  ylim(0,1)+
-  labs(x = "Forage remaining (%)",
-       y = "Probability of reserving winter pastures")+
-  ggtitle("Prob of Rsv WPast given amt of forage remaining (all other params constant)") +
-  theme(plot.title = element_text(size=8))+
-  theme(axis.title = element_text(size=10))
-#g.prob.f
-```
-##Prob of Rsv WPast given CV of forage over past X yrs (all other params constant)
-```{r}
-#plot probailities when others are held constant
-g.prob.fcv<-ggplot(td2, aes(x=frgCV, y=prob.fcv)) +
-  geom_point() +
-  geom_smooth(method = "glm", method.args = list(family = "binomial"), se = FALSE, alpha=0.3)+
-  ylim(0,1)+
-  labs(x = "CV of Available forage (%)",
-       y = "Probability of reserving winter pastures")+
-  ggtitle("Prob of Rsv WPast given CV of forage (all other params constant)") +
-  theme(plot.title = element_text(size=8))+
-  theme(axis.title = element_text(size=10))
-#g.prob.fcv
-```
-
-```{r}
-# now put the two graphs together
-library(gridExtra)
-grid.arrange(g.prob.SC, g.prob.f, g.prob.fcv, ncol=3, widths = c(6,6,6))
-```
-
-
-
-
-Plotting fitted values vs. predicted values based on mock data..... 
-Why do the predicted curves start so much higher than fitted?? bc responding to unrealistic set of data ranges in the prediction dataset?
-```{r, cache = TRUE, echo = FALSE}
-#----- 
-# df of params for prediction:
-sc<- seq(0,2, .1)
-p_dat <- cbind(expand.grid(hhTenureWPast=c(0,1),       #seq(0,1,1),
-                           hhTenureWCamp=c(0,1),       #seq(0,1,1),
-                          # otherPast = c(1,2,3),
-                           RuleYes=c(0,1),
-                           RuleFormal=c(0,1),
-                           #ez = c(1,2,3,4),             #seq(1,4,1),
-                           cogSC1= seq(0,2, .1),
-                           frg.left = seq(10,90, 5),
-                           frgCV = seq(10,90,5),
-                           Org = (1)
-                           ))
-
-p_dat %<>% mutate_at(c(1:4,8), funs(factor(.)))
-#p_dat %<>% mutate_at(3, funs(ordered(.)))
-
-wfit<- data.frame(hypw@frame, fitted = fitted(hypw))
-
-wfPred<- predict(hypw, p_dat, type="response", allow.new.levels = TRUE)
-predwfDat <- data.frame(p_dat, wfPred)
-
-
-ggplot(td.fg, aes(x= frg.left, color = ResWint))+geom_density()
-a<- ggplot(wfit, aes(x= cogSC1, y = fitted, color = RuleYes))+
-  geom_point()+
-  geom_smooth(method = "glm", method.args = list(family = "quasibinomial"),  alpha=0.3)
-b<- ggplot(predwfDat, aes(x= cogSC1, y = wfPred, color = RuleYes))+
-  #geom_point() +
-  geom_smooth(method = "glm", method.args = list(family = "quasibinomial"),  alpha=0.3)+
-  ylim(0,1)
-grid.arrange(a,b, ncol=2, widths = c(6,6))
-
-# grid by Tenure & ecological zone
-ggplot(wfpred, aes(x= cogSC1, y = fitted, color = Rule))+
-  geom_smooth()+
-  coord_cartesian(xlim = c(0,2), ylim = c(0,1))+
-  xlab("cognitive social capital")+
-  ylab("predicted prob of reserving winter pasture") +
-  facet_grid(.~ez, labeller = label_both)
-
-
-```
-
+Prob of Rsv WPast given varied forage remaining (all other params constant):
+Prob of Rsv WPast given CV of forage over past X yrs (all other params constant):
 
 
 # SPRING PASTURES
 Model based on hypothesized signif relationships
 ```{r}
 hyps<- glmer(ResSpr ~ hhTenureSpPast + hhTenureSpCamp + RuleYes + RuleFormal +  cogSC1 + frgCV + frg.left+   (1|Org) , family = binomial, data = td.fg) 
-summary(hyps)
+alts<- glmer(ResSpr ~  hhTenureSpCamp +   cogSC1 + frgCV + frg.left+   (1|Org) , family = binomial, data = td.fg)
+summary(hyps) # this one doesn't actually converge
+summary(alts) # this one, which doesn't include the non-signif params from above, does converge. 
+tab_model(hyps, alts, show.aic = TRUE) #BUT it has a much higher AIC and a lower conditional R-sq. And the parameter estimates for the signif params are essentially the same, so I'm sticking with <hyps>
 ```
 Comparison of model results across these four parameterizations:
 ```{r}
-tab_model(hyps,    
+tab_model(hypw, hyps,    
           show.icc = TRUE,
           show.aic = TRUE)
 
@@ -514,124 +364,26 @@ tab_model(hyps,
 plot_model(hyps,
            title = "Reserve Spring Pastures", 
            sort.est = TRUE,
-           #auto.label = FALSE, 
+           auto.label = FALSE, 
            #axis.labels = c("Rules","cbrmYN","Camp Tenure", "Social Capital", "Pasture Tenure"),
-           colors = "blue") 
+          colors = "blue") 
 ```
 Predicting probabilities for reserving Spring pastures:
 
 The formula, based on model <hyps> above, is:
 ResSPr ~ -5.417732 + 0.691647* PastureTenure + 0.571525* CampTenure + 0.383931*RulesYes + 0.430766*FormalRules + 0.691976*cogSC1 +  0.055061* frgCV + 0.035356*frg.left
-```{r, cache = TRUE}
-   # double check the coefficients:
-#summary(hypw)
 
-  #calculate the prob for reserving pastures for each param when the other predictor params are   #held constant at mean or set to zero....
-      ## adjust the code and var name below to get all the diff iterations
-probResS_fcv = 1/(1+exp(-(-5.417732 + 
-                         (0.691647 * 0) + # psture Tenure
-                         (0.571525 * 0) +  # camp tenure
-                         (0.383931 * 0) + # Rules Yes
-                         (0.430766 * 0) + # Rules Formal
-                         (0.691976 * mean.sc) +  # cogSC
-                         (0.035356 * mean.frg) +  #frg.lef
-                         (0.055061 * td.fg$frgCV))))   #frgCV
-
-binprobs<- as.data.frame(cbind(probResS_0, probResS_tp, probResS_tpc, probResS_tc, probResS_ry, probResS_rf))
-probs<- gather(binprobs, "Vars", "Probability", 1:6)
-probs %<>% mutate(Varibale =c("Base", "Pasture Tenure", "Pasture & Camp", "Camp Tenure", "Rules", "Formal Rule")) %>% select(-Vars) %>% dplyr::mutate_if(is.numeric, format, 1)
-
-
-td3<- td.sc %>%
-  # adds a new col= pred prob of reserving, when varying SC, but all others held at 0 or mean
-  mutate(prob.sc = 1/(1+exp(-(-5.417732 + 
-                         (0.691647 * 0) + # psture Tenure
-                         (0.571525 * 0) +  # camp tenure
-                         (0.383931 * 0) + # Rules Yes
-                         (0.430766 * 0) + # Rules Formal
-                         (0.691976 * sc) +  # cogSC
-                         (0.035356 * mean.frg) +  #frg.lef
-                         (0.055061 * mean.CV))))   #frgCV
-        ) %>%
-    mutate(prob.frg = 1/(1+exp(-(-5.417732 + 
-                         (0.691647 * 0) + # psture Tenure
-                         (0.571525 * 0) +  # camp tenure
-                         (0.383931 * 0) + # Rules Yes
-                         (0.430766 * 0) + # Rules Formal
-                         (0.691976 * mean.sc) +  # cogSC
-                         (0.035356 * td.sc$frg.left) +  #frg.lef
-                         (0.055061 * mean.CV))))   #frgCV
-        )%>%
-    mutate(prob.fcv = 1/(1+exp(-(-5.417732 + 
-                         (0.691647 * 0) + # psture Tenure
-                         (0.571525 * 0) +  # camp tenure
-                         (0.383931 * 0) + # Rules Yes
-                         (0.430766 * 0) + # Rules Formal
-                         (0.691976 * mean.sc) +  # cogSC
-                         (0.035356 * mean.frg) +  #frg.lef
-                         (0.055061 * td.sc$frgCV))))   #frgCV
-        )
-```
 ####3.1.3 Probability of Reserving Winter Pastures, by individual parameter 
 (all remaining binary predictors held at 0, continuous params set to their mean)
 
 Again, these results must be considered along with the se/ CIs from the model summary. There is a LOT of variation in the answers to Pasture Tenure, so it is a poor predictor, 
-```{r}
-probs %>%
-  kable() %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),full_width = F)
-```
 
 ##Prob of Rsv Spr Past given varied social capital (all other params constant)
-```{r}
-#plot probailities when others are held constant
-g.prob.SC<-ggplot(td3, aes(x=cogSC1, y=prob.sc)) +
-  geom_point() +
-  geom_smooth(method = "glm", method.args = list(family = "binomial"), se = FALSE, alpha=0.3)+
-  ylim(0,1)+
-  labs(x = "cognitive social capital",
-       y = "probability of reserving Spring pastures")+
-  ggtitle("Prob of Rsv Spr Past (all other params constant)") +
-  theme(plot.title = element_text(size=8))+
-  theme(axis.title = element_text(size=10))
-#g.prob.SC
-```
+
 
 ##Prob of Rsv Spring Pastures given varied forage remaining (all other params constant)
-```{r}
-#plot probailities when others are held constant
-g.prob.f<-ggplot(td3, aes(x=frg.left, y=prob.frg)) +
-  geom_point() +
-  geom_smooth(method = "glm", method.args = list(family = "binomial"), se = FALSE, alpha=0.3)+
-  ylim(0,1)+
-  labs(x = "Forage remaining (%)",
-       y = "Probability of reserving spring pastures")+
-  ggtitle(" ") +
-  theme(plot.title = element_text(size=8))+
-  theme(axis.title = element_text(size=10))
-#g.prob.f
-```
+
 ##Prob of Rsv Spr Past given CV of forage over past X yrs (all other params constant)
-```{r}
-#plot probailities when others are held constant
-g.prob.fcv<-ggplot(td3, aes(x=frgCV, y=prob.fcv)) +
-  geom_point() +
-  geom_smooth(method = "glm", method.args = list(family = "binomial"), se = FALSE, alpha=0.3)+
-  ylim(0,1)+
-  labs(x = "CV of Available forage (%)",
-       y = "Probability of reserving Spring pastures")+
-  ggtitle("") +
-  theme(plot.title = element_text(size=8))+
-  theme(axis.title = element_text(size=10))
-#g.prob.fcv
-```
-
-```{r}
-# now put the two graphs together
-library(gridExtra)
-grid.arrange(g.prob.SC, g.prob.f, g.prob.fcv, ncol=3, widths = c(6,6,6))
-```
-
 
 
 
@@ -685,24 +437,37 @@ tab_model(hypwo, hypwor, show.aic = TRUE)
 This is the best version, based on AIC scores and % variation explained...
 Use this in plots below:
 ```{r}
-hypwort<- glmer(Wotor ~ hhTenureWPast+ hhTenureWCamp+bondSC+ otherPast+ RuleYes + RuleFormal+ frgCV + frg.left+ (0*ez)+ (1|Org) , family = binomial, data = td.fg) 
+hypwort<- glmer(Wotor ~ hhTenureWPast+ hhTenureWCamp+bondSC+ otherPast+ RuleYes + RuleFormal+ frgCV + frg.left+  (1|Org) , family = binomial, data = td.fg) 
 #tab_model(fullwo2, hypwo, hypwor,hypwort, show.aic = TRUE)
-tab_model(hypwort)
+tab_model(hypwort, show.aic = TRUE)
 plot_model(hypwort)
 ```
 
 
 ```{r}
 hypfor<- glmer(Fotor ~ cogSC1 +bondSC+otherPast+RuleFormal + RuleYes+ frgCV + frg.left+   (1|Org) , family = binomial, data = td.sc) 
+hypfor<- glmer(Fotor ~ cogSC1 +bondSC+otherPast+RuleFormal + RuleYes+ frgCV + frg.left+   (1|Org) , family = binomial, data = td.sc) 
+hypfez<- glmer(Fotor ~ cogSC1 +bondSC+otherPast+RuleFormal + RuleYes+ frgCV + frg.left+ ez+  (1|Org) , family = binomial, data = td.sc) 
 
 ```
 Fall otor:
 Lower AIC, but also lower Conditional R2 if keep the tenure params included....
 ```{r}
-tab_model(fullfo, hypfor, show.aic=TRUE)
-plot_model(fullfo)
+tab_model(hypfor,hypfez, show.aic=TRUE)
+tab_model( hypfor,hypwort, show.aic=TRUE)#, 
+          # pred.labels = c("Intercept", "Pasture Tenure", "Camp Tenure", "Bonding Social Capital", "Access to Pastures", "Rules", "Formal Rules", "CV of Forage", "Forage Remaining", "Cognitive Social Capital"),
+          col.order = c("est", "p", "stat"),
+          dv.labels = c( "Fall Otor", "Winter Otor"),
+          string.pred = "Coefficient"
+#          p.style = "a"  # asterisk instead of p value
+  )
+#plot_model(fullfo)  
 plot_model(hypfor)
 plot_model(hypfor, type = "pred")
+plot_model(hypfez, type = "pred", terms = c("cogSC1","ez"))
+plot_model(hypfez, type = "pred", terms = c("cogSC1", "RuleFormal", "ez"))
+plot_model(hypfez, type = "pred", terms = c("cogSC1", "RuleFormal"))
+
 ```
 
 

@@ -37,10 +37,11 @@ library(sjmisc)
 library(stringr)
 library(kableExtra)
 library(qwraps2)
+library(fmsb)
 
 options(scipen = 999)
 
-# This is pulled from teh vignette for the summarytools pkg, which gives
+# This is pulled from the vignette for the summarytools pkg, which gives
 # these suggested specifications to enable easy viewing of outputs:
 # https://cran.r-project.org/web/packages/summarytools/vignettes/Introduction.html
 
@@ -175,7 +176,7 @@ tab_model(nullw1, nulls1, nullwo1, nullfo1,
 ```
 
 
-###2.2 Winter Pasture Tenure & Rule Formality
+ 
 
 
 ```{r, eval = FALSE, echo = FALSE}
@@ -254,9 +255,13 @@ tab_model(wp, sp, wo, fo,
 
 
 #3. MODEL COMPARISONS:
+
 TO DO: a Supp Table that is just the hypothesized signif terms, not the best fit, which is what is below:
 
 Best fit models combined in to one table:
+# why do odds ratios get screwy if i use scaled forage params?
+And more to teh point why aren't these models converging now??????
+
 ```{r}
 # Resv Wtr
 hypw<- glmer(ResWint ~ hhTenureWPast + 
@@ -265,7 +270,7 @@ hypw<- glmer(ResWint ~ hhTenureWPast +
                RuleFormal+  
                cogSC1 + 
                frgCV + 
-               frg.left+   (1|Org) , family = binomial, data = td.fg) 
+               frg.left +   (1|Org) , family = binomial, data = td.fg) 
 # Resv Spr
 hyps<- glmer(ResSpr ~ hhTenureSpPast + 
                hhTenureSpCamp + 
@@ -275,7 +280,7 @@ hyps<- glmer(ResSpr ~ hhTenureSpPast +
                frgCV + 
                frg.left+   (1|Org) , family = binomial, data = td.fg) 
 # Wtr Otor
-  #This is the best version, based on AIC scores and % variation explained...and ifs diff
+  #This is the best version, based on AIC scores and % variation explained...and is diff
   # from orig hypothesis.
 hypwort<- glmer(Wotor ~ hhTenureWPast+ 
                   hhTenureWCamp+bondSC+ 
@@ -296,8 +301,9 @@ hypfo<- glmer(Fotor ~ otherPast +
 ```
 
 
-
+#TABLE 1
 ```{r}
+# rename the variables so they make sense:
 pv <- c(
   `(Intercept)` = "Intercept",
   cogSC1 = "Cognitive Social Capital",
@@ -323,6 +329,7 @@ tab_model(hypw, hyps, hypwort, hypfo,
           p.style = "a")  # show asterisk instead of p val
 ```
 
+#FIGURE 1
 ```{r}
 
 a<- plot_model(hypw,
@@ -331,6 +338,7 @@ a<- plot_model(hypw,
            auto.label = FALSE, 
            axis.labels = pv,
            colors = "bw",
+           rm.terms = "otherPast.Q",  # remove the quadratic term
            show.values = TRUE, value.offset = .3, value.size = 3
            ) 
 
@@ -340,6 +348,7 @@ b<- plot_model(hyps,
            auto.label = FALSE, 
            axis.labels = pv,
            colors = "bw",
+           rm.terms = "otherPast.Q",  # remove the quadratic term
            show.values = TRUE, value.offset = .3, value.size = 3
            ) 
 
@@ -349,6 +358,7 @@ c<- plot_model(hypwort,
            auto.label = FALSE, 
            axis.labels = pv,
            colors = "bw",
+           rm.terms = "otherPast.Q",  # remove the quadratic term
             show.values = TRUE, value.offset = .3, value.size = 3
            )
            
@@ -358,6 +368,7 @@ d<- plot_model(hypfo,
            auto.label = FALSE, 
            axis.labels = pv,
            colors = "bw",
+           rm.terms = "otherPast.Q",  # remove the quadratic term
             show.values = TRUE, value.offset = .3, value.size = 3
            ) 
 
@@ -382,38 +393,53 @@ CAN SHORTEN ALL OF THIS (vc'd and deleted) BY JUST USING THE FUNCTIONS IN sjPlot
 plot_model(x, type = "pred")
 "Model predictions are based on all possible combinations of the model terms, which are - roughly speaking - created using expand.grid(). For the terms in question, all values are used for combinations. All other model predictors that are not specified in the terms-argument, are held constant (which is achieved with sjstats::typical_value()). By default, continuous variables are set to their mean, while factors are set to their reference level." <- from the documentation for sjPlot. This is essentially what I've done farther below.
 
+NOTE: FIG VIZ PARAMS to USE:
+           title = "Fall otor", 
+           sort.est = TRUE,
+           auto.label = FALSE, 
+           axis.labels = pv,
+           colors = "bw",
+           rm.terms = "otherPast.Q",  # remove the quadratic term
+            show.values = TRUE, value.offset = .3, value.size = 3
 
-# 4. Predicted probabilities 
+
+#4. Predicted probabilities 
 Examine the influence of each predictor on the predicted probabilities, either holding all other constant, or examine the interactions of terms:
 (all remaining binary predictors held at 0, continuous params set to their mean)
 
+THIS IS HOW TO PLOT THEM WITH ALL DATA COMBINED-- NOT SEPARATED OUT BY ECOLOGICAL ZONE
 ```{r}
 plot_model(hypfo)
 plot_model(hypfo, type = "pred")
-plot_model(hypfo, type = "pred", terms = c("cogSC1","ez"))
-plot_model(hypfez, type = "pred", terms = c("cogSC1", "RuleFormal", "ez"))
-plot_model(hypfez, type = "pred", terms = c("cogSC1", "RuleFormal"))
+plot_model(hypfo, type = "pred", terms = c("cogSC1"))
+#plot_model(hypfez, type = "pred", terms = c("cogSC1", "RuleFormal", "ez"))
+#plot_model(hypfez, type = "pred", terms = c("cogSC1", "RuleFormal"))
 
 ```
-Reserving winter pastures, by tenure status:
+##Predicted Odds of Rsv Pastures, by tenure status:
 ```{r}
 hypwr<- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + Rule+      cogSC1 + frgCV + frg.left + (1|Org) , family = binomial, data = td.fg) 
 hypsr<- glmer(ResSpr ~ hhTenureSpPast + hhTenureSpCamp + Rule+cogSC1 + frgCV + frg.left + (1 |Org) , family = binomial, data = td.fg) 
 a<- plot_model(hypwr, type = "pred", terms = c("cogSC1", "Rule", "hhTenureWPast"),
            colors = "bw",
            title = "Predicted odds of Reserving Pasture",
+           auto.label = FALSE, 
+           axis.title = c("Cognitive social capital", "Rsv Winter Pasture"),
+           wrap.title = 10,
            ci.lvl = NA   # to remove CIs
            )
 b<- plot_model(hypsr, type = "pred", terms = c("cogSC1", "Rule", "hhTenureSpPast"),
            colors = "bw",
            title = "Predicted odds of Reserving Pasture",
+           axis.title = c("Cognitive social capital", "Rsv Spring Pasture"),
+           wrap.title = 10,
            ci.lvl = NA   # to remove CIs
            )
 cowplot::plot_grid(a,b, labels = 'auto', ncol = 1)
 
 ```
 
-
+##Predicted Odds of Otor
 
 Relationship between access to pastures, social and rules as predictors of fall and winter otor.
 ```{r}
@@ -476,7 +502,8 @@ ggplot(Worg, aes(x= (Int))) + geom_density() + geom_vline(xintercept = wint)+
 ```
 
 
-# NEW WAY TO PLOT EFFECTS: separated out by ecological zone: 
+# PLOT EFFECTS by ecological zone: 
+This subsets the data into ecological zones then reruns the relevant models for each ez separately... Then plots the predicted probabilities of reserving based on each param separately, for each ez
 ```{r}
 library(languageR)
 dkb<- "#a6611a"
@@ -484,8 +511,8 @@ tan<- "#dfc27d"
 ltgr<- "#80cdc1"
 dkgr<- "#018571"
 #based on EZs:
-to <- mutate(td.fg, othersYes = case_when(otherPast == 1 ~ 0,   # No rules = 0
-                                    otherPast == 2 | otherPast == 3 ~ 1,   # set others to 1
+to <- mutate(td.fg, othersYes = case_when(otherPast == 1 ~ 0,   # no access = 0
+                                    otherPast == 2 | otherPast == 3 ~ 1, # access to past in&out of soum 
                                     TRUE ~ NA_real_))  
 to <- mutate(to, othersOut = case_when(otherPast == 1 | otherPast == 2 ~ 0 , 
                                        otherPast == 3 ~ 1,   # access to pastures in other soums
@@ -493,11 +520,12 @@ to <- mutate(to, othersOut = case_when(otherPast == 1 | otherPast == 2 ~ 0 ,
 to$othersYes<- as.factor(to$othersYes)
 to$othersOut<- as.factor(to$othersOut)
   ds<- subset(to, to$ez==1)
-  st<- subset(to, to$ez==c(2,4))
+  #st<- subset(to, to$ez==c(2,4)) # WHY ARE THESE COMBINED??
+  st<- subset(to, to$ez ==2)
   es<- subset(to, to$ez==3)
   fms<- subset(to, to$ez==4)
 ```
- Winter Pastures:
+### Winter Pastures:
 ```{r, eval = FALSE}
   w1<- glmer(ResWint ~ hhTenureWPast + 
                hhTenureWCamp + 
@@ -512,43 +540,43 @@ to$othersOut<- as.factor(to$othersOut)
                RuleYes + 
                RuleFormal+  
                cogSC1 + 
-               #frgCV + 
-               #frg.left+   
+               frgCV + 
+               frg.left+   
               (1|Org) , family = binomial, data = st)
   w3<- glmer(ResWint ~ hhTenureWPast + 
                hhTenureWCamp + 
                RuleYes + 
                RuleFormal+  
                cogSC1 + 
-               #frgCV + 
-               #frg.left+   
+               frgCV + 
+               frg.left+   
                (1|Org) , family = binomial, data = fms)
     w4<- glmer(ResWint ~ hhTenureWPast + 
                hhTenureWCamp + 
                RuleYes + 
-               RuleFormal+  
+               #RuleFormal+  
                cogSC1 + 
-               #frgCV + 
-               #frg.left+   
+               frgCV + 
+               frg.left+   
                 (1|Org) , family = binomial, data = es)
 
   # Pasture Tenure  
-plotLMER.fnc(w1,ylimit=0:1,lockYlim=TRUE,linecolor= dkb, lwd=4,xlabel="Pasture Tenure (No/Yes)", ylabel="Probability of Reserving", pred = c(hhTenureWPast)) 
+plotLMER.fnc(w1,ylimit=0:1,lockYlim=TRUE,linecolor= dkb, lwd=4,xlabel="Pasture Tenure (No/Yes)", ylabel="Probability of Reserving WPast", pred = c("hhTenureWPast")) 
 
-plotLMER.fnc(w2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Reserving", pred = c(hhTenureWCamp), addToExistingPlot = TRUE) 
+plotLMER.fnc(w2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Reserving", pred = c("hhTenureWPast"), addToExistingPlot = TRUE) 
 
-plotLMER.fnc(w3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Reserving", pred = c(hhTenureWCamp), addToExistingPlot = TRUE) 
+plotLMER.fnc(w3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Reserving", pred = c("hhTenureWPast"), addToExistingPlot = TRUE) 
 
-plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Reserving", pred = c(hhTenureWCamp), addToExistingPlot = TRUE) 
+plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Reserving", pred = c("hhTenureWPast"), addToExistingPlot = TRUE) 
 
   # Camp Tenure  
-plotLMER.fnc(w1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Camp Tenure (No/Yes)", ylabel="Probability of Reserving", pred = c(hhTenureWCamp)) 
+plotLMER.fnc(w1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Camp Tenure (No/Yes)", ylabel="Probability of Reserving WPast", pred = c("hhTenureWCamp")) 
 
-plotLMER.fnc(w2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Reserving", pred = c(hhTenureWCamp), addToExistingPlot = TRUE) 
+plotLMER.fnc(w2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Reserving", pred = c("hhTenureWCamp"), addToExistingPlot = TRUE) 
 
-plotLMER.fnc(w3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Reserving", pred = c(hhTenureWCamp), addToExistingPlot = TRUE) 
+plotLMER.fnc(w3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Reserving", pred = c("hhTenureWCamp"), addToExistingPlot = TRUE) 
 
-plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Reserving", pred = c(hhTenureWCamp), addToExistingPlot = TRUE) 
+plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Reserving", pred = c("hhTenureWCamp"), addToExistingPlot = TRUE) 
 
   # Any Rules
 
@@ -568,7 +596,7 @@ plotLMER.fnc(w2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probabil
 
 plotLMER.fnc(w3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Reserving", pred = c("RuleFormal"), addToExistingPlot = TRUE) 
 
-plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Reserving", pred = c("RuleFormal"), addToExistingPlot = TRUE) 
+#plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Reserving", pred = #c("RuleFormal"), addToExistingPlot = TRUE) 
 
 
   # cogSC1
@@ -605,8 +633,7 @@ plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probabil
 ```
 
 
-NEW WAY TO PLOT EFFECTS: separated out by ecological zone: 
-Spring Pastures
+### Spring Pastures
 ```{r, eval = FALSE}
 
  s1<- glmer(ResSpr ~ hhTenureSpPast + 
@@ -630,13 +657,15 @@ Spring Pastures
                cogSC1 + 
                frgCV + 
                frg.left+   (1|Org) , family = binomial, data = fms)
-   s4<- glmer(ResSpr ~ #hhTenureSpPast + 
-               #hhTenureSpCamp + 
+
+  ###### GET A SINGULARITY ERROR FOR THIS::::
+     s4<- glmer(ResSpr ~ #hhTenureSpPast + 
+               hhTenureSpCamp + 
                RuleYes + 
-               RuleFormal+  
-               #cogSC1 + 
+               #RuleFormal+  
+               cogSC1 + 
                #frgCV + 
-               #frg.left+   
+               frg.left+   
                 (1|Org) , family = binomial, data = es)
 
   # Pasture Tenure  
@@ -712,7 +741,7 @@ plotLMER.fnc(s4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probabil
 ```
 
 
-Winter Otor
+### Winter Otor
 ```{r}
 #summary(hypwort)
 w1<- glmer(Wotor  ~ hhTenureWPast + 
@@ -742,12 +771,12 @@ w1<- glmer(Wotor  ~ hhTenureWPast +
                othersOut+
                frgCV + 
                frg.left+   (1|Org) , family = binomial, data = fms)
-    w4<- glmer(Wotor  ~ #hhTenureWPast + 
+    w4<- glmer(Wotor  ~ hhTenureWPast + 
                #hhTenureWCamp + 
                RuleYes + 
-               RuleFormal+  
+               #RuleFormal+  
                #bondSC +
-               othersYes+
+               #othersYes+
                othersOut+
                #frgCV + 
                #frg.left+   
@@ -801,6 +830,37 @@ plotLMER.fnc(w2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probabil
 plotLMER.fnc(w3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("othersOut"), addToExistingPlot = TRUE) 
 
 plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("othersOut"), addToExistingPlot = TRUE) 
+
+
+# bondSC
+
+plotLMER.fnc(w1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="bonding SC", ylabel="Probability of Wtr Otor", pred = c("bondSC")) 
+
+plotLMER.fnc(w2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Wtr Otor", pred = c("bondSC"), addToExistingPlot = TRUE) 
+
+plotLMER.fnc(w3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("bondSC"), addToExistingPlot = TRUE) 
+
+plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("bondSC"), addToExistingPlot = TRUE) 
+
+# frg left
+
+plotLMER.fnc(w1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Remaining forage", ylabel="Probability of Wtr Otor", pred = c("frg.left")) 
+
+plotLMER.fnc(w2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Wtr Otor", pred = c("frg.left"), addToExistingPlot = TRUE) 
+
+plotLMER.fnc(w3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("frg.left"), addToExistingPlot = TRUE) 
+
+plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("frg.left"), addToExistingPlot = TRUE) 
+
+# frg CV
+
+plotLMER.fnc(w1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Forage CV", ylabel="Probability of Wtr Otor", pred = c("frgCV")) 
+
+plotLMER.fnc(w2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Wtr Otor", pred = c("frgCV"), addToExistingPlot = TRUE) 
+
+plotLMER.fnc(w3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("frgCV"), addToExistingPlot = TRUE) 
+
+plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("frgCV"), addToExistingPlot = TRUE) 
 ```
 Fall Otor
 ```{r}
@@ -900,6 +960,29 @@ plotLMER.fnc(f2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probabil
 plotLMER.fnc(f3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("frgCV"), addToExistingPlot = TRUE) 
 
 plotLMER.fnc(f4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("frgCV"), addToExistingPlot = TRUE) 
+
+
+# cogSC
+
+plotLMER.fnc(f1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Cognitive SC", ylabel="Probability of Fall Otor", pred = c("cogSC1")) 
+
+plotLMER.fnc(f2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Wtr Otor", pred = c("cogSC1"), addToExistingPlot = TRUE) 
+
+plotLMER.fnc(f3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("cogSC1"), addToExistingPlot = TRUE) 
+
+plotLMER.fnc(f4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("cogSC1"), addToExistingPlot = TRUE) 
+
+
+# bondSC
+
+plotLMER.fnc(f1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Bonding SC", ylabel="Probability of Fall Otor", pred = c("bondSC")) 
+
+plotLMER.fnc(f2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Wtr Otor", pred = c("bondSC"), addToExistingPlot = TRUE) 
+
+plotLMER.fnc(f3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("bondSC"), addToExistingPlot = TRUE) 
+
+plotLMER.fnc(f4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("bondSC"), addToExistingPlot = TRUE)
+
 ```
 
 ```{r,eval=FALSE}
@@ -981,6 +1064,8 @@ f+ geom_boxplot() +
 ### SOCIAL CAPITAL & RULES ...  
 
 Given what we see above wrt the (weak) relationship between (this particular set of) Rules and (this one) Practice, does this mean for our hypothesized relationships between Social Capital and the prevalance of Informal vs. Formal Rules? Does it vary by TYPE of pasture/season under consideration? Stronger relationship between rule formality and social capital for the Winter pastures compared to Spring pastures.
+
+
 
 **Original Hypothesis:**  
   Increased cognitive social capital will lead to more prevalence of *informal* rules (within certain ecological zones)

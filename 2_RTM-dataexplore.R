@@ -1,4 +1,10 @@
-load("./data/td.RData")
+load("./data/tdfg.RData")
+# NOV 2020 test models:
+
+library(modelr)
+
+
+# OLDER CROSSTABS STUFF
 
 # Can't figure out how to get it to create a nice looking output.
 # need to add more to table specifications and also set labels
@@ -23,12 +29,19 @@ dfSummary(td, plain.ascii = FALSE, style = "grid",
 ######### SOMEHOW LOST ALL OF THE REST OF THE CODE? NEED TO PULL IT FROM A PREVIOUS VERSION OF RMReport
 
 # more crosstabs:
-tpcw<- table(td$hhTenureWPast, td$hhTenureWCamp) 
+tpcw<- table(td.fg$hhTenureWPast, td.fg$hhTenureWCamp) 
 chisq.test(tpcw)
+
+
 
 tpcs<- table(td$hhTenureSpPast, td$hhTenureSpCamp)
 chisq.test(tpcs)
 
+# PRACTICES BY EZ:
+wrez<- table(td.fg$ResWint, td.fg$ez) 
+srez<- table(td.fg$ResSpr, td.fg$ez) 
+woez<- table(td.fg$Wotor, td.fg$ez) 
+foez<- table(td.fg$Fotor, td.fg$ez) 
 
 # until then, here's some new plots:
   # TO DO: update color palette
