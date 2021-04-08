@@ -12,8 +12,10 @@ output:
   pdf_document: default
 ---
 
+-2021-4-6 :  Updated the best fit models with optimizer and increased iterations and don't get error now.
+
 -2020-2-1 :  This is a new version of RulesModelReport. That doc contained all of the second wave of comparison models, particularly wrt ordinal vs. DV for Rules. This version is the final models, so we can generate final figures and tables in here without all of the extra stuff.
--2020-01-31: Best fits to use for table:hypw, hyps, hypwotr,
+-2020-01-31: Best fits to use for table:hypw, hyps, hypwotr, 
 
 -2020-01-22: versioned the prior iteration of this that included manual calculation of predicted vals/effect sizes for all the params. can do that w sjPlot more quickly. 
 -2019-12-6: versioned the prior iteration of this that included all the old model comparisons and restarted w new based on the new tabel of hypothesized relationships from our call on Dec. 5
@@ -87,6 +89,7 @@ load("./data/td.RData")
 
 td.fg$Soum <- as.factor(td.fg$Soum)
 td.fg$Aimag <- as.factor(td.fg$Aimag)
+td.fg$Org <- as.factor(td.fg$Org)
 #td.fg%<>% mutate(frg.left = (100-frgUse)) %>% rename(frgCV = CV)
 ```
 #more data explore:
@@ -259,8 +262,7 @@ tab_model(wp, sp, wo, fo,
 TO DO: a Supp Table that is just the hypothesized signif terms, not the best fit, which is what is below:
 
 Best fit models combined in to one table:
-# why do odds ratios get screwy if i use scaled forage params?
-And more to teh point why aren't these models converging now??????
+
 
 ```{r}
 # Resv Wtr
@@ -271,6 +273,12 @@ hypw<- glmer(ResWint ~ hhTenureWPast +
                cogSC1 + 
                frgCV + 
                frg.left +   (1|Org) , family = binomial, data = td.fg) 
+
+  #MODEL CONVERGES IF CHANGE THE OPTIMIZER AND UP THE ITERATIONS
+ss <- getME(hypw,c("theta","fixef"))
+w1 <- update(hypw,start=ss,control=glmerControl(optimizer="bobyqa",
+                                                 optCtrl=list(maxfun=2e5)))
+
 # Resv Spr
 hyps<- glmer(ResSpr ~ hhTenureSpPast + 
                hhTenureSpCamp + 
@@ -279,16 +287,22 @@ hyps<- glmer(ResSpr ~ hhTenureSpPast +
                cogSC1 + 
                frgCV + 
                frg.left+   (1|Org) , family = binomial, data = td.fg) 
+ss <- getME(hyps,c("theta","fixef"))
+s1 <- update(hyps,start=ss,control=glmerControl(optimizer="bobyqa",
+                                                 optCtrl=list(maxfun=2e5)))
 # Wtr Otor
   #This is the best version, based on AIC scores and % variation explained...and is diff
   # from orig hypothesis.
 hypwort<- glmer(Wotor ~ hhTenureWPast+ 
-                  hhTenureWCamp+bondSC+ 
+                  hhTenureWCamp + bondSC+ 
                   otherPast+ 
                   RuleYes + 
                   RuleFormal+ 
                   frgCV + 
                   frg.left+  (1|Org) , family = binomial, data = td.fg) 
+ss <- getME(hypwort,c("theta","fixef"))
+wo1 <- update(hypwort,start=ss,control=glmerControl(optimizer="bobyqa",
+                                                 optCtrl=list(maxfun=2e5)))
 # Fall Otor
 hypfo<- glmer(Fotor ~ otherPast + 
                   RuleYes + 
@@ -297,6 +311,9 @@ hypfo<- glmer(Fotor ~ otherPast +
                   bondSC + 
                   frgCV  + 
                   frg.left +   (1|Org) , family = binomial, data = td.fg) 
+ss <- getME(hypfo,c("theta","fixef"))
+fo1 <- update(hypfo,start=ss,control=glmerControl(optimizer="bobyqa",
+                                                 optCtrl=list(maxfun=2e5)))
 
 ```
 
@@ -330,6 +347,7 @@ tab_model(hypw, hyps, hypwort, hypfo,
 ```
 
 #FIGURE 1
+Plots of odds ratios for each model
 ```{r}
 
 a<- plot_model(hypw,
@@ -375,7 +393,321 @@ d<- plot_model(hypfo,
 cowplot::plot_grid(a,b,c,d, labels = 'auto', ncol = 2)
 ```
 
+#FIGURE 2 
+Figures 2 and 3 are currently in radar_plot.R
+#FIGURE 3
 
+#FIGURE 4
+Predicted probability of Otor based on Rule formality, cognitive social captial & access to other pastures
+
+```{r}
+# Gotta rerun Wtr Otor w the ordered version of Rules not binary
+hypwoR<- glmer(Wotor ~ hhTenureWPast + hhTenureWCamp +otherPast + 
+                  Rule + 
+                  bondSC + 
+                  cogSC1 +
+                  frgCV  + 
+                  frg.left +   (1|Org) , family = binomial, data = td.fg)
+
+
+# Gotta rerun Fall Otor w the ordered version of Rules not binary
+hypfoR<- glmer(Fotor ~ otherPast + 
+                  Rule + 
+                  cogSC1  +
+                  bondSC + 
+                  frgCV  + 
+                  frg.left +   (1|Org) , family = binomial, data = td.fg) 
+
+# THE ACTUAL PREDICTED DATA:
+fodat<- get_model_data(hypfoR, type = "pred", terms = c("cogSC1", "Rule", "otherPast"))
+wodat<- get_model_data(hypwoR, type = "pred", terms = c("bondSC", "Rule", "otherPast"))
+
+# the code commented out below is the default plotting but I can't change the labels for levels
+# so trying to do that with the actual predicted data first, then make plots on my own:
+
+fodat <- fodat %>% mutate(
+      Rules =
+            recode(group,
+                  "0" = "None",
+                  "1" = "Informal",
+                  "2" = "Formal"),
+      otherPast =
+           recode(facet,
+                  "1"= "None",
+                  "2"= "Within same soum",
+                  "3"= "W/in & in others"))
+
+wodat <- wodat %>% mutate(
+      Rules =
+            recode(group,
+                  "0" = "None",
+                  "1" = "Informal",
+                  "2" = "Formal"),
+      otherPast =
+           recode(facet,
+                  "1"= "None",
+                  "2"= "Within same soum",
+                  "3"= "W/in & in others"))
+
+
+# bw theme
+set_theme(
+  base = theme_light(),
+  geom.outline.color = "antiquewhite4",
+  geom.outline.size = 1,
+  axis.title.size = .9,
+  axis.textsize = .9,
+  legend.size = .7,
+  legend.title.size = .8,
+  geom.label.size = 3
+)
+
+foscop <- ggplot(fodat, aes( x= x, y = predicted, group = Rules)) +
+  geom_smooth(aes(linetype = Rules), method = lm, se = FALSE, color = "black")+
+  facet_wrap(vars(otherPast))+
+  theme_bw()+
+  labs(x ="Cognitive Social Capital", 
+       y = "Predicted probability",
+       title = "a)  Fall otor")
+
+woscop <- ggplot(wodat, aes( x= x, y = predicted, group = Rules)) +
+  geom_smooth(aes(linetype = Rules), method = lm, se = FALSE, color = "black")+
+  facet_wrap(vars(otherPast))+
+  labs(x ="Structural Social Capital", 
+       y = "Predicted probability",
+       title = "b)  Winter otor")
+# foscop<- plot_model(hypfoR, type= "pred", 
+#            terms = c("cogSC1", "Rule", "otherPast"), 
+#            colors= "bw", 
+#            ci.lvl = NA,
+#            auto.label = FALSE,
+#            axis.title= c("Cognitive Social Capital", "Predicted probability of going on fall otor"))
+# 
+# wobcop<- plot_model(hypwoR, type= "pred", terms = c("bondSC", "Rule", "otherPast"), colors= "bw", ci.lvl = NA, axis.title= c("Structural Social Capital", "Predicted probability of going on winter otor"))
+# 
+ggsave("./output_figs/Fig4a.fotorbyaccessandrules.png", foscop, width = 6, height = 3, units = "in")
+ggsave("./output_figs/Fig4b.wotorbyaccessandrules.png", woscop, width = 6, height = 3, units = "in")
+# 
+# 
+# plot_model(hypwoR, type= "pred", terms = c("cogSC1", "Rule", "otherPast"), colors= "bw", ci.lvl = NA)
+
+```
+#FIGURE 5
+```{r}
+# bw theme
+set_theme(
+  base = theme_light(),
+  geom.outline.color = "antiquewhite4", 
+  geom.outline.size = 1, 
+  axis.title.size = .9,
+  axis.textsize = .9,
+  legend.size = .7,
+  legend.title.size = .8,
+  geom.label.size = 3
+)
+
+rse1<- polr(Rule ~ cogSC1 + ez, data = td.fg, method = c("logistic"))
+
+# FITTED VALS:
+fit.rse<- rse1$fitted.values
+colnames(fit.rse)<- c("None", "Informal", "Formal")
+rse.df<- data.frame(fit.rse, rse1$model)
+# New facet label names for ez variable
+ez.labs <- c("DS", "ST", "ES", "FMS")
+names(ez.labs) <- c("1", "2", "3", "4")
+
+rse.df<- gather(rse.df, "Rules", "PredProb", 1:3)
+
+rsez<- ggplot(rse.df, aes(x= cogSC1, y=PredProb, color= Rules )) +
+  #geom_smooth()+  
+  geom_line()+
+  #geom_smooth(position=position_jitter(width=.01,height=.01))+
+  coord_cartesian(xlim = c(0,2), ylim = c(0,0.75))+
+  xlab("Cognitive Social Capital")+
+  ylab("Pred Prob of Class Membership") +
+  facet_grid(.~ez, labeller = labeller(ez = ez.labs)
+)
+
+ggsave("./output_figs/predRulelevel.png", rsez, width = 7, height = 4, units = "in")
+```
+
+
+#FIGURE 6ab
+
+Predicted probability of Reserving Pastures based on Rule formality, cognitive social captial  (REMOVED TENURE bc not signif :: & tenure)
+
+```{r}
+# Resv Wtr w ordered Rules param
+hypwR<- glmer(ResWint ~ hhTenureWPast + 
+               hhTenureWCamp + 
+               Rule + 
+               cogSC1 + 
+               frgCV + 
+               frg.left +   (1|Org) , family = binomial, data = td.fg) 
+# Resv Spr w ordered Rules param
+hypsR<- glmer(ResSpr ~ hhTenureSpPast + 
+               hhTenureSpCamp + 
+               Rule + 
+               cogSC1 + 
+               frgCV + 
+               frg.left+   (1|Org) , family = binomial, data = td.fg) 
+
+
+# bw theme
+set_theme(
+  base = theme_light(),
+  geom.outline.color = "antiquewhite4", 
+  geom.outline.size = 1, 
+  axis.title.size = .9,
+  axis.textsize = .9,
+  legend.size = .7,
+  legend.title.size = .8,
+  geom.label.size = 3
+)
+a <- plot_model(hypwR, type= "pred", 
+           terms = c("cogSC1", "Rule"), 
+           colors= "bw", 
+           ci.lvl = NA,
+           axis.title= c("Cognitive Social Capital", "Predicted prob. of reserving winter pasture"), title = " ")
+
+b <- plot_model(hypsR, type= "pred", 
+                terms = c("cogSC1", "Rule" ), 
+                colors= "bw", 
+                ci.lvl = NA, 
+                axis.title= c("Cognitive Social Capital", "Predicted prob. of resrvs spring pasture"),title = " ")
+
+
+#scr<-cowplot::plot_grid(a,b, labels = 'auto', ncol = 2)
+
+
+#ggsave("Fig6.rsvbyscandrules.png", scr, width = 7, height = 4, units = "in")
+
+
+
+
+```
+
+
+#FIGURE 6cd
+Predicted probability of Reserving Pastures based on Rule formality,  & remaining forage
+
+```{r}
+
+
+# bw theme
+set_theme(
+  base = theme_light(),
+  geom.outline.color = "antiquewhite4", 
+  geom.outline.size = 1, 
+  axis.title.size = .9,
+  axis.textsize = .9,
+  legend.size = .7,
+  legend.title.size = .8,
+  geom.label.size = 3
+)
+c <- plot_model(hypwR, type= "pred", 
+           terms = c("frg.left", "Rule"), 
+           colors= "bw", 
+           ci.lvl = NA,
+           axis.title= c("Forage remaining at end of season", "Predicted prob. of reserving winter pasture"), title = "")
+
+d <- plot_model(hypsR, type= "pred", 
+                terms = c("frg.left", "Rule"), 
+                colors= "bw", 
+                ci.lvl = NA, 
+                axis.title= c("Forage remaining at end of season", "Predicted prob. of resrvs spring pasture"),title = "")
+
+
+
+
+fgr<- cowplot::plot_grid(a,b,c,d,  labels = 'auto', ncol = 2)
+
+
+ggsave("Fig6.rsvpast_scfrgandrules.png", fgr, width = 7, height = 8, units = "in")
+
+
+
+```
+
+
+
+
+#FIGURE Supplement # :  Access x social capital
+
+```{r}
+td.op<- mor2FULL%>% dplyr::select( #Rule = q03_TimingRules3.3,       # Rule formality 
+                                #** Cognitive Social Capital :          
+                                # see Ulambayar et al. (201?) for info on which Qs were used, how combined
+                                cogSC1 = CognSC,   
+                                bondSC = BondSCsum,        # sum of five bonding items 7.6a-e
+                                #Access to other pastures:
+                                accPast = CanUseOtherPast)
+
+td.op<- mutate(td.op, otherPast = case_when(accPast == 3 ~ 1,   # No set to 1
+                                      accPast == 1 ~ 2,   # Yes w/in Soum set to 2
+                                      accPast == 2 ~ 3,   # Yes w/in & other soums set to 3
+                                      TRUE ~ NA_real_))
+ # Other set to NA
+td.op<- td.op[,c(1,2,4)]
+td.op$otherPast<- as.factor(td.op$otherPast)
+td.op$cogSC1<- as.numeric(td.op$cogSC1)
+td.op$bondSC<- as.numeric(td.op$bondSC)
+#td.op$Rule<- as.factor(td.op$Rule)
+td.op <- na.omit(td.op)
+td.op<-as.data.frame(td.op)
+library(plyr)
+
+# for some reason when I change the names of the levels in a factor so that the axes are
+# labelled correctly, then I can't change the axis labels??
+#td.op$otherPast <- revalue(td.op$otherPast, c("1" = "No", "2" = "Within soum", "3"= "In other soums"))
+
+accessAOV<- aov(cogSC1 ~ otherPast, data = td.op)
+summary(accessAOV)
+
+TukeyHSD(accessAOV)
+# tells us that 2 is diff from 1 and 3 is diff from 1 but 2 & 3 are not diff, 
+# therefore access in or in and out are both associated with higher cogSC, but 
+# to same degree.
+
+bcAOV<- aov(bondSC ~ otherPast, data = td.op)
+summary(bcAOV)
+
+TukeyHSD(bcAOV)
+
+ # corr  btwn cogSC1 and access to Past in soums only
+corrplot(hetcor(td.op)$cor, 
+         type = "lower", method = "number", 
+         number.cex = 2, diag = FALSE)
+
+library(ggsignif)
+aop<- ggplot(td.op, aes(x=otherPast, y= cogSC1)) + 
+  geom_boxplot()+
+  geom_signif(comparisons = list(c("1", "2")), map_signif_level = TRUE, y_position = 2.2, tip_length = 0.01)+
+   geom_signif(comparisons = list( c("2", "3")), map_signif_level = TRUE, y_position = 2.4, tip_length = 0.01)+
+   geom_signif(comparisons = list( c("1", "3")), map_signif_level = TRUE, y_position = 2.6, tip_length = 0.01)+
+  labs(y = "Cognitive Social Capital",x = "Access to Other Pastures")+
+  ylim(0,3)+
+  theme_bw()
+
+
+ggsave("accessOtherxCSC.png", aop, width = 4, height = 3, units = "in")
+
+bcaop<- ggplot(td.op, aes(x=otherPast, y= bondSC)) + 
+  geom_boxplot()+
+  geom_signif(comparisons = list(c("1", "2")), map_signif_level = TRUE, y_position = 5.2, tip_length = 0.01)+
+   geom_signif(comparisons = list( c("2", "3")), map_signif_level = TRUE, y_position = 5.4, tip_length = 0.01)+
+   geom_signif(comparisons = list( c("1", "3")), map_signif_level = TRUE, y_position = 5.8, tip_length = 0.01)+
+  labs(y = "Structural Social Capital",x = "Access to Other Pastures")+
+  ylim(0,6)+
+  theme_bw()
+
+ggsave("accessOtherxBSC.png", bcaop, width = 4, height = 3, units = "in")
+
+```
+
+
+
+# old explanation about how to hand calculate predictions----
 Based on the above, the formula for Reserving winter pastures is: 
 Prob Reserve WPast ~ -6.059621 + (0.662 * TenureWPast) + (0.518 * TenureWCamp) + (1.308847 * RuleYes) + (-0.215351 * RuleFormal) + (0.812 * cogSC1) + (0.048 * frg.left) + (0.046 * frgCV)
 
@@ -416,28 +748,7 @@ plot_model(hypfo, type = "pred", terms = c("cogSC1"))
 #plot_model(hypfez, type = "pred", terms = c("cogSC1", "RuleFormal"))
 
 ```
-##Predicted Odds of Rsv Pastures, by tenure status:
-```{r}
-hypwr<- glmer(ResWint ~ hhTenureWPast + hhTenureWCamp + Rule+      cogSC1 + frgCV + frg.left + (1|Org) , family = binomial, data = td.fg) 
-hypsr<- glmer(ResSpr ~ hhTenureSpPast + hhTenureSpCamp + Rule+cogSC1 + frgCV + frg.left + (1 |Org) , family = binomial, data = td.fg) 
-a<- plot_model(hypwr, type = "pred", terms = c("cogSC1", "Rule", "hhTenureWPast"),
-           colors = "bw",
-           title = "Predicted odds of Reserving Pasture",
-           auto.label = FALSE, 
-           axis.title = c("Cognitive social capital", "Rsv Winter Pasture"),
-           wrap.title = 10,
-           ci.lvl = NA   # to remove CIs
-           )
-b<- plot_model(hypsr, type = "pred", terms = c("cogSC1", "Rule", "hhTenureSpPast"),
-           colors = "bw",
-           title = "Predicted odds of Reserving Pasture",
-           axis.title = c("Cognitive social capital", "Rsv Spring Pasture"),
-           wrap.title = 10,
-           ci.lvl = NA   # to remove CIs
-           )
-cowplot::plot_grid(a,b, labels = 'auto', ncol = 1)
 
-```
 
 ##Predicted Odds of Otor
 
@@ -501,489 +812,6 @@ ggplot(Worg, aes(x= (Int))) + geom_density() + geom_vline(xintercept = wint)+
  
 ```
 
-
-# PLOT EFFECTS by ecological zone: 
-This subsets the data into ecological zones then reruns the relevant models for each ez separately... Then plots the predicted probabilities of reserving based on each param separately, for each ez
-```{r}
-library(languageR)
-dkb<- "#a6611a"
-tan<- "#dfc27d"
-ltgr<- "#80cdc1"
-dkgr<- "#018571"
-#based on EZs:
-to <- mutate(td.fg, othersYes = case_when(otherPast == 1 ~ 0,   # no access = 0
-                                    otherPast == 2 | otherPast == 3 ~ 1, # access to past in&out of soum 
-                                    TRUE ~ NA_real_))  
-to <- mutate(to, othersOut = case_when(otherPast == 1 | otherPast == 2 ~ 0 , 
-                                       otherPast == 3 ~ 1,   # access to pastures in other soums
-                                    TRUE ~ NA_real_))  
-to$othersYes<- as.factor(to$othersYes)
-to$othersOut<- as.factor(to$othersOut)
-  ds<- subset(to, to$ez==1)
-  #st<- subset(to, to$ez==c(2,4)) # WHY ARE THESE COMBINED??
-  st<- subset(to, to$ez ==2)
-  es<- subset(to, to$ez==3)
-  fms<- subset(to, to$ez==4)
-```
-### Winter Pastures:
-```{r, eval = FALSE}
-  w1<- glmer(ResWint ~ hhTenureWPast + 
-               hhTenureWCamp + 
-               RuleYes + 
-               RuleFormal+  
-               cogSC1 + 
-               frgCV + 
-               frg.left+   
-               (1|Org) , family = binomial, data = ds)
-  w2<-glmer(ResWint ~ hhTenureWPast + 
-               hhTenureWCamp + 
-               RuleYes + 
-               RuleFormal+  
-               cogSC1 + 
-               frgCV + 
-               frg.left+   
-              (1|Org) , family = binomial, data = st)
-  w3<- glmer(ResWint ~ hhTenureWPast + 
-               hhTenureWCamp + 
-               RuleYes + 
-               RuleFormal+  
-               cogSC1 + 
-               frgCV + 
-               frg.left+   
-               (1|Org) , family = binomial, data = fms)
-    w4<- glmer(ResWint ~ hhTenureWPast + 
-               hhTenureWCamp + 
-               RuleYes + 
-               #RuleFormal+  
-               cogSC1 + 
-               frgCV + 
-               frg.left+   
-                (1|Org) , family = binomial, data = es)
-
-  # Pasture Tenure  
-plotLMER.fnc(w1,ylimit=0:1,lockYlim=TRUE,linecolor= dkb, lwd=4,xlabel="Pasture Tenure (No/Yes)", ylabel="Probability of Reserving WPast", pred = c("hhTenureWPast")) 
-
-plotLMER.fnc(w2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Reserving", pred = c("hhTenureWPast"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Reserving", pred = c("hhTenureWPast"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Reserving", pred = c("hhTenureWPast"), addToExistingPlot = TRUE) 
-
-  # Camp Tenure  
-plotLMER.fnc(w1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Camp Tenure (No/Yes)", ylabel="Probability of Reserving WPast", pred = c("hhTenureWCamp")) 
-
-plotLMER.fnc(w2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Reserving", pred = c("hhTenureWCamp"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Reserving", pred = c("hhTenureWCamp"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Reserving", pred = c("hhTenureWCamp"), addToExistingPlot = TRUE) 
-
-  # Any Rules
-
-plotLMER.fnc(w1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Any Rules Re: Timing of Grazing (No/Yes)", ylabel="Probability of Reserving", pred = c("RuleYes")) 
-
-plotLMER.fnc(w2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Reserving", pred = c("RuleYes"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Reserving", pred = c("RuleYes"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Reserving", pred = c("RuleYes"), addToExistingPlot = TRUE) 
-
-  # Formal Rules
-
-plotLMER.fnc(w1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="FORMAL Rules (No/Yes)", ylabel="Probability of Reserving", pred = c("RuleFormal")) 
-
-plotLMER.fnc(w2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Reserving", pred = c("RuleFormal"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Reserving", pred = c("RuleFormal"), addToExistingPlot = TRUE) 
-
-#plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Reserving", pred = #c("RuleFormal"), addToExistingPlot = TRUE) 
-
-
-  # cogSC1
-
-plotLMER.fnc(w1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Cognitive Social Captial", ylabel="Probability of Reserving", pred = c("cogSC1")) 
-
-plotLMER.fnc(w2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Reserving", pred = c("cogSC1"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Reserving", pred = c("cogSC1"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Reserving", pred = c("cogSC1"), addToExistingPlot = TRUE) 
-
-
-  # remaining forage
-
-plotLMER.fnc(w1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Forage Remaining (%)", ylabel="Probability of Reserving", pred = c("frg.left")) 
-
-plotLMER.fnc(w2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Reserving", pred = c("frg.left"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Reserving", pred = c("frg.left"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Reserving", pred = c("frg.left"), addToExistingPlot = TRUE) 
-
-  # CV forage
-
-plotLMER.fnc(w1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="CV of Forage (%)", ylabel="Probability of Reserving", pred = c("frgCV")) 
-
-plotLMER.fnc(w2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Reserving", pred = c("frgCV"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Reserving", pred = c("frgCV"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Reserving", pred = c("frgCV"), addToExistingPlot = TRUE) 
-
-```
-
-
-### Spring Pastures
-```{r, eval = FALSE}
-
- s1<- glmer(ResSpr ~ hhTenureSpPast + 
-               hhTenureSpCamp + 
-               RuleYes + 
-               RuleFormal+  
-               cogSC1 + 
-               frgCV + 
-               frg.left+   (1|Org) , family = binomial, data = ds)
-  s2<-glmer(ResSpr ~ hhTenureSpPast + 
-               hhTenureSpCamp  + 
-               RuleYes + 
-               RuleFormal+  
-               cogSC1 + 
-               frgCV + 
-               frg.left+   (1|Org) , family = binomial, data = st)
-  s3<- glmer(ResSpr ~ hhTenureSpPast + 
-               hhTenureSpCamp  + 
-               RuleYes + 
-               RuleFormal+  
-               cogSC1 + 
-               frgCV + 
-               frg.left+   (1|Org) , family = binomial, data = fms)
-
-  ###### GET A SINGULARITY ERROR FOR THIS::::
-     s4<- glmer(ResSpr ~ #hhTenureSpPast + 
-               hhTenureSpCamp + 
-               RuleYes + 
-               #RuleFormal+  
-               cogSC1 + 
-               #frgCV + 
-               frg.left+   
-                (1|Org) , family = binomial, data = es)
-
-  # Pasture Tenure  
-plotLMER.fnc(s1,ylimit=0:1,lockYlim=TRUE,linecolor= dkb, lwd=4,xlabel="Pasture Tenure (No/Yes)", ylabel="Probability of Reserving Spr", pred = c("hhTenureSpPast")) 
-
-plotLMER.fnc(s2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Reserving", pred = c("hhTenureSpPast"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(s3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Reserving", pred = c("hhTenureSpPast"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(s4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Reserving", pred = c("hhTenureSpPast"), addToExistingPlot = TRUE) 
-
-  # Camp Tenure  
-plotLMER.fnc(s1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Camp Tenure (No/Yes)", ylabel="Probability of Reserving", pred = c("hhTenureSpCamp")) 
-
-plotLMER.fnc(s2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Reserving", pred = c("hhTenureSpCamp"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(s3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Reserving", pred = c("hhTenureSpCamp"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(s4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Reserving", pred = c("hhTenureSpCamp"), addToExistingPlot = TRUE) 
-
-  # Any Rules
-
-plotLMER.fnc(s1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Rules Re:Timing of Grazing (No/Yes)", ylabel="Probability of Reserving", pred = c("RuleYes")) 
-
-plotLMER.fnc(s2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Reserving", pred = c("RuleYes"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(s3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Reserving", pred = c("RuleYes"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(s4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Reserving", pred = c("RuleYes"), addToExistingPlot = TRUE) 
-
-  # Formal Rules
-
-plotLMER.fnc(s1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="FORMAL Rules (No/Yes)", ylabel="Probability of Reserving", pred = c("RuleFormal")) 
-
-plotLMER.fnc(s2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Reserving", pred = c("RuleFormal"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(s3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Reserving", pred = c("RuleFormal"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(s4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Reserving", pred = c("RuleFormal"), addToExistingPlot = TRUE) 
-
-
-  # cogSC1
-
-plotLMER.fnc(s1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Cognitive Social Captial", ylabel="Probability of Reserving", pred = c("cogSC1")) 
-
-plotLMER.fnc(s2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Reserving", pred = c("cogSC1"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(s3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Reserving", pred = c("cogSC1"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(s4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Reserving", pred = c("cogSC1"), addToExistingPlot = TRUE) 
-
-
-  # remaining forage
-
-plotLMER.fnc(s1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Forage Remaining (%)", ylabel="Probability of Reserving", pred = c("frg.left")) 
-
-plotLMER.fnc(s2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Reserving", pred = c("frg.left"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(s3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Reserving", pred = c("frg.left"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(s4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Reserving", pred = c("frg.left"), addToExistingPlot = TRUE) 
-
-  # CV forage
-
-plotLMER.fnc(s1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="CV of Forage (%)", ylabel="Probability of Reserving", pred = c("frgCV")) 
-
-plotLMER.fnc(s2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Reserving", pred = c("frgCV"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(s3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Reserving", pred = c("frgCV"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(s4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Reserving", pred = c("frgCV"), addToExistingPlot = TRUE) 
-
-```
-
-
-### Winter Otor
-```{r}
-#summary(hypwort)
-w1<- glmer(Wotor  ~ hhTenureWPast + 
-               hhTenureWCamp + 
-               RuleYes + 
-               RuleFormal+  
-               bondSC +
-               othersYes+
-               othersOut+
-               frgCV + 
-               frg.left+   (1|Org) , family = binomial, data = ds)
-  w2<-glmer(Wotor  ~ hhTenureWPast + 
-               hhTenureWCamp + 
-               RuleYes + 
-               RuleFormal+  
-               bondSC +
-               othersYes+
-               othersOut+
-               frgCV + 
-               frg.left+   (1|Org) , family = binomial, data = st)
-  w3<- glmer(Wotor  ~ hhTenureWPast + 
-               hhTenureWCamp + 
-               RuleYes + 
-               RuleFormal+  
-               bondSC +
-                othersYes+
-               othersOut+
-               frgCV + 
-               frg.left+   (1|Org) , family = binomial, data = fms)
-    w4<- glmer(Wotor  ~ hhTenureWPast + 
-               #hhTenureWCamp + 
-               RuleYes + 
-               #RuleFormal+  
-               #bondSC +
-               #othersYes+
-               othersOut+
-               #frgCV + 
-               #frg.left+   
-                (1|Org) , family = binomial, data = es)
-# Pasture Tenure  
-plotLMER.fnc(w1,ylimit=0:1,lockYlim=TRUE,linecolor= dkb, lwd=4,xlabel="Pasture Tenure (No/Yes)", ylabel="Probability of Wtr Otor", pred = c("hhTenureWPast")) 
-
-plotLMER.fnc(w2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Wtr Otor", pred = c("hhTenureWPast"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("hhTenureWPast"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("hhTenureWPast"), addToExistingPlot = TRUE) 
-
-
-  # Any Rules
-
-plotLMER.fnc(w1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Rules Re: Timing of Grazing", ylabel="Probability of Wtr Otor", pred = c("RuleYes")) 
-
-plotLMER.fnc(w2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Wtr Otor", pred = c("RuleYes"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("RuleYes"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("RuleYes"), addToExistingPlot = TRUE) 
-
-  # Formal Rules
-
-plotLMER.fnc(w1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="FORMAL Rules (No/Yes)", ylabel="Probability of Wtr Otor", pred = c("RuleFormal")) 
-
-plotLMER.fnc(w2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Wtr Otor", pred = c("RuleFormal"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("RuleFormal"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("RuleFormal"), addToExistingPlot = TRUE) 
-
-# Access to other pastures
-
-plotLMER.fnc(w1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Access to other pastures (No/Yes)", ylabel="Probability of Wtr Otor", pred = c("othersYes")) 
-
-plotLMER.fnc(w2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Wtr Otor", pred = c("othersYes"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("othersYes"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("othersYes"), addToExistingPlot = TRUE) 
-
-# Access to other pastures in another soum
-
-plotLMER.fnc(w1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Access to other soum pastures", ylabel="Probability of Wtr Otor", pred = c("othersOut")) 
-
-plotLMER.fnc(w2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Wtr Otor", pred = c("othersOut"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("othersOut"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("othersOut"), addToExistingPlot = TRUE) 
-
-
-# bondSC
-
-plotLMER.fnc(w1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="bonding SC", ylabel="Probability of Wtr Otor", pred = c("bondSC")) 
-
-plotLMER.fnc(w2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Wtr Otor", pred = c("bondSC"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("bondSC"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("bondSC"), addToExistingPlot = TRUE) 
-
-# frg left
-
-plotLMER.fnc(w1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Remaining forage", ylabel="Probability of Wtr Otor", pred = c("frg.left")) 
-
-plotLMER.fnc(w2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Wtr Otor", pred = c("frg.left"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("frg.left"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("frg.left"), addToExistingPlot = TRUE) 
-
-# frg CV
-
-plotLMER.fnc(w1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Forage CV", ylabel="Probability of Wtr Otor", pred = c("frgCV")) 
-
-plotLMER.fnc(w2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Wtr Otor", pred = c("frgCV"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("frgCV"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(w4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("frgCV"), addToExistingPlot = TRUE) 
-```
-Fall Otor
-```{r}
-#summary(hypwort)
-f1<- glmer(Fotor ~ cogSC1 + 
-                bondSC + 
-             othersYes + 
-             othersOut +
-             RuleFormal + 
-             RuleYes +  
-             frgCV + 
-             frg.left + (1 | Org) , family = binomial, data = ds)
-
-f2<- glmer(Fotor ~ cogSC1 + 
-                bondSC + 
-             othersYes + 
-             othersOut +
-             RuleFormal + 
-             RuleYes +  
-             frgCV + 
-             frg.left + (1 | Org) , family = binomial, data = st)
-f3<- glmer(Fotor ~ cogSC1 + 
-                bondSC + 
-             othersYes + 
-             othersOut +
-             RuleFormal + 
-             RuleYes +  
-             frgCV + 
-             frg.left + (1 | Org) , family = binomial, data = fms)
-f4<- glmer(Fotor ~ cogSC1 + 
-                bondSC + 
-             othersYes + 
-             othersOut +
-             RuleFormal + 
-             RuleYes +  
-             frgCV + 
-             frg.left + (1 | Org) , family = binomial, data = es)
-
-
-  # Formal Rules
-
-plotLMER.fnc(f1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="FORMAL Rules (No/Yes)", ylabel="Probability of Fall Otor", pred = c("RuleFormal")) 
-
-plotLMER.fnc(f2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Wtr Otor", pred = c("RuleFormal"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(f3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("RuleFormal"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(f4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("RuleFormal"), addToExistingPlot = TRUE) 
-
-
-  # Any Rules
-
-plotLMER.fnc(f1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Rules Re: Timing of Grazing", ylabel="Probability of Fall Otor", pred = c("RuleYes")) 
-
-plotLMER.fnc(f2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Wtr Otor", pred = c("RuleYes"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(f3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("RuleYes"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(f4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("RuleYes"), addToExistingPlot = TRUE) 
-
-# Access to other pastures
-
-plotLMER.fnc(f1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Access to other pastures (No/Yes)", ylabel="Probability of Fall Otor", pred = c("othersYes")) 
-
-plotLMER.fnc(f2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Wtr Otor", pred = c("othersYes"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(f3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("othersYes"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(f4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("othersYes"), addToExistingPlot = TRUE) 
-
-# Access to other pastures in another soum
-
-plotLMER.fnc(f1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Access to other soum pastures", ylabel="Probability of Fall Otor", pred = c("othersOut")) 
-
-plotLMER.fnc(f2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Wtr Otor", pred = c("othersOut"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(f3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("othersOut"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(f4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("othersOut"), addToExistingPlot = TRUE) 
-
-# Remaining forage
-
-plotLMER.fnc(f1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Remaining Forage (%)", ylabel="Probability of Fall Otor", pred = c("frg.left")) 
-
-plotLMER.fnc(f2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Wtr Otor", pred = c("frg.left"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(f3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("frg.left"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(f4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("frg.left"), addToExistingPlot = TRUE) 
-
-# CV of forage
-
-plotLMER.fnc(f1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="CV of Forage (%)", ylabel="Probability of Fall Otor", pred = c("frgCV")) 
-
-plotLMER.fnc(f2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Wtr Otor", pred = c("frgCV"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(f3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("frgCV"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(f4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("frgCV"), addToExistingPlot = TRUE) 
-
-
-# cogSC
-
-plotLMER.fnc(f1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Cognitive SC", ylabel="Probability of Fall Otor", pred = c("cogSC1")) 
-
-plotLMER.fnc(f2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Wtr Otor", pred = c("cogSC1"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(f3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("cogSC1"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(f4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("cogSC1"), addToExistingPlot = TRUE) 
-
-
-# bondSC
-
-plotLMER.fnc(f1,ylimit=0:1,lockYlim=TRUE,linecolor=dkb, lwd=4,xlabel="Bonding SC", ylabel="Probability of Fall Otor", pred = c("bondSC")) 
-
-plotLMER.fnc(f2,ylimit=0:1,lockYlim=TRUE,linecolor= tan, lwd=4, ylabel="Probability of Wtr Otor", pred = c("bondSC"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(f3,ylimit=0:1,lockYlim=TRUE,linecolor=ltgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("bondSC"), addToExistingPlot = TRUE) 
-
-plotLMER.fnc(f4,ylimit=0:1,lockYlim=TRUE,linecolor=dkgr, lwd=4, ylabel="Probability of Wtr Otor", pred = c("bondSC"), addToExistingPlot = TRUE)
-
-```
 
 ```{r,eval=FALSE}
 # visualizing the varation in intercepts across the Orgs.
@@ -1082,7 +910,7 @@ library(MASS)
 # need to use MASS::polr for ordered logistic regression
 rezm<- polr(Rule ~ ez, data = td.fg, method = c("logistic"))
 rscm<- polr(Rule ~ cogSC1 , data = td.fg, method = c("logistic"))
-rse1<- polr(Rule ~ cogSC1 + ez, data = td.fg, method = c("logistic"))
+
 #anova(rezm, rscm) # big improvement by including ez, as we predicted
 summary(rse1) # outputs are re: prob of being in that class or lower
 #intercepts are the zetas
@@ -1125,31 +953,6 @@ rtezpredDat <- data.frame(rtez_dat, rtezPred)
 # scm<- glmer(cogSC1 ~ Rule + (1|ez), data =td)
 # summary(scm)
 
-# FITTED VALS:
-fit.rse<- rse1$fitted.values
-colnames(fit.rse)<- c("None", "Informal", "Formal")
-rse.df<- data.frame(fit.rse, rse1$model)
-
-# rse_dat <- data.frame(cogSC1 = seq(0, 2, length.out= 200), ez = rep(1:4, 50))
-# rse_dat <- cbind(expand.grid(ez = seq(1,4, 1), cogSC1 = seq(0, 2, 0.1)))
-# 
-# rse_dat$ez<- as.factor(rse_dat$ez)
-# newdat<- cbind(rse_dat, predict(rse1, rse_dat, type = "probs"))
-# 
-# 
-# lnewdat <- melt(newdat, id.vars = c("cogSC1", "ez"),
-#                 variable.name = "Rule_Level", value.name = "Probability")
-
-rse.df<- gather(rse.df, "Level", "PredProb", 1:3)
-
-ggplot(rse.df, aes(x= cogSC1, y=PredProb, color= Level )) +
-  #geom_smooth()+  
-  geom_line()+
-  #geom_smooth(position=position_jitter(width=.01,height=.01))+
-  coord_cartesian(xlim = c(0,2), ylim = c(0,0.75))+
-  xlab("Cognitive Social Capital")+
-  ylab("Pred Prob of Class Membership") +
-  facet_grid(Rule~ez, labeller = label_both)
 
 
 # ggplot(lnewdat, aes(x= cogSC1, y= Probability, color = Rule_Level))+
@@ -1207,119 +1010,6 @@ exp(rse1$zeta - rse1$coefficients)/(1 + exp(rse1$zeta - rse1$coefficients))
 
   
 
-# GETTING PREDICTED DATA:
-```{r}
-# haven't figured out how to do this with the RE included so have to redo w/o
-wot<- glm(Wotor ~  otherPast + frg.left + Rule + cogSC1, family = binomial, data = td.fg)
-
-
-# start w just one value for each
-wo_dat <- cbind(expand.grid(otherPast=c(1,2,3),
-                            Rule=c(0,1,2), 
-                            hhTenureWPast= c(0,1), 
-                            hhTenureWCamp = c(0,1), 
-                            cogSC1=seq(0,2, 0.1), 
-                            frg.left = seq(0,100,1),
-                            frg.cv = seq(0,50,1)
-                            ))
-wo_dat %<>% mutate_at(c(1:2), funs(ordered(.)))
-wo_dat %<>% mutate_at(3:4, funs(factor(.)))
-
-#predict
-woPred<- predict(wot, wo_dat, type="response")
-wopredDat <- data.frame(wo_dat, woPred)
-
-ggplot(wopredDat, aes(x= frg.left, y=(woPred*100), color = Rule)) +
-   #geom_smooth()+
-   geom_smooth(position=position_jitter(width=0.1,height=0.1))+
-   coord_cartesian(xlim = c(0,100))+
-   xlab("frg.left")+
-   ylab("predicted prob of winter otor") +
-   facet_grid(.~otherPast, labeller = label_both)
-
-ggplot(wopredDat, aes(x= cogSC1, y=woPred, color = Rule)) +
-   #geom_smooth()+
-   geom_smooth(position=position_jitter(width=0,height=.001))+
-   coord_cartesian(xlim = c(0,2))+
-   xlab("cognitive social capital")+
-   ylab("predicted prob of winter otor") +
-   facet_grid(.~otherPast, labeller = label_both)
-
-
-# w forage available:
-ggplot(wofupredDat, aes(x= frg.avg, y=wofuPred, color= Rule)) +
-#geom_smooth()+
-geom_smooth(position=position_jitter(width=.001,height=.001))+
-coord_cartesian(xlim = c(0,100))+
-xlab("forage use")+
-ylab("predicted prob of winter otor") +
-facet_grid(.~otherPast, labeller = label_both)
-
-
-```
-Fall Otor Predicted
-
-```{r}
-# haven't figured out how to do this with the RE included so have to redo w/o
-fot<- glm(Fotor ~  otherPast + Rule + hhTenureWPast + cogSC1, family = binomial, data = td)
-
-fotorgm <-glm(Fotor ~  otherPast + Rule +  cogSC1 + frg.cv, family = binomial, data = td.fg)
-
-fotorav <-glm(Fotor ~  otherPast +   cogSC1 + frg.left + frg.cv, family = binomial, data = td.fg)
-
-# start w just one value for each
-fo_dat <- cbind(expand.grid(otherPast=c(1,2,3),
-                            Rule=c(0,1,2), 
-                            #hhTenureWPast= c(0,1), 
-                            cogSC1=seq(0,2, 0.25),
-                            frg.cv=seq(0,100,1)
-                            ))
-
-fo_dat %<>% mutate_at(c(1:2), funs(ordered(.)))
-#fo_dat %<>% mutate_at(3, funs(factor(.)))
-
-
-#predict(finalW, p_dat, type="response")
-foPred<- predict(fotorgm, fo_dat, type="response")
-fopredDat <- data.frame(fo_dat, foPred)
-
-foPredav<- predict(fotorav, fo_dat_av, type="response")
-fopredDatav <- data.frame(fo_dat_av, foPredav)
-
-```
-
-Then plot the predicted data:
-```{r}
-
-plot(woPred~otherPast, data= wopredDat)
-
-  #FALL OTOR:
-ggplot(foDat, aes(x= frgCV, y=fitted, color= RuleYes)) +
-  geom_smooth()+  
-  #geom_smooth(position=position_jitter(width=.01,height=.01))+
-  coord_cartesian(xlim = c(0,2))+
-  xlab("% forage remaining")+
-  ylab("predicted prob of fall otor") +
-  facet_grid(.~otherPast, labeller = label_both)
-
-# w model that includes frg.avg in addition to frg.cv
-## yields approx the same plot
-ggplot(fopredDatav, aes(x= frg.cv, y=foPredav, color= Rule)) +
-  geom_smooth()+  
-  #geom_smooth(position=position_jitter(width=.01,height=.01))+
-  coord_cartesian(xlim = c(0,100))+
-  xlab("CV forage use")+
-  ylab("predicted prob of fall otor") +
-  facet_grid(.~otherPast, labeller = label_both)
-
-ggplot(fopredDat, aes(x= cogSC1, y=foPred, color= Rule)) +
-  geom_smooth()+  
-  #geom_smooth(position=position_jitter(width=.01,height=.01))+
-  coord_cartesian(xlim = c(0,2))+
-  xlab("cognitive social capital")+
-  ylab("predicted prob of fall otor") +
-  facet_grid(.~otherPast, labeller = label_both)
-```
 
 ```{r}
 ggplot(td.fg, aes(x= frg.left, y = frgCV, color = ez)) + 
