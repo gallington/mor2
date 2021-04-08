@@ -1,4 +1,4 @@
-load("./data/tdfg.RData")
+load("./data/td.RData")
 # NOV 2020 test models:
 
 library(modelr)
