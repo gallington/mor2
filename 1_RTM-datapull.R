@@ -3,7 +3,9 @@
 # saves as rdata to pull in to next script: 
 
 #---------------2020/10/26: updated to correct rescaling of forage
-# -----  but that really wacked out the odds ratios in the models??
+# -----  but that really wacked out the odds ratios in the models.
+#---------2021/04/01: going back to unscaled forage params bc they 
+# ---------make more sense to interpret 
   
 
 library(haven)  # this is the new package to use instead of (foreign)
@@ -26,7 +28,8 @@ tbl_df(mor2FULL)
 #   need to match these on Soum ID, Aimag + Soum_name
 #   
 soums <- read.csv("./data/mor2data/from_Jay/soum_names.csv", stringsAsFactors = FALSE)
-soums %<>% rename(Soum_name = jay)
+str(soums)
+names(soums) <- c("Soum_name", "MOR2match")
 soums$MOR2match<- trimws(soums$MOR2match)  #trim trailing white space
 
 # aimag level :
@@ -88,7 +91,7 @@ td<- mor2FULL%>% dplyr::select(
         ResSpr = b_ResSpr,    # Reserve Spring Pastures
         Wotor = e_WtrOtor,
         Fotor = d_FallOtor,  
-      #*** Predictor Variables *** 
+      #--- *** Predictor Variables *** 
       # Org-level Tenure q:
         #TenureWPast = q02a_RightNatWintPast,   # Tenure Rights on Winter Pasture
         #(Inf/ use /possession contract) #But only 2 in Answ: Inf & Use 
@@ -203,7 +206,7 @@ td %<>% mutate_at(c(27:29), funs(factor(.)))
 ######## Forage Use: #################
 # table that (supposedly) links mor2 names w jay's names
 soums <- read.csv("./data/mor2data/from_Jay/soum_names.csv", stringsAsFactors = FALSE)
-soums %<>% rename(Soum_name = jay)
+names(soums) <- c("Soum_name", "MOR2match")
 soums$MOR2match<- trimws(soums$MOR2match)  #trim trailing white space
 # table of the aimag and soum name pairs from jay--so can 
 # distinguish the soums w same name-diff aimag 
@@ -245,45 +248,39 @@ colnames(j.forage.use)<- c("Aimag_name", "Soum_name", "Soum_ID", "Ecozone", "Pol
 j.forage.use %<>% mutate_at(6:7, funs(as.numeric(.)))
 
 
-#   2010-2011 avg
-frg.use <- j.forage.use %>% 
-  gather("Year", "pctFrgUse", 6:7) 
-frg.use$Year<- as.factor(frg.use$Year)
-frg.use$pctFrgUse<- as.numeric(frg.use$pctFrgUse)
+# get average across the two years
+frg.use.av <- j.forage.use %>% mutate(
+  pctFrgUse = (fu10 + fu11 / 2)
+)
 
-frg.use<- frg.use[,c(1,2,4,6,7)]
+# get ride of extra colums
+frg.use.av<- frg.use.av[,c(1:4,8)]
 
-
-
-# Need to summarize first bc now have three years of values for each soum
-# now calc mean across 2010-2011 SoumID
-frg.use.av <- frg.use %>%
-  group_by(Aimag_name, Soum_name) %>% # if put all these together they will appear in the output
-  summarise(frgUse = mean(pctFrgUse)) 
 # save as a df to remove all of the tibble info hanging around
 frg.use.av <- as.data.frame(frg.use.av)
-#frg.use.av <- frg.use.av [,2:3]  # might need to keep Soum bc of duplicates...
 
+# join with the CV data into one df
 frg.use.avcv<- names.cv %>% left_join(frg.use.av, by = c("Aimag_name", "Soum_name"))
 #rename MOR2Match to match 
-frg.use.avcv<- frg.use.avcv %>% rename(Soum = MOR2match)
+names(frg.use.avcv)[3] <- c("Soum")
 #df$depth[df$depth<10] <- 0 
 frg.use.avcv$Soum[frg.use.avcv$Soum == "Bat-Ulzii"] <- "Bat-Ulziit"
 
+frg.use.avcv <- frg.use.avcv[,c(3,4,5,8)]
 
 # combine with the td dataframe:
 
 td$Aimag <- as.character(td$Aimag)
 td$Soum <- as.character(td$Soum)
 
-x<- td%>% distinct(Aimag, Soum) %>% arrange(Aimag, Soum)
-y<- frg.use.avcv %>% distinct(Aimag, Soum) %>% arrange(Aimag, Soum)
-x == y  # to find the ones that aren't lining up.... 
+#x<- td%>% distinct(Aimag, Soum) %>% dplyr::arrange(Aimag, Soum)
+#y<- frg.use.avcv %>% distinct(Aimag, Soum) %>% arrange(Aimag, Soum)
+#x == y  # to find the ones that aren't lining up.... 
 #x[c(27:29,33),]
 #y[c(27:29,33),]
 
 td.fg <- td %>% inner_join(frg.use.avcv, by = c("Aimag", "Soum"))
-td.fg %<>% mutate(frg.left = (100-frgUse)) %>% rename(frgCV = CV)
+td.fg %<>% mutate(frg.left = (100-pctFrgUse)) %>% dplyr::rename(frgCV = CV)
 
 attr(td.fg$cogSC1, "label") <- NULL
 attr(td.fg$cogSC1, "labels") <- NULL
@@ -298,43 +295,11 @@ td.fg$bondSC<- rescale(td.fg$bondSC, to = c(0,2))
 #td.fg$bondSC<- scale(td.fg$bondSC) #rescale it 
 
 # RESCALE Forage Params:
-td.fg%<>% mutate(frg.rs= (frg.left/100))
-td.fg%<>% mutate(frg.rs.CV = (frgCV/100))
+#td.fg%<>% mutate(frg.rs= (frg.left/100))
+#td.fg%<>% mutate(frg.rs.CV = (frgCV/100))
 
-# ADD LABELS to the factors to make them readable:
-  ## THIS JUST CHANGED THE ACTUAL VALUES NOT THE LABELS... 
-  ## WHICH THEN MESSES UP THE CODING LATER
-  ## JUST WANT NEW *LABELS*
-# td.fg<- td.fg %>%
-#   mutate(Rule =
-#            recode(Rule,
-#                   "0" = "None",
-#                   "1" = "Informal",
-#                   "2" = "Formal"),
-#          hhTenureWPast =
-#            recode(hhTenureWPast,
-#                   "0" = "No Contract",
-#                   "1" = "Use or Possession Contract"),
-#          hhTenureSpPast =
-#            recode(hhTenureSpPast,
-#                   "0" = "No Contract",
-#                   "1" = "Use or Possession Contract"),
-#          hhTenureWCamp =
-#            recode(hhTenureWCamp,
-#                   "0" = "No Contract",
-#                   "1" = "Use or Possession Contract"),
-#          hhTenureSpCamp =
-#            recode(hhTenureSpCamp,
-#                   "0" = "No Contract",
-#                   "1" = "Use or Possession Contract"),
-#          otherPast =
-#            recode(otherPast,
-#                   "1"= "None",
-#                   "2"= "Within same soum",
-#                   "3"= "Within same and in other soums")
-#          
-#          )
-  
+
+
 
 #SocCap subset ----
 # This creates a subset of the df that removes all records w/ NAs in Social capital, 
