@@ -10,18 +10,6 @@
 # also creates new table of model fits for each ez, each practice
 
 
-###NOTE: 2021/4/1
-####    This is what I used to pull the effect sizes for the radar plots!!!
-####    No wonder I couldn't figure out how to get them out in a clean way!!!
-####    The plotLMER function reports a effect size for the parameter in the
-####    console and I just copied that..... 
-
-# 4/1/2021 End of Day notes: I think I've decided it would be better to
-# scrap the radar plots and just remake the dot plots with CIs
-# so that it's easier to see the base probability for each.
-# so, come back and set those up. USE GGEFFECTS---> plot_grid!
-
-
 ##########   THE OTHER ISSUE:
     # running the original models with the ez-subset data isn't really valid?
     # the data aren't sufficient in some cases and/or parameters are no longer 
@@ -29,6 +17,7 @@
     # but we do need them to run....
 
 # NEED TO MAKE A NEW (Supplement) Table that specifies each ez-specific model.
+# (started this, code below, need to finish, as of 4/8/21)
 
 load("./data/td.RData")
 
@@ -164,18 +153,19 @@ tab_model(w1, w2, w3,
 # get marginal effects for each predictor, each as single plot
 
     # DESERT STEPPE
-wp1.ds <- ggpredict(w1, "hhTenureWPast") %>%
-  plot(show.y.title = FALSE, show.title = FALSE)
-wp2.ds <- ggpredict(w1, "hhTenureWCamp") %>%
-  plot(show.y.title = FALSE, show.title = FALSE)
-wp3.ds <- ggpredict(w1, "RuleInf") %>%
-  plot(show.y.title = FALSE, show.title = FALSE)
-wp4.ds <- ggpredict(w1, "cogSC1") %>%
-  plot(show.y.title = FALSE, show.title = FALSE)
-wp5.ds <- ggpredict(w1, "frgCV") %>%
-  plot(show.y.title = FALSE, show.title = FALSE)
-wp6.ds <- ggpredict(w1, "frg.left") %>%
-  plot(show.y.title = FALSE, show.title = FALSE)
+        # remove comment hash if you want to plot the marg effects w sjPlot 
+wp1.ds <- ggpredict(w1, "hhTenureWPast") #%>%  
+  #plot(show.y.title = FALSE, show.title = FALSE)
+wp2.ds <- ggpredict(w1, "hhTenureWCamp") #%>%
+  #plot(show.y.title = FALSE, show.title = FALSE)
+wp3.ds <- ggpredict(w1, "RuleInf") #%>%
+  #plot(show.y.title = FALSE, show.title = FALSE)
+wp4.ds <- ggpredict(w1, "cogSC1") #%>%
+  #plot(show.y.title = FALSE, show.title = FALSE)
+wp5.ds <- ggpredict(w1, "frgCV") # %>%
+  # plot(show.y.title = FALSE, show.title = FALSE)
+wp6.ds <- ggpredict(w1, "frg.left") # %>%
+  # plot(show.y.title = FALSE, show.title = FALSE)
  
 # combined pltos of merginal effects of each predictor of prob of resv w past:
 #meWP<- sjPlot::plot_grid(list(p1, p2, p3, p4, p5, p6), tags = TRUE)
@@ -213,32 +203,28 @@ wp6.ds <- ggpredict(w1, "frg.left") %>%
 
 
    # STEPPE-----
-wp1.st <- ggpredict(w2, "hhTenureWCamp") %>%
-  plot(show.y.title = FALSE, show.title = FALSE)
-wp2.st <- ggpredict(w2, "Rule") %>%
-  plot(show.y.title = FALSE, show.title = FALSE)
-wp3.st <- ggpredict(w2, "cogSC1") %>%
-  plot(show.y.title = FALSE, show.title = FALSE)
-wp4.st <- ggpredict(w2, "frg.left") %>%
-  plot(show.y.title = FALSE, show.title = FALSE)
+wp1.st <- ggpredict(w2, "hhTenureWCamp") # %>%
+  # plot(show.y.title = FALSE, show.title = FALSE)
+wp2.st <- ggpredict(w2, "Rule") # %>%
+  # plot(show.y.title = FALSE, show.title = FALSE)
+wp3.st <- ggpredict(w2, "cogSC1") # %>%
+  # plot(show.y.title = FALSE, show.title = FALSE)
+wp4.st <- ggpredict(w2, "frg.left") # %>%
+  # plot(show.y.title = FALSE, show.title = FALSE)
 
 # meWPst <- cowplot::plot_grid(p1, p2, p3, p4, nrow = 2, 
 #                              labels = "auto",
 #                              label_size = 10)
 
        #FMS
-wp1.fms <- ggpredict(w3, "hhTenureWPast") %>%
-  plot(show.y.title = FALSE, show.title = FALSE)
-wp2.fms <- ggpredict(w3, "hhTenureWCamp") %>%
-  plot(show.y.title = FALSE, show.title = FALSE)
-wp3.fms <- ggpredict(w3, "Rule") %>%
-  plot(show.y.title = FALSE, show.title = FALSE)
-wp4.fms <- ggpredict(w3, "cogSC1") %>%
-  plot(show.y.title = FALSE, show.title = FALSE)
-wp5.fms <- ggpredict(w3, "frgCV") %>%
-  plot(show.y.title = FALSE, show.title = FALSE)
-wp6.fms <- ggpredict(w3, "frg.left") %>%
-  plot(show.y.title = FALSE, show.title = FALSE)
+wp1.fms <- ggpredict(w3, "hhTenureWPast") # %>%
+  #plot(show.y.title = FALSE, show.title = FALSE)
+wp2.fms <- ggpredict(w3, "hhTenureWCamp") # %>%
+  # plot(show.y.title = FALSE, show.title = FALSE)
+wp3.fms <- ggpredict(w3, "Rule")
+wp4.fms <- ggpredict(w3, "cogSC1")
+wp5.fms <- ggpredict(w3, "frgCV") 
+wp6.fms <- ggpredict(w3, "frg.left")
 
 # meWPfms <- cowplot::plot_grid(p1, p2, p3, p4 ,p5, p6, nrow = 3, 
 #                              labels = "auto",
@@ -247,24 +233,22 @@ wp6.fms <- ggpredict(w3, "frg.left") %>%
 # The errorbars overlapped, so use position_dodge to move them horizontally
 pd <- position_dodge(0.2) # move them .05 to the left and right
 
-
-
-# W Pasture Tenure:
+# W Pasture Tenure df:-------
 a <- as.data.frame(wp1.ds[1:2, 1:6]) %>% mutate(ez = "DesertSteppe")
 b <- as.data.frame(wp1.fms[1:2, 1:6]) %>% mutate(ez = "F-M Steppe")
 wpPast<- rbind(a,b)
 wpPast$ez <- as.factor(wpPast$ez)
 
-ggplot(wpPast, aes(x=x, y=predicted, colour=ez, group=ez)) + 
-  geom_errorbar(aes(ymin=conf.low, ymax=conf.high, color = ez),
-                width=.1, position=pd) +
-  #  geom_line(position=pd) +
-  geom_point(position=pd, size=3)+
-  scale_color_manual(values = pal3)+
-  labs(x= "Household Tenure on Winter Pasture", 
-       y = "Predicted Prob of Resv Winter Pasture")
+# ggplot(wpPast, aes(x=x, y=predicted, colour=ez, group=ez)) + 
+#   geom_errorbar(aes(ymin=conf.low, ymax=conf.high, color = ez),
+#                 width=.1, position=pd) +
+#   #  geom_line(position=pd) +
+#   geom_point(position=pd, size=3)+
+#   scale_color_manual(values = pal3)+
+#   labs(x= "Household Tenure on Winter Pasture", 
+#        y = "Predicted Prob of Resv Winter Pasture")
 
-# W Camp:
+# W Camp df:-------
 a <- as.data.frame(wp2.ds[1:2, 1:6]) %>% mutate(ez = "DesertSteppe")
 b <- as.data.frame(wp1.st[1:2, 1:6]) %>% mutate(ez = "Steppe")
 c <- as.data.frame(wp2.fms[1:2, 1:6]) %>% mutate(ez = "F-M Steppe")
@@ -280,16 +264,91 @@ ggplot(wpCamp, aes(x=x, y=predicted, colour=ez, group=ez)) +
   labs(x= "Household Tenure on Winter Camp", 
        y = "Predicted Prob of Resv Winter Pasture")
 
+# Rules df:------
+      # it's a little diff on this one bc i used DV for the ds rule
+a <- as.data.frame(wp3.ds[1:2, 1:6]) %>% mutate(ez = "DesertSteppe")
+b <- as.data.frame(wp2.st[1:3, 1:6]) %>% mutate(ez = "Steppe")
+c <- as.data.frame(wp3.fms[1:3, 1:6]) %>% mutate(ez = "F-M Steppe")
+
+wpRule<- rbind(a, b,c)
+wpRule$ez <- as.factor(wpRule$ez)
+
+# socCap df: -------
+
+a <- as.data.frame(wp4.ds[1:12, 1:6]) %>% mutate(ez = "DesertSteppe")
+b <- as.data.frame(wp3.st[1:12, 1:6]) %>% mutate(ez = "Steppe")
+c <- as.data.frame(wp4.fms[1:12, 1:6]) %>% mutate(ez = "F-M Steppe")
+
+wpSC<- rbind(a, b,c)
+wpSC$ez <- as.factor(wpSC$ez)
+
+# forage CV:-------
+a <- as.data.frame(wp5.ds[1:12, 1:6]) %>% mutate(ez = "DesertSteppe")
+#b <- as.data.frame(wp3.st[1:12, 1:6]) %>% mutate(ez = "Steppe")
+c <- as.data.frame(wp5.fms[1:12, 1:6]) %>% mutate(ez = "F-M Steppe")
+
+wpfrgCV<- rbind(a, c)
+wpfrgCV$ez <- as.factor(wpfrgCV$ez)
+
+# forage remaining:-------
+a <- as.data.frame(wp6.ds[1:12, 1:6]) %>% mutate(ez = "DesertSteppe")
+b <- as.data.frame(wp4.st[1:12, 1:6]) %>% mutate(ez = "Steppe")
+c <- as.data.frame(wp6.fms[1:12, 1:6]) %>% mutate(ez = "F-M Steppe")
+
+wpfrg.left<- rbind(a, b, c)
+wpfrg.left$ez <- as.factor(wpfrg.left$ez)
 
 
+# past-------
+# ggplot(wpPast, aes(x=x, y=predicted, colour=ez, group=ez)) + 
+#   geom_errorbar(aes(ymin=conf.low, ymax=conf.high, color = ez),
+#                 width=.1, position=pd) +
+#   #  geom_line(position=pd) +
+#   geom_point(position=pd, size=3)+
+#   scale_color_manual(values = pal3)+
+#   labs(x= "Household Tenure on Winter Pasture", 
+#        y = "Predicted Prob of Resv Winter Pasture")
+
+# ME Plots -------
+# GENERALIZE THE PLOTS SO I CAN SPECIFY AND RUNWITHOUT COPYING A MILLION TIMES:
+
+#  Marginal Effects by EZ plot:
+  # Specify these before running the plot:
+df = wpfrg.left
+xlab = "Remaining Forage"
+ylab = "Predicted Prob of Resv Winter Pasture"
+
+outputname = "RW_frg.left_ME.png"
+filepath = "./output_figs/marg_eff_byEZ"
+wdth =  6
+ht =  4
+
+    # REMEMBER TO CHANGE THE PARAM NAMES ABOVE!
+
+# POINTS:
+me<- ggplot(df, aes(x=x, y=predicted, colour=ez, group=ez)) + 
+  geom_errorbar(aes(ymin=conf.low, ymax=conf.high, color = ez),
+                width=.1, position=pd) +
+  geom_point(position=pd, size=3)+
+  scale_color_manual(values = pal3, 
+                     name = "Ecological zone")+ 
+  labs(x= xlab, 
+       y = ylab)
+
+ggsave( outputname, path = filepath, width = wdth, height = ht )
 
 
+# LINES:
+me<- ggplot(df, aes(x=x, y=predicted, colour=ez, group=ez)) + 
+  geom_line() +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, group = ez), 
+              linetype=2, alpha=0.1)+
+  scale_color_manual(values = pal3, 
+                     name = "Ecological zone")+ 
+  labs(x= xlab, 
+       y = ylab)
 
-
-
-
-
-
+ggsave( outputname, me,  path = filepath, width = wdth, height = ht )
 
 
 
@@ -508,7 +567,16 @@ mew.hhtc<- rbind(mewds.hhTC, mewst.hhTC, mewfms.hhTC)
 
 
 #DOTPLOTS---- 
+###NOTE: 2021/4/1
+####    This is what I used to pull the effect sizes for the radar plots!!!
+####    No wonder I couldn't figure out how to get them out in a clean way!!!
+####    The plotLMER function reports a effect size for the parameter in the
+####    console and I just copied that..... 
 
+# 4/1/2021 End of Day notes: I think I've decided it would be better to
+# scrap the radar plots and just remake the dot plots with CIs
+# so that it's easier to see the base probability for each.
+# so, come back and set those up. USE GGEFFECTS---> plot_grid!
 # ORIGINAL CODE THAT I USED TO PLOT THE DOT PLOTS
 # Pasture Tenure  
 plotLMER.fnc(w1,ylimit=0:1,lockYlim=TRUE,linecolor= dkb, lwd=4,xlabel="Pasture Tenure (No/Yes)", ylabel="Probability of Reserving WPast", pred = c("hhTenureWPast")) 
