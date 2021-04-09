@@ -13,8 +13,9 @@ library(haven)  # this is the new package to use instead of (foreign)
 library(magrittr)
 library(tidyr)
 library(dplyr)
-library(readxl)
+library(readxl) # to open excel files 
 library(reshape2)
+library(scales) # used to rescale() a few params
 
 # THIS IS THE FULL DATASET WITH ALL 700 hh
 # the org level data are merged in to this as well. 
@@ -35,54 +36,8 @@ soums$MOR2match<- trimws(soums$MOR2match)  #trim trailing white space
 # aimag level :
 aimags <- read.csv("./data/mor2data/from_Jay/aimag_names.csv", stringsAsFactors = FALSE)
 
-
-
-
 # subsetting the FULL (combined) dataset to a smaller df:
-## alt data import-------------------
 
-## td<- mor2FULL%>% dplyr::select(
-#         #** Response Variables (Practices) ***
-#         ResWint = a_ResWint,  # Reserve Winter Pastures
-#         ResSpr = b_ResSpr,    # Reserve Spring Pastures
-#         #** Predictor Variables *** 
-#         # Org-level Tenure q:
-#         TenureWPast = q02a_RightNatWintPast,   # Tenure Rights on Winter Pasture
-#         #(Inf/ use /possession contract) #But only 2 in Answ: Inf & Use 
-#         TenureSpPast =q02a_RightNatSpringPast, # Tenure rights on Spring Pasture
-#         # HH-level Tenure q:
-#         #UseWPast = A_UsWtrPast,                # Have or use Winter Pasture 
-#         #  2/3 yes, 1/3 no
-#         #UseWCamp    = A_UsWtrCamp,             # Have or use a Winter Campsite
-#         #UseSpPast = A_UsSepSprPas,             # Have or use a sep Spring Pasture
-#         ContractSpPast = B_ContractSprPast,    # Use/Poss contract for Sp Pasture
-#         ContractWPast= B_ContractWtrPast,      # Use/poss contract for Wtr Pasture 
-#         #  most are no
-#         ContractWCamp = B_ContractWtrCamp,     # Use/Poss contract for Wtr Camp
-#         #ORG-level Rules q:
-#         Rule = q03_TimingRules3.3,       # Rule formality 
-#         #** Cognitive Social Capital :          
-#         # see Ulambayar et al. (201?) for info on which Qs were used, how combined
-#         cogSC1 = CognSC,                 # Mean of scores for items included
-#         # scaled 0-2 
-#         cogSC2 = CognSC2,                # Sum of scores, 0-12
-#         #cogSCAgg = CognSC_Agg    # NOT SURE HOW THIS WAS CALC'D, range is 0.41 - 2
-#         #** confounding vars / fixed & random effects :
-#         ez = Ecologicalzone_4,           # ez 
-#         Trsp = AnotherAilLSOnPast,       # trespassing
-#         cbrmType = CBRM_type,            # CBRM Type
-#         cbrmYN = CBRM_Y_N,               # CBRM Yes/No
-#         
-#         RefNum = SurveyRefNumber,
-#         Org = ORG_CODE,
-#         Aimag = AIMAG_NAME,
-#         Soum = SOUM_NAME
-#       )
-# td %<>% mutate_at(c(1:8,11:14), funs(factor(.)))
-# #td %<>% mutate_at(c(8:10,14:17), funs(factor(.)))
-# td %<>% mutate_at(c(8), funs(ordered(.)))
-# # should we make TenurePast ordered also????
-# #td %<>% mutate_at(c(9:10), funs(scale(.)))
 ##Data Import--------  
 
 td<- mor2FULL%>% dplyr::select(
@@ -250,10 +205,10 @@ j.forage.use %<>% mutate_at(6:7, funs(as.numeric(.)))
 
 # get average across the two years
 frg.use.av <- j.forage.use %>% mutate(
-  pctFrgUse = (fu10 + fu11 / 2)
+  pctFrgUse = ((fu10 + fu11) / 2)
 )
 
-# get ride of extra colums
+# get rid of extra colums
 frg.use.av<- frg.use.av[,c(1:4,8)]
 
 # save as a df to remove all of the tibble info hanging around
@@ -291,6 +246,7 @@ attr(td.fg$bondSC, "labels") <- NULL
 attr(td.fg$bondSC, "names") <- NULL
 
 # rescale the STructural scoial capital  (done below now)
+library(scales)
 td.fg$bondSC<- rescale(td.fg$bondSC, to = c(0,2))
 #td.fg$bondSC<- scale(td.fg$bondSC) #rescale it 
 
