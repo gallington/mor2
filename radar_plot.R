@@ -1,5 +1,5 @@
 
-
+# DEPRECATED. Not using these anymore.
 
 
 # 4/1/2021: I don't think we want the radar plots.
@@ -78,27 +78,27 @@ fixef(hypw)
 # checking model convergence issues via 
 # suggestions from:
 # https://rstudio-pubs-static.s3.amazonaws.com/33653_57fc7b8e5d484c909b615d8633c01d51.html
-numcols <- grep("^c\\.",names(td.fg))
+numcols <- grep("^c\\.",names(ds))
 dfs <- ds  # update dataset
 dfs[,numcols] <- scale(dfs[,numcols])
-hypw_sc <- update(hypw1,data=dfs)
+sc <- update(s1,data=dfs)
 # ok
 
 # check singularity
   # check that are not 0 or close to it
-tt <- getME(hypw_sc,"theta")
-ll <- getME(hypw_sc,"lower")
+tt <- getME(sc,"theta")
+ll <- getME(sc,"lower")
 min(tt[ll==0])
 # ok
 
 # scaled gradients
-derivs1 <- hypw_sc@optinfo$derivs
+derivs1 <- sc@optinfo$derivs
 sc_grad1 <- with(derivs1,solve(Hessian,gradient))
 max(abs(sc_grad1))
 max(pmin(abs(sc_grad1),abs(derivs1$gradient)))
 
-dd <- update(hypw_sc,devFunOnly=TRUE)
-pars <- unlist(getME(hypw_sc,c("theta","fixef")))
+dd <- update(sc,devFunOnly=TRUE)
+pars <- unlist(getME(sc,c("theta","fixef")))
 grad2 <- grad(dd,pars)
 hess2 <- hessian(dd,pars)
 sc_grad2 <- solve(hess2,grad2)
