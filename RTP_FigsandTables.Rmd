@@ -344,6 +344,14 @@ ss <- getME(hypfodv,c("theta","fixef"))
 fo1dv <- update(hypfodv,start=ss,control=glmerControl(optimizer="bobyqa",
                                                  optCtrl=list(maxfun=2e5)))
 
+tab_model(fo1, fo1dv,
+          show.icc = TRUE,
+          show.aic = TRUE,
+          dv.labels = c( "Fall otor"),
+          rm.terms = "otherPast.Q",
+          pred.labels = pv,
+          p.style = "a")  # show asterisk instead of p val)
+
 ```
 
 
@@ -359,11 +367,13 @@ pv <- c(
   hhTenureSpPast1 = "Spring Pasture Tenure",
   hhTenureSpCamp1 = "Spring Camp Tenure", 
   otherPast.L = "Access to Others' Pastures",
-  otherPast.Q = WHATS HAPPENING HERE
+  # otherPast.Q = WHATS HAPPENING HERE
   RuleYes1 = "Rules on Timing of Grazing",
   RuleFormal1 = "Formal Rules on Timing",
   frg.left = "Remaining Forage Available",
-  frgCV= "CV of Forage Availability"
+  frgCV= "CV of Forage Availability",
+  othersIn = "Access to Others' Pastures\n in Same Soum",
+  otherOut = "Access to Others' Pasture\n in a Different Soum"
 )
  
 # set the order so taht the tenure parameters all appear together
