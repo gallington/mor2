@@ -343,7 +343,7 @@ pv <- c(
 # set the order so taht the tenure parameters all appear together
 tab_model(hypw, hyps, hypwort, hypfo,   
           show.icc = TRUE,
-          show.aic = TRUE,
+        #  show.aic = TRUE,
           dv.labels = c("Reserve Winter", "Reserve Spring", "Winter otor", "Fall otor"),
           pred.labels = pv,
           rm.terms = "otherPast.Q",  # remove the quadratic term
