@@ -12,6 +12,8 @@ output:
   pdf_document: default
 ---
 
+-2021-6-17 : add code to create a DV for others' pastures, but this should eventually be moved to 1_RTM_datapull
+
 -2021-4-6 :  Updated the best fit models with optimizer and increased iterations and don't get error now.
 
 -2020-2-1 :  This is a new version of RulesModelReport. That doc contained all of the second wave of comparison models, particularly wrt ordinal vs. DV for Rules. This version is the final models, so we can generate final figures and tables in here without all of the extra stuff.
@@ -47,7 +49,7 @@ options(scipen = 999)
 # these suggested specifications to enable easy viewing of outputs:
 # https://cran.r-project.org/web/packages/summarytools/vignettes/Introduction.html
 
-opts_chunk$set(results = 'asis',      # This is essential (can also be set #at the chunk-level)
+opts_chunk$set(results = 'asis',      # This is essential (can also be set at the chunk-level)
                 comment = NA, 
                 prompt = FALSE, 
                 cache = FALSE, # additional global settings I want to have for this doc:
@@ -91,6 +93,21 @@ td.fg$Soum <- as.factor(td.fg$Soum)
 td.fg$Aimag <- as.factor(td.fg$Aimag)
 td.fg$Org <- as.factor(td.fg$Org)
 #td.fg%<>% mutate(frg.left = (100-frgUse)) %>% rename(frgCV = CV)
+
+# create a dummy variable for others' Pastures
+td.fg <- mutate(td.fg, othersIn = case_when(otherPast == 1 ~ 0, 
+                                              # set others to zero
+                                            otherPast == 2 ~ 1,
+                                            otherPast == 3 ~ 0, 
+                                        # access within soum = 1
+                                         TRUE ~ NA_real_))            # else NA
+
+td.fg <- mutate(td.fg, othersOut = case_when( otherPast == 1 | otherPast == 2 ~ 0,   # set others to zero
+                                              otherPast == 3 ~ 1,   # access in other soums = 1
+                                       TRUE ~ NA_real_))            # else NA
+
+td.fg %<>% mutate_at(c(33:34), funs(factor(.)))
+
 ```
 #more data explore:
 Maybe just sent this to RTM-dataexplore.R ?
@@ -315,6 +332,18 @@ ss <- getME(hypfo,c("theta","fixef"))
 fo1 <- update(hypfo,start=ss,control=glmerControl(optimizer="bobyqa",
                                                  optCtrl=list(maxfun=2e5)))
 
+hypfodv<- glmer(Fotor ~ othersIn +
+                  othersOut +
+                  RuleYes + 
+                  RuleFormal + 
+                  cogSC1  +
+                  bondSC + 
+                  frgCV  + 
+                  frg.left +   (1|Org) , family = binomial, data = td.fg) 
+ss <- getME(hypfodv,c("theta","fixef"))
+fo1dv <- update(hypfodv,start=ss,control=glmerControl(optimizer="bobyqa",
+                                                 optCtrl=list(maxfun=2e5)))
+
 ```
 
 
@@ -329,7 +358,8 @@ pv <- c(
   hhTenureWCamp1 = "Winter Camp Tenure",
   hhTenureSpPast1 = "Spring Pasture Tenure",
   hhTenureSpCamp1 = "Spring Camp Tenure", 
-  otherPast.L = "Access to Other Pastures",
+  otherPast.L = "Access to Others' Pastures",
+  otherPast.Q = WHATS HAPPENING HERE
   RuleYes1 = "Rules on Timing of Grazing",
   RuleFormal1 = "Formal Rules on Timing",
   frg.left = "Remaining Forage Available",
