@@ -725,6 +725,14 @@ ggsave("Fig6.rsvpast_scfrgandrules.png", fgr, width = 7, height = 8, units = "in
 #FIGURE Supplement 1 :  Access x social capital
 
 ```{r}
+
+# why did I make a new df here??? oh, to remove the Other col? 
+# yeah that's why. ok whatever.
+mor2FULL<- read_sav("./data/Org_HHS_May2016_5_28_16.sav") #
+#mor2FULL <- mor2 
+
+# tidy format
+tbl_df(mor2FULL)
 td.op<- mor2FULL%>% dplyr::select( #Rule = q03_TimingRules3.3,       # Rule formality 
                                 #** Cognitive Social Capital :          
                                 # see Ulambayar et al. (201?) for info on which Qs were used, how combined
@@ -751,7 +759,8 @@ library(plyr)
 # labelled correctly, then I can't change the axis labels??
 #td.op$otherPast <- revalue(td.op$otherPast, c("1" = "No", "2" = "Within soum", "3"= "In other soums"))
 
-accessAOV<- aov(cogSC1 ~ otherPast, data = td.op)
+# changed to just use the td.fg df
+accessAOV<- aov(cogSC1 ~ otherPast, data = td.op) # data = td.op)
 summary(accessAOV)
 
 TukeyHSD(accessAOV)
@@ -780,7 +789,7 @@ aop<- ggplot(td.op, aes(x=otherPast, y= cogSC1)) +
   theme_bw()
 
 
-ggsave("accessOtherxCSC.png", aop, width = 4, height = 3, units = "in")
+ggsave("./output_figs/FigS1.accessOtherxCSC.png", aop, width = 4, height = 3, units = "in")
 
 bcaop<- ggplot(td.op, aes(x=otherPast, y= bondSC)) + 
   geom_boxplot()+
@@ -791,7 +800,7 @@ bcaop<- ggplot(td.op, aes(x=otherPast, y= bondSC)) +
   ylim(0,6)+
   theme_bw()
 
-ggsave("accessOtherxBSC.png", bcaop, width = 4, height = 3, units = "in")
+ggsave("./output_figs/FigS1.accessOtherxSSC.png", bcaop, width = 4, height = 3, units = "in")
 
 ```
 
