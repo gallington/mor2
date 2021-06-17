@@ -6,6 +6,7 @@
 # -----  but that really wacked out the odds ratios in the models.
 #---------2021/04/01: going back to unscaled forage params bc they 
 # ---------make more sense to interpret 
+# --------2021/04/09: fixed error in calc of avg forage use
   
 
 library(haven)  # this is the new package to use instead of (foreign)
@@ -124,7 +125,7 @@ td<- mutate(td, otherPast = case_when(accPast == 3 ~ 1,   # No set to 1
                                       accPast == 2 ~ 3,   # Yes w/in & other soums set to 3
                                       TRUE ~ NA_real_))  # Other set to NA
 # order:
-td %<>% mutate_at(26, funs(ordered(.)))
+td %<>% mutate_at(26, funs(ordered(.)))  # 
 
 
 #Add dummy Vars for Rules --------------  

@@ -1,3 +1,66 @@
+#more data explore:
+Maybe just sent this to RTM-dataexplore.R ?
+  ```{r}
+table(td.fg$Wotor, td.fg$ResWint)%>% kable(col.names = c("RsvWPast-No",
+                                                         "RsvWPast-Y")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),full_width = F)
+table(td.fg$Wotor, td.fg$ez) %>%
+  kable(col.names = c("DS", "ST", "ES", "FMS")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),full_width = F)
+
+table(td.fg$Fotor, td.fg$ResWint)%>% kable(col.names = c("RsvWPast-No",
+                                                         "RsvWPast-Y")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),full_width = F)
+table(td.fg$Fotor, td.fg$ez) %>%
+  kable(col.names = c("DS", "ST", "ES", "FMS")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),full_width = F)
+
+table(td.fg$hhTenureWPast, td.fg$ez) %>%
+  kable(col.names = c("DS", "ST", "ES", "FMS")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),full_width = F)
+
+table(td.fg$hhTenureSpPast, td.fg$ez) %>%
+  kable(col.names = c("DS", "ST", "ES", "FMS")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),full_width = F)
+
+table(td.fg$ContractWPast, td.fg$ez) %>%
+  kable(col.names = c("DS", "ST", "ES", "FMS")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),full_width = F)
+
+table(td.fg$ContractSpPast, td.fg$ez) %>%
+  kable(col.names = c("DS", "ST", "ES", "FMS")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),full_width = F)
+
+table(td.fg$hhTenureWCamp, td.fg$ez) %>%
+  kable(col.names = c("DS", "ST", "ES", "FMS")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),full_width = F)
+
+table(td.fg$hhTenureSpCamp, td.fg$ez) %>%
+  kable(col.names = c("DS", "ST", "ES", "FMS")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),full_width = F)
+```
+
+
+# these copied over to the Tables spreadsheet in Google Docs for 
+# Supplemental Table #
+
+ctable(td.fg$Rule, td.fg$ez, chisq = TRUE, headings = FALSE, prop = "n")
+ctable(td.fg$Rule, td.fg$ez)
+xtabs(~Rule + ez, data = td.fg)
+
+
+xtabs(~ContractWPast + ez, data = td.fg)
+xtabs(~hhTenureWPast + ez, data = td.fg)
+
+xtabs(~ContractSpPast + ez, data = td.fg)
+xtabs(~hhTenureSpPast + ez, data = td.fg)
+
+xtabs(~ContractWCamp + ez, data = td.fg)
+xtabs(~hhTenureWCamp + ez, data = td.fg)
+
+xtabs(~ContractSpCamp + ez, data = td.fg)
+xtabs(~hhTenureSpCamp + ez, data = td.fg)
+
 load("./data/td.RData")
 # NOV 2020 test models:
 
@@ -42,6 +105,17 @@ wrez<- table(td.fg$ResWint, td.fg$ez)
 srez<- table(td.fg$ResSpr, td.fg$ez) 
 woez<- table(td.fg$Wotor, td.fg$ez) 
 foez<- table(td.fg$Fotor, td.fg$ez) 
+      # SAVING THESE OVER TO A SPREADSHEET
+
+write.table(foez, file = "foez.txt", sep = ",")
+
+foez
+
+
+
+
+
+
 
 # until then, here's some new plots:
   # TO DO: update color palette
