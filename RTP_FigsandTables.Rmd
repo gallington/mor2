@@ -353,12 +353,14 @@ tab_model(hypw, hyps, hypwort, hypfo,
 #FIGURE 1
 Plots of odds ratios for each model
 ```{r}
-
+set_theme(  axis.textcolor = "black", 
+  base = theme_bw())
 a<- plot_model(hypw,
            title = "Reserve Winter Pastures", 
            sort.est = TRUE,
            auto.label = FALSE, 
            axis.labels = pv,
+           axis.lim = c(0.25, 25),
            colors = "bw",
            rm.terms = "otherPast.Q",  # remove the quadratic term
            show.values = TRUE, value.offset = .3, value.size = 3
@@ -394,7 +396,8 @@ d<- plot_model(hypfo,
             show.values = TRUE, value.offset = .3, value.size = 3
            ) 
 
-cowplot::plot_grid(a,b,c,d, labels = 'auto', ncol = 2)
+Fig1 <- cowplot::plot_grid(a,b,c,d, labels = 'auto', ncol = 2)
+ggsave("./output_figs/Fig1.OddsRatios.png", Fig1, width = 11, height = 8, units = "in")
 ```
 
 #FIGURE 2 
