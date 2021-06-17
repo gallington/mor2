@@ -1,5 +1,7 @@
 KEEP THIS - it contains all of the models we considered in original analysis.
 
+2021-6-17 : Use this to generate the SUpp Tables of model selection?
+
 ---
 title: "Tenure, Rules and Practices..."
 output:
