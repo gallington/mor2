@@ -1,4 +1,4 @@
-KEEP THIS - it contains all of the models we considered.
+KEEP THIS - it contains all of the models we considered in original analysis.
 
 ---
 title: "Tenure, Rules and Practices..."
@@ -185,7 +185,7 @@ scaov
 steps Ref'd from http://data.princeton.edu/wws509/R/c3s1.html
 the estimate of the constant is the logit of the proportion Reservign Pastures:
 ```{r}
-null<-  glm( ResWint ~ 1, data=td, family=binomial)
+nullw<-  glm( ResWint ~ 1, data=td, family=binomial)
 
 nullSp<- glm( ResSpr ~1, data= td, family = binomial)
 ```
@@ -430,10 +430,10 @@ Per sjPlot doc: "the marginal R-squared considers only the variance of the fixed
 
 Plotting model results, inc residual fits:
 ```{r}
-plot(htm6)
-plot(htm6, type = c("p", "smooth") , id = 0.05) # id outliers
-plot(htm6, sqrt(abs(resid(.))) ~ fitted(.), type=c('p', 'smooth'))
-plot(htm6, resid(.) ~ fitted(.), abline=c(h = 0),  lty = 1,  type = c("p", "smooth")) #
+plot(htm7)
+plot(htm7, type = c("p", "smooth") , id = 0.05) # id outliers
+plot(htm7, sqrt(abs(resid(.))) ~ fitted(.), type=c('p', 'smooth'))
+plot(htm7, resid(.) ~ fitted(.), abline=c(h = 0),  lty = 1,  type = c("p", "smooth")) #
 
 
 ```
@@ -556,7 +556,7 @@ cm9 <- glmer(ResWint ~ TenureWPast + hhTenureWCamp + Rule + cbrmYN + (1+ Rule|ez
 ---Jan 10:
 stepwise:Can only do this with model without random intercepts included, but generally the same message if we compare these manually
 ```{r}
-fullmod <- glm(ResWint ~ hhTenureWCamp+hhTenureWPast +  Rule + RuleNo+ cbrmYN +cogSC1 , family = binomial,data = td.sc)  
+fullmod <- glm(ResWint ~ hhTenureWCamp+hhTenureWPast +  Rule + RuleYes+ cbrmYN +cogSC1 , family = binomial,data = td.sc)  
 
 backward <- step(fullmod)
 summary(backward) #gives the best model
@@ -658,3 +658,36 @@ htm7.0<- glm(ResWint ~ hhTenureWPast + hhTenureWCamp + Rule + cogSC1  , family =
 summary(htm7.0)
 PseudoR2(htm7.0)
 ```
+
+
+
+#Nov 2020----------
+Is everything more straighforward if we just remove the effect of frg.left on RedWint first and then work with the residuals? 
+
+```{r}
+library(broom)
+frgmod<- glm(ResWint ~ frg.left, family = binomial, data = td.fg, na.action = na.exclude)
+
+frgmoddat<- augment(frgmod, td.fg) 
+
+postmod<- lmer(.resid ~ hhTenureWPast + 
+               hhTenureWCamp + 
+               RuleYes + 
+               RuleFormal+  
+               cogSC1 + 
+               (1|Org) ,  data = frgmoddat )
+tab_model(postmod)
+```
+
+Meh. It's pretty much the same thing, just without the info on forage as well, so I guess it's not really worth redoing everything? 
+
+
+
+ICC is a measure of how much of the variation in the response variable, which is not attributed to fixed effects, is accounted for by a random effect. It is the ratio of the variance of the random effect to the total random variation. 
+```{r}
+ezmod<- glm(ResWint ~ ez, family = binomial, data = td.fg, na.action = na.exclude)
+
+```
+
+
+
