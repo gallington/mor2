@@ -629,6 +629,7 @@ ggsave("./output_figs/Fig3b.wotorbyaccessandrules.png", woscop, width = 8, heigh
 
 ```
 #FIGURE 4
+Predicted Rule level based on social capital & ez
 ```{r}
 library(MASS)
 # bw theme
@@ -669,65 +670,10 @@ ggsave("./output_figs/Fig4.predRulelevel.png", rsez, width = 7, height = 3, unit
 ```
 
 
-#FIGURE 6ab
-
-Predicted probability of Reserving Pastures based on Rule formality, cognitive social captial  (REMOVED TENURE bc not signif :: & tenure)
-
-```{r}
-#   THESE ARE SAME AS ABOVE IN Fig 2
-    # but right now i am going to plot pred w Camp tenure, rather than pasture tenure as it is in 2--
-# Resv Wtr w ordered Rules param
-hypwR<- glmer(ResWint ~ hhTenureWPast + 
-               hhTenureWCamp + 
-               Rule + 
-               cogSC1 + 
-               frgCV + 
-               frg.left +   (1|Org) , family = binomial, data = td.fg) 
-# Resv Spr w ordered Rules param
-hypsR<- glmer(ResSpr ~ hhTenureSpPast + 
-               hhTenureSpCamp + 
-               Rule + 
-               cogSC1 + 
-               frgCV + 
-               frg.left+   (1|Org) , family = binomial, data = td.fg) 
+#FIGURE Xab
 
 
-# bw theme
-set_theme(
-  base = theme_light(),
-  geom.outline.color = "antiquewhite4", 
-  geom.outline.size = 1, 
-  axis.title.size = .9,
-  axis.textsize = .9,
-  legend.size = .7,
-  legend.title.size = .8,
-  geom.label.size = 3
-)
-a <- plot_model(hypwR, type= "pred", 
-           terms = c("cogSC1", "Rule", "hhTenureWCamp"), 
-           colors= "bw", 
-           ci.lvl = NA,
-           axis.title= c("Cognitive Social Capital", "Predicted prob. of reserving winter pasture"), title = " ")
-
-b <- plot_model(hypsR, type= "pred", 
-                terms = c("cogSC1", "Rule" ), 
-                colors= "bw", 
-                ci.lvl = NA, 
-                axis.title= c("Cognitive Social Capital", "Predicted prob. of resrvs spring pasture"),title = " ")
-
-
-#scr<-cowplot::plot_grid(a,b, labels = 'auto', ncol = 2)
-
-
-#ggsave("Fig6.rsvbyscandrules.png", scr, width = 7, height = 4, units = "in")
-
-
-
-
-```
-
-
-#FIGURE 6cd
+#FIGURE X
 Predicted probability of Reserving Pastures based on Rule formality,  & remaining forage
 
 ```{r}
