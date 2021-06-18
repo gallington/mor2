@@ -670,54 +670,18 @@ ggsave("./output_figs/Fig4.predRulelevel.png", rsez, width = 7, height = 3, unit
 ```
 
 
-#FIGURE Xab
+#FIGURES 5 - 8 
+Magnitude of the marginal effects of the predictors for each practice vary across the ecological zones:
+These are created in marg_eff_by_ez.R script
+each subplot is created separately. Then combined in a google slides doc
+Would be better to find a way to plot them nicely here but it gets complicated bc of the diff legends.
 
-
-#FIGURE X
-Predicted probability of Reserving Pastures based on Rule formality,  & remaining forage
-
-```{r}
-
-
-# bw theme
-set_theme(
-  base = theme_light(),
-  geom.outline.color = "antiquewhite4", 
-  geom.outline.size = 1, 
-  axis.title.size = .9,
-  axis.textsize = .9,
-  legend.size = .7,
-  legend.title.size = .8,
-  geom.label.size = 3
-)
-c <- plot_model(hypwR, type= "pred", 
-           terms = c("frg.left", "Rule"), 
-           colors= "bw", 
-           ci.lvl = NA,
-           axis.title= c("Forage remaining at end of season", "Predicted prob. of reserving winter pasture"), title = "")
-
-d <- plot_model(hypsR, type= "pred", 
-                terms = c("frg.left", "Rule"), 
-                colors= "bw", 
-                ci.lvl = NA, 
-                axis.title= c("Forage remaining at end of season", "Predicted prob. of resrvs spring pasture"),title = "")
+#FIGURE 9
+This is Maria's conceptual figure of the results. Created in ppt.
 
 
 
-
-fgr<- cowplot::plot_grid(a,b,c,d,  labels = 'auto', ncol = 2)
-
-
-ggsave("Fig6.rsvpast_scfrgandrules.png", fgr, width = 7, height = 8, units = "in")
-
-
-
-```
-
-
-
-
-#FIGURE Supplement 1 :  Access x social capital
+#FIGURE S1 :  Access x social capital
 
 ```{r}
 
@@ -801,6 +765,56 @@ ggsave("./output_figs/FigS1.accessOtherxSSC.png", bcaop, width = 4, height = 3, 
 
 #FIGURE S2 : OR plots of indiv ez models
 located in margh_eff_by_ez.R
+
+Potentially swap these for Figs 5-8 and put those in the Supplement?
+
+
+#TABLE SX :
+each individual ez model
+
+
+#FIGURE X
+Predicted probability of Reserving Pastures based on Rule formality,  & remaining forage
+
+```{r}
+
+
+# bw theme
+set_theme(
+  base = theme_light(),
+  geom.outline.color = "antiquewhite4", 
+  geom.outline.size = 1, 
+  axis.title.size = .9,
+  axis.textsize = .9,
+  legend.size = .7,
+  legend.title.size = .8,
+  geom.label.size = 3
+)
+c <- plot_model(hypwR, type= "pred", 
+           terms = c("frg.left", "Rule"), 
+           colors= "bw", 
+           ci.lvl = NA,
+           axis.title= c("Forage remaining at end of season", "Predicted prob. of reserving winter pasture"), title = "")
+
+d <- plot_model(hypsR, type= "pred", 
+                terms = c("frg.left", "Rule"), 
+                colors= "bw", 
+                ci.lvl = NA, 
+                axis.title= c("Forage remaining at end of season", "Predicted prob. of resrvs spring pasture"),title = "")
+
+
+
+
+fgr<- cowplot::plot_grid(a,b,c,d,  labels = 'auto', ncol = 2)
+
+
+ggsave("Fig6.rsvpast_scfrgandrules.png", fgr, width = 7, height = 8, units = "in")
+
+
+
+```
+
+
 
 
 
