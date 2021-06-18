@@ -421,12 +421,15 @@ hypsR<- glmer(ResSpr ~ hhTenureSpPast +
 
 #  PREDICTED DATA:
 wdat<- get_model_data(hypwR, type = "pred", terms = c("cogSC1", "Rule", "hhTenureWPast"))
+wcdat<- get_model_data(hypwR, type = "pred", terms = c("cogSC1", "Rule", "hhTenureWCamp"))
 
 sdat<- get_model_data(hypsR, type = "pred", terms = c("cogSC1", "Rule", "hhTenureSpPast"))
+scdat<- get_model_data(hypsR, type = "pred", terms = c("cogSC1", "Rule", "hhTenureSpCamp"))
 
 # documentation says it is inefficient to use get_model_data, and i notice that it only genreates a few tsteps for the continuous vars.
 # docs reco just using plot_model but I don't like how you can't modify plotting params easily.
 # that just wraps ggeffects so maybeb just try that--> nope get same values
+  # passture tenure
 wdat <- wdat %>% mutate(
       Rules =    #  changed this to plural so the legend reads better
             recode(group,
@@ -434,6 +437,17 @@ wdat <- wdat %>% mutate(
                   "1" = "Informal",
                   "2" = "Formal"),
       hhTenureWPast =
+           recode(facet,
+                  "0"= "No tenure",
+                  "1"= "Use/possession rights"))
+  # camp tenure
+wcdat <- wcdat %>% mutate(
+      Rules =    #  changed this to plural so the legend reads better
+            recode(group,
+                  "0" = "None",
+                  "1" = "Informal",
+                  "2" = "Formal"),
+      hhTenureWCamp =
            recode(facet,
                   "0"= "No tenure",
                   "1"= "Use/possession rights"))
@@ -448,6 +462,18 @@ sdat <- sdat %>% mutate(
            recode(facet,
                   "0"= "No tenure",
                   "1"= "Use/possession rights"))
+
+scdat <- scdat %>% mutate(
+      Rules =    #  changed this to plural so the legend reads better
+            recode(group,
+                  "0" = "None",
+                  "1" = "Informal",
+                  "2" = "Formal"),
+      hhTenureSpCamp =
+           recode(facet,
+                  "0"= "No tenure",
+                  "1"= "Use/possession rights"))
+
 # bw theme
 set_theme(
   base = theme_light(),
@@ -465,24 +491,45 @@ wsctr <- ggplot(wdat, aes( x= x, y = predicted, group = Rules)) +
   facet_wrap(vars(hhTenureWPast))+
   theme_bw()+
   labs(x ="Cognitive Social Capital", 
-       y = "Predicted probability",
-       title = "a)  Reserve Winter Pasture")
+       y = "Prob of reserving\n winter pasture",
+       title = "a)  Tenure on winter pasture")
+
+wcsctr <- ggplot(wcdat, aes( x= x, y = predicted, group = Rules)) +
+  geom_smooth(aes(linetype = Rules), method = lm, se = FALSE, color = "black")+
+  facet_wrap(vars(hhTenureWCamp))+
+  theme_bw()+
+  labs(x ="Cognitive Social Capital", 
+       y = "Prob. of reserving\n winter pasture",
+       title = "b)  Tenure on winter camp")
+
+probbwpast<- plot_grid(wsctr, wcsctr, ncol = 1)
 
 ssctr <- ggplot(sdat, aes( x= x, y = predicted, group = Rules)) +
   geom_smooth(aes(linetype = Rules), method = lm, se = FALSE, color = "black")+
   facet_wrap(vars(hhTenureSpPast))+
   theme_bw()+
   labs(x ="Cognitive Social Capital", 
-       y = "Predicted probability",
-       title = "a)  Reserve Spring Pasture")
+       y = "Prob of reserving\n spring pasture",
+       title = "c)  Tenure on spring pasture")
+
+scsctr <- ggplot(scdat, aes( x= x, y = predicted, group = Rules)) +
+  geom_smooth(aes(linetype = Rules), method = lm, se = FALSE, color = "black")+
+  facet_wrap(vars(hhTenureSpCamp))+
+  theme_bw()+
+  labs(x ="Cognitive Social Capital", 
+       y = "Prob of reserving\n spring pasture",
+       title = "d)  Tenure on spring camp")
+
+probspast<- plot_grid(ssctr, scsctr, ncol = 1)
+
 # why does this version look different -- not linear. gah.
 # plot_model(hypw, type = "pred", terms = c("cogSC1",  "Rule", "hhTenureWPast"))
 
-ggsave("./output_figs/Fig2a.wpast_sctr.png", wsctr, 
-       width = 6, height = 3, units = "in")
+ggsave("./output_figs/Fig2ab.wpast_sctr.png", probbwpast, 
+       width = 7, height = 7, units = "in")
 
-ggsave("./output_figs/Fig2b.spast_sctr.png", ssctr, 
-       width = 6, height = 3, units = "in")
+ggsave("./output_figs/Fig2cd.spast_sctr.png", probspast, 
+       width =7, height = 7, units = "in")
 
 ```
 
@@ -627,6 +674,8 @@ ggsave("./output_figs/Fig4.predRulelevel.png", rsez, width = 7, height = 3, unit
 Predicted probability of Reserving Pastures based on Rule formality, cognitive social captial  (REMOVED TENURE bc not signif :: & tenure)
 
 ```{r}
+#   THESE ARE SAME AS ABOVE IN Fig 2
+    # but right now i am going to plot pred w Camp tenure, rather than pasture tenure as it is in 2--
 # Resv Wtr w ordered Rules param
 hypwR<- glmer(ResWint ~ hhTenureWPast + 
                hhTenureWCamp + 
@@ -655,7 +704,7 @@ set_theme(
   geom.label.size = 3
 )
 a <- plot_model(hypwR, type= "pred", 
-           terms = c("cogSC1", "Rule"), 
+           terms = c("cogSC1", "Rule", "hhTenureWCamp"), 
            colors= "bw", 
            ci.lvl = NA,
            axis.title= c("Cognitive Social Capital", "Predicted prob. of reserving winter pasture"), title = " ")
@@ -804,6 +853,10 @@ ggsave("./output_figs/FigS1.accessOtherxSSC.png", bcaop, width = 4, height = 3, 
 
 ```
 
+#FIGURE S2 : OR plots of indiv ez models
+located in margh_eff_by_ez.R
+
+
 
 
 # old explanation about how to hand calculate predictions----
@@ -834,7 +887,7 @@ NOTE: FIG VIZ PARAMS to USE:
             show.values = TRUE, value.offset = .3, value.size = 3
 
 
-# OLD - 4. Predicted probabilities 
+# OLD - . Predicted probabilities 
 Examine the influence of each predictor on the predicted probabilities, either holding all other constant, or examine the interactions of terms:
 (all remaining binary predictors held at 0, continuous params set to their mean)
 
