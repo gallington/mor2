@@ -30,6 +30,7 @@ load("./data/td.RData")
 library("dplyr")
 library("tidyr")
 library("sjPlot")
+library(ggplot2)
 library("magrittr")
 library("lme4")
 library(ggeffects)
@@ -40,15 +41,23 @@ tan<- "#dfc27d"   #es
 ltgr<- "#80cdc1"  #st
 dkgr<- "#018571"  # fms
 pal3 <- c("#a6611a" , "#018571", "#80cdc1")
-pal4
-# change Access paramto a dummy variable so can examine for otor??
-to <- mutate(td.fg, othersYes = case_when(otherPast == 1 ~ 0,   # no access = 0
-                                          otherPast == 2 | otherPast == 3 ~ 1, # access to past in&out of soum 
-                                          TRUE ~ NA_real_))  
+#pal4
+# change Access param to a dummy variable so can examine for otor??
+  # previously had thi sset up to be ANY other and other Outside soum
+  # but I'm changing this to otherIn and otherOut to match previous analyses.
+# to <- mutate(td.fg, othersYes = case_when(otherPast == 1 ~ 0,   # no access = 0
+#                                           otherPast == 2 | otherPast == 3 ~ 1, # access to past in&out of soum 
+#                                           TRUE ~ NA_real_))  
+to <- mutate(td.fg, othersIn = case_when(otherPast == 1 ~ 0, 
+                                            # set others to zero
+                                            otherPast == 2 ~ 1,  # access within soum = 1
+                                            otherPast == 3 ~ 0, 
+                                            TRUE ~ NA_real_))            # else NA
 to <- mutate(to, othersOut = case_when(otherPast == 1 | otherPast == 2 ~ 0 , 
                                        otherPast == 3 ~ 1,   # access to pastures in other soums
                                        TRUE ~ NA_real_))  
-to$othersYes<- as.factor(to$othersYes)
+#to$othersYes<- as.factor(to$othersYes)
+to$othersIn<- as.factor(to$othersIn)
 to$othersOut<- as.factor(to$othersOut)
 ds<- subset(to, to$ez==1)
 #st<- subset(to, to$ez==c(2,4)) # WHY ARE THESE COMBINED??
@@ -65,18 +74,19 @@ pv <- c(
   hhTenureWCamp1 = "Winter Camp Tenure",
   hhTenureSpPast1 = "Spring Pasture Tenure",
   hhTenureSpCamp1 = "Spring Camp Tenure", 
-  otherPast.L = "Access to Others' Pastures",
-  othersYes1 = "Access to Others' Pastures",
+  othersIn1 = "Access to Others' Pastures\n in Same Soum",
+  othersYes1 = "Access to Others' Pastures\n in a Different Soum",
   RuleYes1 = "Rules on Timing of Grazing",
-  RuleInf1 = "Informal Rules on Grazing",
-  RuleFormal1 = "Formal Rules on Timing",
+  RuleInf1 = "Informal Rules on\n  Timing of Grazing",
+  RuleFormal1 = "Formal Rules on\n  Timing of Grazing",
   frg.left = "Remaining Forage Available",
   frgCV= "CV of Forage Availability",
-  Rule.L = "Informal Rules",
-  Rule.Q = "Formal Rules"
+  Rule.L = "Informal Rules on\n  Timing of Grazing",
+  Rule.Q = "Formal Rules on\n  Timing of Grazing"
 )
 ### RSV WINTER PASTURES:-----------------
-
+set_theme(  axis.textcolor = "black", 
+            base = theme_bw())
 w1<- glmer(ResWint ~ hhTenureWPast + 
              hhTenureWCamp + 
            # RuleYes + 
@@ -151,6 +161,10 @@ pw3<- plot_model(w3,
 ########## Combined Plot of odds ratios of winter pasture predictors
 orWP<- cowplot::plot_grid(pw1, pw2, pw3, nrow= 3)
 
+ggsave("./output_figs/S2a_wpastbyez.png", orWP,
+       width = 12,
+       height = 10)
+
 #### Combined Table of WP Predictors:
 tab_model(w1, w2, w3,    
           show.icc = TRUE,
@@ -161,30 +175,17 @@ tab_model(w1, w2, w3,
           p.style = "a",
           title = "Reserving Winter Pastures")  
 
-# get marginal effects for each predictor, each as single plot
+# get marginal effects for each predictor & save as an object
 
     # DESERT STEPPE -------
         # remove comment hash if you want to plot the marg effects individually 
 wp1.ds <- ggpredict(w1, "hhTenureWPast") #%>%  
   #plot(show.y.title = FALSE, show.title = FALSE)
-wp2.ds <- ggpredict(w1, "hhTenureWCamp") #%>%
-  #plot(show.y.title = FALSE, show.title = FALSE)
-wp3.ds <- ggpredict(w1, "RuleInf") #%>%
-  #plot(show.y.title = FALSE, show.title = FALSE)
-wp4.ds <- ggpredict(w1, "cogSC1") #%>%
-  #plot(show.y.title = FALSE, show.title = FALSE)
-wp5.ds <- ggpredict(w1, "frgCV") # %>%
-  # plot(show.y.title = FALSE, show.title = FALSE)
-wp6.ds <- ggpredict(w1, "frg.left") # %>%
-  # plot(show.y.title = FALSE, show.title = FALSE)
- 
-# combined pltos of merginal effects of each predictor of prob of resv w past:
-#meWP<- sjPlot::plot_grid(list(p1, p2, p3, p4, p5, p6), tags = TRUE)
-#meWPds <- cowplot::plot_grid(p1, p2, p3, p4 ,p5, p6, nrow = 3, 
-                         #  labels = "auto",
-                        #   label_size = 10)
-
-
+wp2.ds <- ggpredict(w1, "hhTenureWCamp") 
+wp3.ds <- ggpredict(w1, "RuleInf")
+wp4.ds <- ggpredict(w1, "cogSC1") 
+wp5.ds <- ggpredict(w1, "frgCV") 
+wp6.ds <- ggpredict(w1, "frg.left")
 
    # STEPPE-----
 wp1.st <- ggpredict(w2, "hhTenureWCamp")
@@ -208,30 +209,12 @@ b <- as.data.frame(wp1.fms[1:2, 1:6]) %>% mutate(ez = "F-M Steppe")
 wpPast<- rbind(a,b)
 wpPast$ez <- as.factor(wpPast$ez)
 
-# ggplot(wpPast, aes(x=x, y=predicted, colour=ez, group=ez)) + 
-#   geom_errorbar(aes(ymin=conf.low, ymax=conf.high, color = ez),
-#                 width=.1, position=pd) +
-#   #  geom_line(position=pd) +
-#   geom_point(position=pd, size=3)+
-#   scale_color_manual(values = pal3)+
-#   labs(x= "Household Tenure on Winter Pasture", 
-#        y = "Predicted Prob of Resv Winter Pasture")
-
 # WCamp df:-------
 a <- as.data.frame(wp2.ds[1:2, 1:6]) %>% mutate(ez = "DesertSteppe")
 b <- as.data.frame(wp1.st[1:2, 1:6]) %>% mutate(ez = "Steppe")
 c <- as.data.frame(wp2.fms[1:2, 1:6]) %>% mutate(ez = "F-M Steppe")
 wpCamp<- rbind(a,b,c)
 wpCamp$ez <- as.factor(wpCamp$ez)
-
-ggplot(wpCamp, aes(x=x, y=predicted, colour=ez, group=ez)) + 
-  geom_errorbar(aes(ymin=conf.low, ymax=conf.high, color = ez),
-                width=.1, position=pd) +
-  #  geom_line(position=pd) +
-  geom_point(position=pd, size=3)+
-  scale_color_manual(values = pal3)+
-  labs(x= "Household Tenure on Winter Camp", 
-       y = "Predicted Prob of Resv Winter Pasture")
 
 # Rules df:------
       # it's a little diff on this one bc i used DV for the ds rule
@@ -268,16 +251,6 @@ wpfrg.left<- rbind(a, b, c)
 wpfrg.left$ez <- as.factor(wpfrg.left$ez)
 
 
-    ### old plot---------
-# ggplot(wpPast, aes(x=x, y=predicted, colour=ez, group=ez)) + 
-#   geom_errorbar(aes(ymin=conf.low, ymax=conf.high, color = ez),
-#                 width=.1, position=pd) +
-#   #  geom_line(position=pd) +
-#   geom_point(position=pd, size=3)+
-#   scale_color_manual(values = pal3)+
-#   labs(x= "Household Tenure on Winter Pasture", 
-#        y = "Predicted Prob of Resv Winter Pasture")
-
 # ME Plots -------
 # GENERALIZE THE PLOTS SO I CAN SPECIFY AND RUN WITHOUT COPYING A MILLION TIMES:
 
@@ -297,7 +270,7 @@ pd <- position_dodge(0.2) # move them .05 to the left and right
 
     # REMEMBER TO CHANGE THE PARAM NAMES ABOVE!
 
-# POINTS:
+# POINTS: (use this one for tenure, rules)
 me<- ggplot(df, aes(x=x, y=predicted, colour=ez, group=ez)) + 
   geom_errorbar(aes(ymin=conf.low, ymax=conf.high, color = ez),
                 width=.1, position=pd) + # set dodge postion above
@@ -310,7 +283,7 @@ me<- ggplot(df, aes(x=x, y=predicted, colour=ez, group=ez)) +
 ggsave( outputname, path = filepath, width = wdth, height = ht )
 me
 
-# LINES:
+# LINES: (use this one for forage and soc cap params)
 me<- ggplot(df, aes(x=x, y=predicted, colour=ez, group=ez)) + 
   geom_line() +
   geom_ribbon(aes(ymin = conf.low, ymax = conf.high, group = ez), 
@@ -403,6 +376,10 @@ ps3<- plot_model(s3.1,
 #Odds Ratios plot-----
 ########## Combined Plot of odds ratios of spring pasture predictors
 orSP<- cowplot::plot_grid(ps1, ps2, ps3, nrow= 3)
+
+ggsave("./output_figs/S2b_spastbyez.png", orSP,
+       width = 12,
+       height = 10)
 
 #### Table of SP Predictors:---------
 tab_model(s1.1, s2.1, s3.1,    
@@ -569,7 +546,7 @@ wo1.1 <- update(wo1,start=ss,control=glmerControl(optimizer="bobyqa",
 
 
 
-po1<- plot_model(wo1.1,
+pwo1<- plot_model(wo1.1,
                  title = "Winter Otor : Desert Steppe", 
                  sort.est = TRUE,
                  auto.label = FALSE, 
@@ -592,7 +569,7 @@ wo2<-glmer(Wotor ~ hhTenureWPast + #
 ss <- getME(wo2,c("theta","fixef"))
 wo2.1 <- update(wo2,start=ss,control=glmerControl(optimizer="bobyqa",
                                                   optCtrl=list(maxfun=2e5)))
-po2<- plot_model(wo2,
+pwo2<- plot_model(wo2.1,
                  title = "Winter otor: Steppe", 
                  sort.est = TRUE,
                  auto.label = FALSE, 
@@ -616,7 +593,7 @@ ss <- getME(wo3,c("theta","fixef"))
 wo3.1 <- update(wo3,start=ss,control=glmerControl(optimizer="bobyqa",
                                                   optCtrl=list(maxfun=2e5)))
 
-po3<- plot_model(wo3.1,
+pwo3<- plot_model(wo3.1,
                  title = "Winter Otor : Forest-Mtn Steppe", 
                  sort.est = TRUE,
                  auto.label = FALSE, 
@@ -628,7 +605,10 @@ po3<- plot_model(wo3.1,
 
 #Odds Ratios plot-----
 ########## Combined Plot of odds ratios of winter otor predictors
-orWO<- cowplot::plot_grid(po1, po2, po3, nrow= 3)
+orWO<- cowplot::plot_grid(pwo1, pwo2, pwo3, nrow= 3)
+ggsave("./output_figs/S2c_wotorbyez.png", orWO,
+       width = 12,
+       height = 10)
 
 #### Table of WO Predictors:---------
 tab_model(wo1.1, wo2.1, wo3.1,    
@@ -829,11 +809,11 @@ fo3<- glmer(Fotor ~
             #  frgCV + 
               frg.left+   
               (1|Org) , family = binomial, data = fms)
-ss <- getME(wo3,c("theta","fixef"))
-wo3.1 <- update(wo3,start=ss,control=glmerControl(optimizer="bobyqa",
+ss <- getME(fo3,c("theta","fixef"))
+fo3.1 <- update(fo3,start=ss,control=glmerControl(optimizer="bobyqa",
                                                   optCtrl=list(maxfun=2e5)))
 
-pfo3<- plot_model(fo3,
+pfo3<- plot_model(fo3.1,
                  title = "Fall Otor : Forest-Mtn Steppe", 
                  sort.est = TRUE,
                  auto.label = FALSE, 
@@ -846,9 +826,11 @@ pfo3<- plot_model(fo3,
 #Odds Ratios plot-----
 ########## Combined Plot of odds ratios of winter otor predictors
 orFO<- cowplot::plot_grid(pfo1, pfo2, pfo3, nrow= 3)
-
-#### Table of WO Predictors:---------
-tab_model(fo1.1, fo2 , fo3,    
+ggsave("./output_figs/S2d_fotorbyez.png", orFO,
+       width = 12,
+       height = 10)
+#### Table of FO Predictors:---------
+fot<- tab_model(fo1.1, fo2 , fo3.1,    
           show.icc = TRUE,
           show.aic = TRUE,
           dv.labels = c("Desert Steppe", "Steppe", "Forest-Mtn Steppe"),
